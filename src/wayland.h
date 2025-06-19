@@ -18,15 +18,35 @@ typedef struct WaylandState
   int display_socket_handle;
   int shared_memory_handle;
 
+  void *shared_memory;
+
+  U32 wl_display_id;
   U32 wl_registry_id;
   U32 wl_shm_id;
   U32 xdg_wm_base_id;
   U32 wl_compositor_id;
+
+  // NOTE: required by generated functions but unused
+  U32 wl_shm_pool_id;
+  U32 wl_buffer_id;
+  U32 wl_data_offer_id;
+  U32 wl_data_source_id;
+  U32 wl_data_device_id;
+  U32 wl_data_device_manager_id;
+  U32 wl_shell_id;
+  U32 wl_shell_surface_id;
+  U32 wl_surface_id;
+  U32 wl_seat_id;
+  U32 wl_pointer_id;
+  U32 wl_keyboard_id;
+  U32 wl_touch_id;
+  U32 wl_output_id;
+  U32 wl_region_id;
+  U32 wl_subcompositor_id;
+  U32 wl_subsurface_id;
   /* Arena *id_table_arena; */
   /* WaylandIdBucket **id_table; */
   /* U64 id_table_count; */
-
-  void *shared_memory;
 } WaylandState;
 
 typedef struct WaylandHashKey
@@ -35,17 +55,7 @@ typedef struct WaylandHashKey
   String8 string;
 } WaylandHashKey;
 
-global U32 wl_display_id = 1;
-
-/* global U32 wl_display_op_get_registry = 1; */
-/* global U32 wl_registry_op_bind = 0; */
-
-/* global U32 wl_display_event_error = 0; */
-/* global U32 wl_display_event_delete_id = 1; */
-/* global U32 wl_registry_event_global = 0; */
-/* global U32 wl_registry_event_global_remove = 1; */
-
-global WaylandState wayland_state = {0};
+global WaylandState wayland_state = {.wl_display_id = 1};
 global U32 wayland_current_id = 1;
 
 #define WAYLAND_MAX_CLIENT_OBJECT_ID 0xFEFFFFFF

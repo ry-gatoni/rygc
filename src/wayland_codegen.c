@@ -31,6 +31,32 @@ is_number(U8 c)
 
 #include "xml.c"
 
+// TODO: hash table?
+proc String8
+rygc_type_from_wayland_type(Arena *arena, String8 wayland_type)
+{
+  String8 result = {0};
+  if(str8s_are_equal(wayland_type, Str8Lit("uint")) ||
+     str8s_are_equal(wayland_type, Str8Lit("new_id")) ||
+     str8s_are_equal(wayland_type, Str8Lit("object"))) {
+    result = arena_push_str8_copy(arena, Str8Lit("U32"));
+  }
+  else if(str8s_are_equal(wayland_type, Str8Lit("string"))) {
+    result = arena_push_str8_copy(arena, Str8Lit("String8"));
+  }
+  else if(str8s_are_equal(wayland_type, Str8Lit("int"))) {
+    result = arena_push_str8_copy(arena, Str8Lit("S32"));
+  }
+  else if(str8s_are_equal(wayland_type, Str8Lit("fd"))) {
+    result = arena_push_str8_copy(arena, Str8Lit("void*")); // TODO: what should this be?
+  }
+  else {
+    Assert(!"ERROR: unknown wayland type");
+  }
+
+  return(result);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -49,13 +75,13 @@ main(int argc, char **argv)
   // NOTE: codegen
   ArenaTemp codegen = arena_begin_temp(scratch.arena);
   String8List message_opcode_list = {0};
+  String8List request_function_list = {0};
+  String8List code_list = {0};
 
   String8 interface_str = Str8Lit("interface");
   String8 request_str = Str8Lit("request");
   String8 event_str = Str8Lit("event");
   String8 arg_str = Str8Lit("arg");
-  String8 name_str = Str8Lit("name");
-  String8 type_str = Str8Lit("type");
 
   U64 depth = 0;
   XmlIterator iter = {0};
@@ -78,7 +104,102 @@ main(int argc, char **argv)
 	  U32 index = 0;
 
 	  if(is_request_node) {
-	    index = request_counter++;	  	    	    
+	    index = request_counter++;	    
+	    
+	    // NOTE: request message sending functions
+	    String8List arg_name_list = {0};
+	    String8List arg_type_list = {0};
+	    ArenaTemp arg_temp = arena_get_scratch(&scratch.arena, 1); // TODO: investigate
+	    for(XmlNode *arg = message->first; arg; arg = arg->next) {
+	      if(str8s_are_equal(arg->label, arg_str)) {
+		String8 arg_name = arg->first_attribute->value;
+		String8 arg_type = arg->first_attribute->next->value;
+
+		str8_list_push(arg_temp.arena, &arg_name_list, arg_name);
+		str8_list_push(arg_temp.arena, &arg_type_list, arg_type);
+	      }
+	    }
+
+	    // NOTE: function name and return value
+	    str8_list_push_f(codegen.arena, &request_function_list,
+			     "proc B32\n%.*s_%.*s(",
+			     (int)interface_name.count, interface_name.string,
+			     (int)message_name.count, message_name.string);
+
+	    // NOTE: function signature
+	    for(String8Node *arg_name_node = arg_name_list.first, *arg_type_node = arg_type_list.first;
+		arg_name_node && arg_type_node;
+		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
+	      String8 arg_name = arg_name_node->string;
+	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
+		
+	      str8_list_push_f(codegen.arena, &request_function_list, "%.*s %.*s",
+			       (int)arg_type.count, arg_type.string,
+			       (int)arg_name.count, arg_name.string);
+	      if(arg_name_node->next) {
+		str8_list_push(codegen.arena, &request_function_list, Str8Lit(", "));
+	      }	      
+	    }
+	    str8_list_push(codegen.arena, &request_function_list, Str8Lit(")\n{\n"));
+
+	    // NOTE: message_header
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  B32 result = 1;\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  ArenaTemp scratch = arena_get_scratch(0, 0);\n\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);\n"));
+	    str8_list_push_f(codegen.arena, &request_function_list,
+			     "  message_header->object_id = wayland_state.%.*s_id;\n",
+			     (int)interface_name.count, interface_name.string);
+	    str8_list_push_f(codegen.arena, &request_function_list,
+			     "  message_header->opcode = %.*s_%.*s_opcode;\n\n",
+			     (int)interface_name.count, interface_name.string,
+			     (int)message_name.count, message_name.string);
+
+	    // NOTE: message body
+	    for(String8Node *arg_name_node = arg_name_list.first, *arg_type_node = arg_type_list.first;
+		arg_name_node && arg_type_node;
+		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
+	      String8 arg_name = arg_name_node->string;
+	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
+	      if(str8s_are_equal(arg_type, Str8Lit("U32"))) {
+		str8_list_push_f(codegen.arena, &request_function_list,
+				 "  *arena_push_struct(scratch.arena, U32) = %.*s;\n",
+				 (int)arg_name.count, arg_name.string);
+	      }
+	      else if(str8s_are_equal(arg_type, Str8Lit("S32"))) {
+		str8_list_push_f(codegen.arena, &request_function_list,
+				 "  *arena_push_struct(scratch.arena, S32) = %.*s;\n",
+				 (int)arg_name.count, arg_name.string);
+	      }
+	      else if(str8s_are_equal(arg_type, Str8Lit("String8"))) {
+		str8_list_push_f(codegen.arena, &request_function_list,
+				 "  *arena_push_struct(scratch.arena, U32) = %.*s.count + 1;\n",
+				 (int)arg_name.count, arg_name.string);
+		str8_list_push_f(codegen.arena, &request_function_list,
+				 "  arena_push_str8_copy(scratch.arena, %.*s);\n",
+				 (int)arg_name.count, arg_name.string);
+	      }		
+	    }
+
+	    // NOTE: send message and return
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("\n  U64 message_end_pos = arena_pos(scratch.arena);\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  U32 message_size = message_end_pos - message_start_pos;\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  message_header->message_size = AlignPow2(message_size, 4);\n\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  if(send_size == -1) {\n    result = 0;\n  }\n\n"));
+	    str8_list_push(codegen.arena, &request_function_list,
+			   Str8Lit("  arena_release_scratch(scratch);\n  return(result);\n}\n\n"));
+
+	    arena_release_scratch(arg_temp);
 	  }
 	  else if(is_event_node) {
 	    index = event_counter++;
@@ -101,8 +222,14 @@ main(int argc, char **argv)
   }
 
   String8 message_opcodes = str8_join(codegen.arena, &message_opcode_list);
+  String8 request_functions = str8_join(codegen.arena, &request_function_list);
+  
+  str8_list_push(codegen.arena, &code_list, message_opcodes);
+  str8_list_push(codegen.arena, &code_list, Str8Lit("\n// NOTE: message request functions\n"));
+  str8_list_push(codegen.arena, &code_list, request_functions);
+  String8 code = str8_join(codegen.arena, &code_list);
 
-  os_write_entire_file(message_opcodes, Str8Lit("../src/wayland_generated.c"));
+  os_write_entire_file(code, Str8Lit("../src/wayland_generated.c"));
 
   /* S32 depth = 0; */
   /* XmlIterator iter = {0}; */

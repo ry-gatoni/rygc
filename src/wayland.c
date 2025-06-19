@@ -119,7 +119,7 @@ wayland_display_get_registry(void)
   U8 *message = arena_push_array_z(scratch.arena, U8, 128);
   WaylandMessageHeader *header = (WaylandMessageHeader *)message;
 
-  header->object_id = wl_display_id;
+  header->object_id = wayland_state.wl_display_id;
   header->opcode = wl_display_get_registry_opcode;  
 
   U8 *message_body = (U8 *)(header + 1);
@@ -317,7 +317,8 @@ wayland_handle_message(U8 **messages, S64 *len)
 
   U32 *message = (U32 *)(header + 1);
 
-  if(object_id == wl_display_id && opcode == wl_display_error_opcode) {
+  if(object_id == wayland_state.wl_display_id &&
+     opcode == wl_display_error_opcode) {
     U32 error_object_id = *message;
     U32 error_code = *(message + 1);
     U32 error_string_count = *(message + 2);
