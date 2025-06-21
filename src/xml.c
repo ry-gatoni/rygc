@@ -115,8 +115,8 @@ xml_parse_attribute(Arena *arena, XmlParseContext *ctxt, XmlNode *node)
   U64 attribute_name_start_count = ctxt->count;
   xml_parse_seek_char(ctxt, '=');
 
-  new_attribute->name.string = attribute_name_start_at;
-  new_attribute->name.count = ctxt->count - attribute_name_start_count;
+  String8 attribute_name = {.string = attribute_name_start_at, .count = ctxt->count - attribute_name_start_count};
+  new_attribute->name = arena_push_str8_copy(arena, attribute_name);
 
   xml_parse_advance(ctxt);
 
@@ -124,10 +124,10 @@ xml_parse_attribute(Arena *arena, XmlParseContext *ctxt, XmlNode *node)
   U8 *attribute_value_start_at = ctxt->at;
   U64 attribute_value_start_count = ctxt->count;
   xml_parse_seek_char(ctxt, '"');
-  
-  new_attribute->value.string = attribute_value_start_at;
-  new_attribute->value.count = ctxt->count - attribute_value_start_count;
 
+  String8 attribute_value = {.string = attribute_value_start_at, .count = ctxt->count - attribute_value_start_count};
+  new_attribute->value = arena_push_str8_copy(arena, attribute_value);
+  
   xml_parse_advance(ctxt);
 
   SLLQueuePush(node->first_attribute, node->last_attribute, new_attribute);
@@ -141,13 +141,12 @@ xml_parse_node(Arena *arena, XmlParseContext *ctxt)
 
   U8 *label_start_at = ctxt->at;
   U64 label_start_count = ctxt->count;
-  //xml_parse_seek_char(ctxt, ' ');
   while(!(*ctxt->at == ' ' || *ctxt->at == '>')) {
     xml_parse_advance(ctxt);
   }
 
-  new_node->label.string = label_start_at;
-  new_node->label.count = ctxt->count - label_start_count;
+  String8 label = {.string = label_start_at, .count = ctxt->count - label_start_count};
+  new_node->label = arena_push_str8_copy(arena, label);
 
   xml_parse_eat_whitespace(ctxt);
 
@@ -226,8 +225,8 @@ xml_parse(Arena *arena, String8 loaded_xml)
 	xml_parse_advance(&ctxt);
       }
 
-      ctxt.current_parent->body.string = body_start_at;
-      ctxt.current_parent->body.count = body_last_newline_pos - body_start_count;
+      String8 body = {.string = body_start_at, .count = body_last_newline_pos - body_start_count};
+      ctxt.current_parent->body = arena_push_str8_copy(arena, body);
     }
 
     parsed_count = ctxt.count; // NOTE: DEBUG
@@ -284,4 +283,29 @@ xml_iterate_breadth_first_preorder(XmlNode *node)
   }
 
   return(result);
+}
+
+proc void
+print_parsed_xml(ParsedXml xml)
+{  
+  S32 depth = 0;
+  XmlIterator iter = {0};
+  for(XmlNode *node = xml.root;
+      node;
+      iter = xml_iterate_depth_first_preorder(node), node = iter.next) {
+    depth += iter.push_count;
+    depth -= iter.pop_count;
+
+    for(S32 i = 0; i < depth; ++i) {
+      printf("|");
+    }
+    printf("label=%.*s", (int)node->label.count, node->label.string);
+    for(XmlAttribute *attr = node->first_attribute; attr; attr = attr->next) {
+      printf(", %.*s=%.*s", (int)attr->name.count, attr->name.string, (int)attr->value.count, attr->value.string);
+    }
+    /* if(node->body.count) { */
+    /*   printf("\n%.*s", (int)node->body.count, node->body.string); */
+    /* } */
+    printf("\n");
+  }
 }

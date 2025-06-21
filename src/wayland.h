@@ -44,6 +44,11 @@ typedef struct WaylandState
   U32 wl_region_id;
   U32 wl_subcompositor_id;
   U32 wl_subsurface_id;
+
+  U32 xdg_positioner_id;
+  U32 xdg_surface_id;
+  U32 xdg_toplevel_id;
+  U32 xdg_popup_id;
   /* Arena *id_table_arena; */
   /* WaylandIdBucket **id_table; */
   /* U64 id_table_count; */

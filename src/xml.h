@@ -71,3 +71,6 @@ proc ParsedXml xml_parse(Arena *arena, String8 loaded_xml);
 // NOTE: xml tree traversal utilities
 proc XmlIterator xml_iterate_depth_first_preorder(XmlNode *node);
 proc XmlIterator xml_iterate_breadth_first_preorder(XmlNode *node);
+
+// NOTE: printers
+proc void print_parsed_xml(ParsedXml xml);

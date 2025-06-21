@@ -125,6 +125,51 @@ global U32 wl_subsurface_place_above_opcode                     =  2; // request
 global U32 wl_subsurface_place_below_opcode                     =  3; // request
 global U32 wl_subsurface_set_sync_opcode                        =  4; // request
 global U32 wl_subsurface_set_desync_opcode                      =  5; // request
+global U32 xdg_wm_base_destroy_opcode                           =  0; // request
+global U32 xdg_wm_base_create_positioner_opcode                 =  1; // request
+global U32 xdg_wm_base_get_xdg_surface_opcode                   =  2; // request
+global U32 xdg_wm_base_pong_opcode                              =  3; // request
+global U32 xdg_wm_base_ping_opcode                              =  0; // event
+global U32 xdg_positioner_destroy_opcode                        =  0; // request
+global U32 xdg_positioner_set_size_opcode                       =  1; // request
+global U32 xdg_positioner_set_anchor_rect_opcode                =  2; // request
+global U32 xdg_positioner_set_anchor_opcode                     =  3; // request
+global U32 xdg_positioner_set_gravity_opcode                    =  4; // request
+global U32 xdg_positioner_set_constraint_adjustment_opcode      =  5; // request
+global U32 xdg_positioner_set_offset_opcode                     =  6; // request
+global U32 xdg_positioner_set_reactive_opcode                   =  7; // request
+global U32 xdg_positioner_set_parent_size_opcode                =  8; // request
+global U32 xdg_positioner_set_parent_configure_opcode           =  9; // request
+global U32 xdg_surface_destroy_opcode                           =  0; // request
+global U32 xdg_surface_get_toplevel_opcode                      =  1; // request
+global U32 xdg_surface_get_popup_opcode                         =  2; // request
+global U32 xdg_surface_set_window_geometry_opcode               =  3; // request
+global U32 xdg_surface_ack_configure_opcode                     =  4; // request
+global U32 xdg_surface_configure_opcode                         =  0; // event
+global U32 xdg_toplevel_destroy_opcode                          =  0; // request
+global U32 xdg_toplevel_set_parent_opcode                       =  1; // request
+global U32 xdg_toplevel_set_title_opcode                        =  2; // request
+global U32 xdg_toplevel_set_app_id_opcode                       =  3; // request
+global U32 xdg_toplevel_show_window_menu_opcode                 =  4; // request
+global U32 xdg_toplevel_move_opcode                             =  5; // request
+global U32 xdg_toplevel_resize_opcode                           =  6; // request
+global U32 xdg_toplevel_set_max_size_opcode                     =  7; // request
+global U32 xdg_toplevel_set_min_size_opcode                     =  8; // request
+global U32 xdg_toplevel_set_maximized_opcode                    =  9; // request
+global U32 xdg_toplevel_unset_maximized_opcode                  = 10; // request
+global U32 xdg_toplevel_set_fullscreen_opcode                   = 11; // request
+global U32 xdg_toplevel_unset_fullscreen_opcode                 = 12; // request
+global U32 xdg_toplevel_set_minimized_opcode                    = 13; // request
+global U32 xdg_toplevel_configure_opcode                        =  0; // event
+global U32 xdg_toplevel_close_opcode                            =  1; // event
+global U32 xdg_toplevel_configure_bounds_opcode                 =  2; // event
+global U32 xdg_toplevel_wm_capabilities_opcode                  =  3; // event
+global U32 xdg_popup_destroy_opcode                             =  0; // request
+global U32 xdg_popup_grab_opcode                                =  1; // request
+global U32 xdg_popup_configure_opcode                           =  0; // event
+global U32 xdg_popup_popup_done_opcode                          =  1; // event
+global U32 xdg_popup_reposition_opcode                          =  2; // request
+global U32 xdg_popup_repositioned_opcode                        =  2; // event
 
 // NOTE: message request functions
 proc B32
@@ -180,7 +225,7 @@ wl_display_get_registry(U32 registry)
 }
 
 proc B32
-wl_registry_bind(U32 name, U32 id)
+wl_registry_bind(U32 name, String8 interface, U32 version, U32 id)
 {
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
@@ -191,6 +236,9 @@ wl_registry_bind(U32 name, U32 id)
   message_header->opcode = wl_registry_bind_opcode;
 
   *arena_push_struct(scratch.arena, U32) = name;
+  *arena_push_struct(scratch.arena, U32) = interface.count + 1;
+  arena_push_str8_copy(scratch.arena, interface);
+  *arena_push_struct(scratch.arena, U32) = version;
   *arena_push_struct(scratch.arena, U32) = id;
 
   U64 message_end_pos = arena_pos(scratch.arena);
@@ -1863,6 +1911,956 @@ wl_subsurface_set_desync()
   message_header->object_id = wayland_state.wl_subsurface_id;
   message_header->opcode = wl_subsurface_set_desync_opcode;
 
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_wm_base_destroy()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_wm_base_id;
+  message_header->opcode = xdg_wm_base_destroy_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_wm_base_create_positioner(U32 id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_wm_base_id;
+  message_header->opcode = xdg_wm_base_create_positioner_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = id;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_wm_base_get_xdg_surface(U32 id, U32 surface)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_wm_base_id;
+  message_header->opcode = xdg_wm_base_get_xdg_surface_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = id;
+  *arena_push_struct(scratch.arena, U32) = surface;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_wm_base_pong(U32 serial)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_wm_base_id;
+  message_header->opcode = xdg_wm_base_pong_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = serial;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_destroy()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_destroy_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_size(S32 width, S32 height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_size_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = width;
+  *arena_push_struct(scratch.arena, S32) = height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_anchor_rect(S32 x, S32 y, S32 width, S32 height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_anchor_rect_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = x;
+  *arena_push_struct(scratch.arena, S32) = y;
+  *arena_push_struct(scratch.arena, S32) = width;
+  *arena_push_struct(scratch.arena, S32) = height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_anchor(U32 anchor)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_anchor_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = anchor;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_gravity(U32 gravity)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_gravity_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = gravity;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_constraint_adjustment(U32 constraint_adjustment)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_constraint_adjustment_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = constraint_adjustment;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_offset(S32 x, S32 y)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_offset_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = x;
+  *arena_push_struct(scratch.arena, S32) = y;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_reactive()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_reactive_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_parent_size(S32 parent_width, S32 parent_height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_parent_size_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = parent_width;
+  *arena_push_struct(scratch.arena, S32) = parent_height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_positioner_set_parent_configure(U32 serial)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_positioner_id;
+  message_header->opcode = xdg_positioner_set_parent_configure_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = serial;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_surface_destroy()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_surface_id;
+  message_header->opcode = xdg_surface_destroy_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_surface_get_toplevel(U32 id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_surface_id;
+  message_header->opcode = xdg_surface_get_toplevel_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = id;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_surface_get_popup(U32 id, U32 parent, U32 positioner)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_surface_id;
+  message_header->opcode = xdg_surface_get_popup_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = id;
+  *arena_push_struct(scratch.arena, U32) = parent;
+  *arena_push_struct(scratch.arena, U32) = positioner;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_surface_set_window_geometry(S32 x, S32 y, S32 width, S32 height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_surface_id;
+  message_header->opcode = xdg_surface_set_window_geometry_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = x;
+  *arena_push_struct(scratch.arena, S32) = y;
+  *arena_push_struct(scratch.arena, S32) = width;
+  *arena_push_struct(scratch.arena, S32) = height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_surface_ack_configure(U32 serial)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_surface_id;
+  message_header->opcode = xdg_surface_ack_configure_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = serial;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_destroy()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_destroy_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_parent(U32 parent)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_parent_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = parent;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_title(String8 title)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_title_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = title.count + 1;
+  arena_push_str8_copy(scratch.arena, title);
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_app_id(String8 app_id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_app_id_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = app_id.count + 1;
+  arena_push_str8_copy(scratch.arena, app_id);
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_show_window_menu(U32 seat, U32 serial, S32 x, S32 y)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_show_window_menu_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = seat;
+  *arena_push_struct(scratch.arena, U32) = serial;
+  *arena_push_struct(scratch.arena, S32) = x;
+  *arena_push_struct(scratch.arena, S32) = y;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_move(U32 seat, U32 serial)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_move_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = seat;
+  *arena_push_struct(scratch.arena, U32) = serial;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_resize(U32 seat, U32 serial, U32 edges)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_resize_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = seat;
+  *arena_push_struct(scratch.arena, U32) = serial;
+  *arena_push_struct(scratch.arena, U32) = edges;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_max_size(S32 width, S32 height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_max_size_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = width;
+  *arena_push_struct(scratch.arena, S32) = height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_min_size(S32 width, S32 height)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_min_size_opcode;
+
+  *arena_push_struct(scratch.arena, S32) = width;
+  *arena_push_struct(scratch.arena, S32) = height;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_maximized()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_maximized_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_unset_maximized()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_unset_maximized_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_fullscreen(U32 output)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_fullscreen_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = output;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_unset_fullscreen()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_unset_fullscreen_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_toplevel_set_minimized()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_toplevel_id;
+  message_header->opcode = xdg_toplevel_set_minimized_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_popup_destroy()
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_popup_id;
+  message_header->opcode = xdg_popup_destroy_opcode;
+
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_popup_grab(U32 seat, U32 serial)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_popup_id;
+  message_header->opcode = xdg_popup_grab_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = seat;
+  *arena_push_struct(scratch.arena, U32) = serial;
+
+  U64 message_end_pos = arena_pos(scratch.arena);
+  U32 message_size = message_end_pos - message_start_pos;
+  message_header->message_size = AlignPow2(message_size, 4);
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+xdg_popup_reposition(U32 positioner, U32 token)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 message_start_pos = arena_pos(scratch.arena);
+  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  message_header->object_id = wayland_state.xdg_popup_id;
+  message_header->opcode = xdg_popup_reposition_opcode;
+
+  *arena_push_struct(scratch.arena, U32) = positioner;
+  *arena_push_struct(scratch.arena, U32) = token;
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;

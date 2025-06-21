@@ -113,33 +113,11 @@ wayland_display_connect(void)
 proc B32
 wayland_display_get_registry(void)
 {
-  B32 result = 1;
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-
-  U8 *message = arena_push_array_z(scratch.arena, U8, 128);
-  WaylandMessageHeader *header = (WaylandMessageHeader *)message;
-
-  header->object_id = wayland_state.wl_display_id;
-  header->opcode = wl_display_get_registry_opcode;  
-
-  U8 *message_body = (U8 *)(header + 1);
-  *(U32 *)message_body = ++wayland_current_id;
-
-  U32 message_size = sizeof(WaylandMessageHeader) + sizeof(U32);
-  header->message_size = AlignPow2(message_size, 4);
-
-  int send_size = send(wayland_state.display_socket_handle, message, message_size, MSG_DONTWAIT);
-  if(send_size == (int)message_size) {
+  B32 result = wl_display_get_registry(++wayland_current_id);
+  if(result) {
     wayland_state.wl_registry_id = wayland_current_id;
-    //U32 *registry_id = wayland_interface_object_id_from_name(Str8Lit("wl_registry"));    
-    //*registry_id = wayland_current_id;
   }
-  else {
-    result = 0;
-    // TODO: log error: wayland_display_get_registry: message send failure
-  }
-
-  arena_release_scratch(scratch);
+  
   return(result);
 }
 
@@ -187,121 +165,6 @@ wayland_allocate_shared_memory(U64 size)
   return(result);
 }
 
-#if 0
-proc void
-wayland_registry_bind(U32 name, String8 interface_name, U32 new_id)
-{
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-
-  U8 *message = arena_push_array_z(scratch.arena, U8, 128);
-  WaylandMessageHeader *message_header = (WaylandMessageHeader *)message;
-  message_header->object_id = *wayland_interface_object_id_from_name(Str8Lit("wl_registry"));
-  message_header->opcode = 0;
-
-  U32 *message_body = (U32 *)(message_header + 1);
-  *message_body = name;
-  *(message_body + 1) = new_id;
-
-  U64 message_size = sizeof(WaylandMessageHeader) + sizeof(U32) + sizeof(U32);
-  message_header->message_size = AlignPow2(message_size, 4);
-
-  fprintf(stderr, "binding new registry object: name=%u, id=%u\n", name, new_id); // NOTE: DEBUG
-
-  int send_size = send(wayland_state.display_socket_handle, message, message_size, 0);
-  if(send_size != -1){
-    U32 *interface_object_id = wayland_interface_object_id_from_name(interface_name);
-    *interface_object_id = new_id;
-  }
-  else {
-    fprintf(stderr, "ERROR: wayland_registry_bind: message send failure: %s\n", strerror(errno));
-    // TODO: log error: message send failure
-  }
-  
-  arena_release_scratch(scratch);
-}
-#endif
-
-/* proc void */
-/* wayland_registry_bind_wl_shm(U32 name, U32 new_id) */
-/* { */
-/*   ArenaTemp scratch = arena_get_scratch(0, 0); */
-
-/*   U8 *message = arena_push_array_z(scratch.arena, U8, 128); */
-/*   WaylandMessageHeader *header = (WaylandMessageHeader *)message; */
-/*   header->object_id = wayland_state.wl_registry_id; */
-/*   header->opcode = wl_registry_op_bind; */
-
-/*   U32 *message_body = (U32 *)(header + 1); */
-/*   *message_body = name; */
-/*   *(message_body + 1) = new_id; */
-
-/*   U64 message_size = sizeof(WaylandMessageHeader) + sizeof(U32) + sizeof(U32); */
-/*   int send_size = send(wayland_state.display_socket_handle, message, message_size, 0); */
-/*   if(send_size != -1) { */
-/*     wayland_state.wl_shm_id = new_id; */
-/*   } */
-  
-/*   arena_release_scratch(scratch); */
-/* } */
-
-/* proc void */
-/* wayland_registry_bind_xdg_wm_base(U32 name, U32 new_id) */
-/* { */
-/*   ArenaTemp scratch = arena_get_scratch(0, 0); */
-
-/*   U8 *message = arena_push_array_z(scratch.arena, U8, 128); */
-/*   WaylandMessageHeader *header = (WaylandMessageHeader *)message; */
-/*   header->object_id = wayland_state.wl_registry_id; */
-/*   header->opcode = wl_registry_op_bind; */
-
-/*   U32 *message_body = (U32 *)(header + 1); */
-/*   *message_body = name; */
-/*   *(message_body + 1) = new_id; */
-
-/*   U64 message_size = sizeof(WaylandMessageHeader) + sizeof(U32) + sizeof(U32); */
-/*   int send_size = send(wayland_state.display_socket_handle, message, message_size, 0); */
-/*   if(send_size != -1) { */
-/*     wayland_state.xdg_wm_base_id = new_id; */
-/*   } */
-  
-/*   arena_release_scratch(scratch);   */
-/* } */
-
-proc B32
-wayland_registry_bind(U32 name, String8 interface, U32 version, U32 new_id)
-{
-  B32 result = 1;
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
-  message_header->object_id = wayland_state.wl_registry_id;
-  message_header->opcode = wl_registry_bind_opcode;
-
-  // NOTE: the xml protocol is wrong about what the expected parameters of this message are!!!
-  *arena_push_struct(scratch.arena, U32) = name;
-  *arena_push_struct(scratch.arena, U32) = interface.count + 1;
-  arena_push_str8_copy(scratch.arena, interface);
-  *arena_push_struct(scratch.arena, U32) = version;
-  *arena_push_struct(scratch.arena, U32) = new_id;
-  /* *name_dest = name; */
-  /* *version_dest = version; */
-  /* *interface_count_dest = interface.count + 1; */
-  /* *new_id_dest = new_id; */
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
-    
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
-  if(send_size == -1) {
-    result = 0;
-  }
-  
-  arena_release_scratch(scratch);
-  return(result);
-}
-
 proc void
 wayland_handle_message(U8 **messages, S64 *len)
 {
@@ -342,28 +205,26 @@ wayland_handle_message(U8 **messages, S64 *len)
     if(str8s_are_equal(message_interface, wl_shm))
       {
 	Assert(wayland_current_id < WAYLAND_MAX_CLIENT_OBJECT_ID);
-	if(wayland_registry_bind(name, wl_shm, version, ++wayland_current_id)) {
+	if(wl_registry_bind(name, wl_shm, version, ++wayland_current_id)) {
 	  wayland_state.wl_shm_id = wayland_current_id;
 	}
       }
     else if(str8s_are_equal(message_interface, xdg_wm_base))
       {
 	Assert(wayland_current_id < WAYLAND_MAX_CLIENT_OBJECT_ID);
-	if(wayland_registry_bind(name, xdg_wm_base, version, ++wayland_current_id)) {
+	if(wl_registry_bind(name, xdg_wm_base, version, ++wayland_current_id)) {
 	  wayland_state.xdg_wm_base_id = wayland_current_id;
 	}
       }
     else if(str8s_are_equal(message_interface, wl_compositor))
       {
 	Assert(wayland_current_id < WAYLAND_MAX_CLIENT_OBJECT_ID);
-	if(wayland_registry_bind(name, wl_compositor, version, ++wayland_current_id)) {
+	if(wl_registry_bind(name, wl_compositor, version, ++wayland_current_id)) {
 	  wayland_state.wl_compositor_id = wayland_current_id;
 	}
       }
   }
 
-  /* *messages = (U8 *)(header + 1) + AlignPow2(message_size, 4); */
-  /* *len -= sizeof(WaylandMessageHeader) + AlignPow2(message_size, 4); */
   *messages = (U8 *)header + message_size;
   *len -= message_size;
 }
