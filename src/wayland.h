@@ -22,9 +22,12 @@ typedef struct WaylandState
 
   U32 wl_display_id;
   U32 wl_registry_id;
-  U32 wl_shm_id;
-  U32 xdg_wm_base_id;
+  U32 wl_shm_id;  
   U32 wl_compositor_id;
+  U32 wl_surface_id;
+  U32 xdg_wm_base_id;  
+  U32 xdg_surface_id;
+  U32 xdg_toplevel_id;
 
   // NOTE: required by generated functions but unused
   U32 wl_shm_pool_id;
@@ -34,8 +37,7 @@ typedef struct WaylandState
   U32 wl_data_device_id;
   U32 wl_data_device_manager_id;
   U32 wl_shell_id;
-  U32 wl_shell_surface_id;
-  U32 wl_surface_id;
+  U32 wl_shell_surface_id;  
   U32 wl_seat_id;
   U32 wl_pointer_id;
   U32 wl_keyboard_id;
@@ -45,9 +47,7 @@ typedef struct WaylandState
   U32 wl_subcompositor_id;
   U32 wl_subsurface_id;
 
-  U32 xdg_positioner_id;
-  U32 xdg_surface_id;
-  U32 xdg_toplevel_id;
+  U32 xdg_positioner_id;  
   U32 xdg_popup_id;
   /* Arena *id_table_arena; */
   /* WaylandIdBucket **id_table; */

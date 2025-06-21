@@ -224,6 +224,39 @@ wayland_handle_message(U8 **messages, S64 *len)
 	}
       }
   }
+  else if(object_id == wayland_state.xdg_wm_base_id &&
+	  opcode == xdg_wm_base_ping_opcode) {
+    U32 serial = *message;
+    if(xdg_wm_base_pong(serial)) {
+      printf("ponged: %u\n", serial);
+    }
+  }
+  else if(object_id == wayland_state.xdg_surface_id &&
+	  opcode == xdg_surface_configure_opcode) {
+    U32 serial = *message;
+    if(xdg_surface_ack_configure(serial)) {
+      printf("xdg surface configured\n");
+    }
+  }
+  else if(object_id == wayland_state.xdg_toplevel_id &&
+	  opcode == xdg_toplevel_wm_capabilities_opcode) {
+    U32 capabilities_count = *message;
+    U32 *capabilities = message + 1;
+    for(U32 i = 0; i < capabilities_count; ++i) {
+      U32 capability = capabilities[i];
+      if(capability >= 1 && capability <= 4) {
+	printf("xdg toplevel has capability: %u\n", capability);
+      }
+    }
+  }
+  else if(object_id == wayland_state.xdg_toplevel_id &&
+	  opcode == xdg_toplevel_configure_opcode) {
+    // TODO: implement
+    /* S32 width = *(S32 *)message; */
+    /* S32 height = *((S32 *)message + 1); */
+    /* U32 states_count = *(message + 2); */
+    /* U32 *states = message + 3; */
+  }
 
   *messages = (U8 *)header + message_size;
   *len -= message_size;
