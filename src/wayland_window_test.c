@@ -52,41 +52,65 @@ main(int argc, char **argv)
 	    wayland_handle_message(&message, &message_len);
 	  }
 	  
-	  if(wayland_state.wl_compositor_id &&
+	  if(wayland_state.wl_shm_id && wayland_state.wl_compositor_id && wayland_state.xdg_wm_base_id &&
 	     !wayland_state.wl_surface_id) {
-	    if(wl_compositor_create_surface(++wayland_current_id)) {
-	      wayland_state.wl_surface_id = wayland_current_id;	      
-	    }
-	  }
-
-	  if(wayland_state.wl_surface_id &&
-	     wayland_state.xdg_wm_base_id &&
-	     !wayland_state.xdg_surface_id) {
-	    if(xdg_wm_base_get_xdg_surface(++wayland_current_id, wayland_state.wl_surface_id)) {
-	      wayland_state.xdg_surface_id = wayland_current_id;	      
-	    }
-	  }
-
-	  if(wayland_state.xdg_surface_id &&
-	     !wayland_state.xdg_toplevel_id) {
-	    if(xdg_surface_get_toplevel(++wayland_current_id)) {
-	      wayland_state.xdg_toplevel_id = wayland_current_id;
-	    }
-	  }
-
-	  if(wayland_state.wl_shm_id && wayland_state.wl_compositor_id && wayland_state.xdg_wm_base_id) {
 	    printf("shm id: %u\n", wayland_state.wl_shm_id);
 	    printf("compositor id: %u\n", wayland_state.wl_compositor_id);
 	    printf("xdg wm base id: %u\n", wayland_state.xdg_wm_base_id);
+
+	    if(wl_compositor_create_surface(++wayland_current_id)) {
+	      wayland_state.wl_surface_id = wayland_current_id;
+	      printf("surface id: %u\n", wayland_state.wl_surface_id);
+	      
+	      if(xdg_wm_base_get_xdg_surface(++wayland_current_id, wayland_state.wl_surface_id)) {
+		wayland_state.xdg_surface_id = wayland_current_id;
+		printf("xdg surface id: %u\n", wayland_state.xdg_surface_id);
+
+		if(xdg_surface_get_toplevel(++wayland_current_id)) {
+		  wayland_state.xdg_toplevel_id = wayland_current_id;
+		  printf("xdg toplevel id: %u\n", wayland_state.xdg_toplevel_id);
+
+		  if(wl_surface_commit()) {
+		    printf("surface committed\n");
+		  }
+		}
+	      }
+	    }	    
 	  }
 
-	  if(wayland_state.wl_surface_id && wayland_state.xdg_surface_id && wayland_state.xdg_toplevel_id) {
-	    if(wl_surface_commit()) {
-		printf("surface committed\n");
-	    }
-	    printf("surface id: %u\n", wayland_state.wl_surface_id);
-	    printf("xdg surface id: %u\n", wayland_state.xdg_surface_id);
-	    printf("xdg toplevel id: %u\n", wayland_state.xdg_toplevel_id);
+	  if(wayland_state.init_state == WaylandInit_acked) {
+	    Assert(wayland_state.wl_surface_id);
+	    Assert(wayland_state.xdg_surface_id);
+	    Assert(wayland_state.xdg_toplevel_id);
+
+	    if(!wayland_state.wl_shm_pool_id) {
+	      if(wl_shm_create_pool(++wayland_current_id,
+				    shared_memory_size)) {
+		wayland_state.wl_shm_pool_id = wayland_current_id;
+		printf("shm pool id: %u\n", wayland_state.wl_shm_pool_id);
+
+		if(!wayland_state.wl_buffer_id) {
+		  S32 offset = 0;
+		  S32 width = 640;
+		  S32 height = 480;
+		  S32 stride = width*sizeof(U32);
+		  U32 format = 0x34324241; // NOTE: bgra 32-bit little-endian // TODO: generate enums
+		  if(wl_shm_pool_create_buffer(++wayland_current_id,
+					       offset, width, height, stride, format)) {
+		    wayland_state.wl_buffer_id = wayland_current_id;
+		    printf("buffer id: %u\n", wayland_state.wl_buffer_id);
+
+		    if(wl_surface_attach(wayland_state.wl_buffer_id, 0, 0)) {
+		      printf("surface attached\n");
+		      if(wl_surface_commit()) {
+			printf("surface commited. initialization complete\n");
+			wayland_state.init_state = WaylandInit_attached;
+		      }
+		    }		    		    
+		  }
+		}
+	      }
+	    }	    
 	  }
 	  
 	  arena_clear(frame_arena);

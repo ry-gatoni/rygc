@@ -389,7 +389,7 @@ wl_shm_pool_resize(S32 size)
 }
 
 proc B32
-wl_shm_create_pool(U32 id, void* fd, S32 size)
+wl_shm_create_pool(U32 id, S32 size)
 {
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
@@ -406,7 +406,21 @@ wl_shm_create_pool(U32 id, void* fd, S32 size)
   U32 message_size = message_end_pos - message_start_pos;
   message_header->message_size = AlignPow2(message_size, 4);
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  U64 buffer_len = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));
+  U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);
+
+  struct iovec io = {.iov_base = message_header, .iov_len = message_header->message_size};
+  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = buffer_len;
+
+  *((int *)CMSG_DATA(cmsg)) = wayland_state.shared_memory_handle;
+  socket_msg.msg_controllen = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));
+
+  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -494,7 +508,7 @@ wl_data_offer_accept(U32 serial, String8 mime_type)
 }
 
 proc B32
-wl_data_offer_receive(String8 mime_type, void* fd)
+wl_data_offer_receive(String8 mime_type)
 {
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
@@ -511,7 +525,21 @@ wl_data_offer_receive(String8 mime_type, void* fd)
   U32 message_size = message_end_pos - message_start_pos;
   message_header->message_size = AlignPow2(message_size, 4);
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  U64 buffer_len = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));
+  U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);
+
+  struct iovec io = {.iov_base = message_header, .iov_len = message_header->message_size};
+  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = buffer_len;
+
+  *((int *)CMSG_DATA(cmsg)) = wayland_state.shared_memory_handle;
+  socket_msg.msg_controllen = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));
+
+  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
   }

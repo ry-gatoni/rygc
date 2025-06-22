@@ -13,6 +13,13 @@ typedef struct WaylandIdBucket
   U32 id;
 } WaylandIdBucket;
 
+typedef enum WaylandInitialization
+{
+  WaylandInit_none,
+  WaylandInit_acked,
+  WaylandInit_attached,
+} WaylandInitialization;
+
 typedef struct WaylandState
 {
   int display_socket_handle;
@@ -20,18 +27,20 @@ typedef struct WaylandState
 
   void *shared_memory;
 
+  WaylandInitialization init_state;
+
   U32 wl_display_id;
   U32 wl_registry_id;
   U32 wl_shm_id;  
   U32 wl_compositor_id;
+  U32 xdg_wm_base_id;
   U32 wl_surface_id;
-  U32 xdg_wm_base_id;  
   U32 xdg_surface_id;
   U32 xdg_toplevel_id;
-
-  // NOTE: required by generated functions but unused
   U32 wl_shm_pool_id;
   U32 wl_buffer_id;
+
+  // NOTE: required by generated functions but unused    
   U32 wl_data_offer_id;
   U32 wl_data_source_id;
   U32 wl_data_device_id;

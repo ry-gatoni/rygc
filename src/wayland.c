@@ -235,6 +235,7 @@ wayland_handle_message(U8 **messages, S64 *len)
 	  opcode == xdg_surface_configure_opcode) {
     U32 serial = *message;
     if(xdg_surface_ack_configure(serial)) {
+      wayland_state.init_state = WaylandInit_acked;
       printf("xdg surface configured\n");
     }
   }
