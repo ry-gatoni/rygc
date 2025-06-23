@@ -14,11 +14,48 @@
 #include "wayland.h"
 #include "wayland.c"
 
+typedef struct AppState
+{
+  S32 window_width;
+  S32 window_height;
+  S32 window_stride;
+
+  U32 box_color;
+  U32 background_color;
+
+  R32 box_posx;
+  R32 box_posy;
+  R32 box_width;
+  R32 box_height;
+
+  R32 box_vx;
+  R32 box_vy;
+} AppState;
+
+proc U32
+colorU32_from_rgba(U8 r, U8 g, U8 b, U8 a)
+{
+  U32 result = ((((U32)r) << 0*8) |
+		(((U32)g) << 1*8) |
+		(((U32)b) << 2*8) |
+		(((U32)a) << 3*8));
+
+  return(result);
+}
+
 int
 main(int argc, char **argv)
 {
   Unused(argc);
   Unused(argv);
+
+  AppState app_state = {0};
+  app_state.box_color = colorU32_from_rgba(0xFF, 0, 0, 0xFF);
+  app_state.background_color = colorU32_from_rgba(0, 0, 0, 0xFF);
+  app_state.box_width = 50;
+  app_state.box_height = 50;
+  app_state.box_vx = 10;
+  app_state.box_vy = 10;
 
   //wayland_state_initialize();
 
@@ -30,8 +67,8 @@ main(int argc, char **argv)
       
       U64 shared_memory_size = MB(32);
       if(wayland_allocate_shared_memory(shared_memory_size)) {
-	Arena *framebuffer_arena = arena_alloc_ex(shared_memory_size, shared_memory_size,
-						  wayland_state.shared_memory, 0);
+	/* Arena *framebuffer_arena = arena_alloc_ex(shared_memory_size, shared_memory_size, */
+	/* 					  wayland_state.shared_memory, 0); */
 	printf("framebuffer success!\n");
 
 	Arena *frame_arena = arena_alloc();
@@ -94,11 +131,24 @@ main(int argc, char **argv)
 		  S32 width = 640;
 		  S32 height = 480;
 		  S32 stride = width*sizeof(U32);
-		  U32 format = 0x34324241; // NOTE: bgra 32-bit little-endian // TODO: generate enums
+		  U32 format = 0x34324241; // NOTE: ABGR 32-bit little-endian // TODO: generate enums
 		  if(wl_shm_pool_create_buffer(++wayland_current_id,
 					       offset, width, height, stride, format)) {
 		    wayland_state.wl_buffer_id = wayland_current_id;
 		    printf("buffer id: %u\n", wayland_state.wl_buffer_id);
+
+		    /* // NOTE: clear window to black */
+		    /* U8 *row = (U8 *)wayland_state.shared_memory; */
+		    /* for(S32 j = 0; j < height; ++j, row += stride) { */
+		    /*   U32 *pixel = (U32 *)row; */
+		    /*   for(S32 i = 0; i < width; ++i, ++pixel) { */
+		    /* 	*pixel =  */
+		    /*   } */
+		    /* } */
+
+		    app_state.window_width = width;
+		    app_state.window_height = height;
+		    app_state.window_stride = stride;
 
 		    if(wl_surface_attach(wayland_state.wl_buffer_id, 0, 0)) {
 		      printf("surface attached\n");
@@ -111,6 +161,62 @@ main(int argc, char **argv)
 		}
 	      }
 	    }	    
+	  }
+
+	  if(wayland_state.init_state == WaylandInit_attached) {	    
+
+	    // NOTE: handle colisions
+	    if(app_state.box_vx < 0) {
+	      if(app_state.box_posx + app_state.box_vx < 0) {
+		app_state.box_vx = -app_state.box_vx;
+	      }
+	    }
+	    else {
+	      if(app_state.box_posx + app_state.box_width + app_state.box_vx > app_state.window_width) {
+		app_state.box_vx = -app_state.box_vx;
+	      }
+	    }
+
+	    if(app_state.box_vy < 0) {
+	      if(app_state.box_posy + app_state.box_vy < 0) {
+		app_state.box_vy = -app_state.box_vy;
+	      }
+	    }
+	    else {
+	      if(app_state.box_posy + app_state.box_height + app_state.box_vy > app_state.window_height) {
+		app_state.box_vy = -app_state.box_vy;
+	      }
+	    }
+
+	    // NOTE: render state
+	    U8 *row = (U8 *)wayland_state.shared_memory;
+	    for(S32 j = 0; j < app_state.window_height; ++j) {
+	      U32 *pixel = (U32 *)row;
+	      for(S32 i = 0; i < app_state.window_width; ++i, ++pixel) {
+		if(i >= app_state.box_posx && i <= app_state.box_posx + app_state.box_width &&
+		   j >= app_state.box_posy && j <= app_state.box_posy + app_state.box_height) {
+		  *pixel = app_state.box_color;
+		}
+		else {
+		  *pixel = app_state.background_color;
+		}
+	      }
+
+	      row += app_state.window_stride;
+	    }
+
+	    // NOTE: update state
+	    app_state.box_posx += app_state.box_vx;
+	    app_state.box_posy += app_state.box_vy;
+
+	    // NOTE: commit frame to be rendered
+	    wl_surface_attach(wayland_state.wl_buffer_id, 0, 0);
+	    wl_surface_damage(0, 0, app_state.window_width, app_state.window_height);
+	    if(wl_surface_commit()) {
+	      printf("frame committed\n");
+	    }
+
+	    usleep(33333);
 	  }
 	  
 	  arena_clear(frame_arena);

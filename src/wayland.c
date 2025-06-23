@@ -224,6 +224,11 @@ wayland_handle_message(U8 **messages, S64 *len)
 	}
       }
   }
+  else if(object_id == wayland_state.wl_shm_id &&
+	  opcode == wl_shm_format_opcode) {
+    U32 format = *message;
+    printf("available format: 0x%x\n", format);
+  }
   else if(object_id == wayland_state.xdg_wm_base_id &&
 	  opcode == xdg_wm_base_ping_opcode) {
     U32 serial = *message;
@@ -235,8 +240,10 @@ wayland_handle_message(U8 **messages, S64 *len)
 	  opcode == xdg_surface_configure_opcode) {
     U32 serial = *message;
     if(xdg_surface_ack_configure(serial)) {
-      wayland_state.init_state = WaylandInit_acked;
-      printf("xdg surface configured\n");
+      if(wayland_state.init_state == WaylandInit_none) {
+	wayland_state.init_state = WaylandInit_acked;
+	printf("xdg surface configured\n");
+      }
     }
   }
   else if(object_id == wayland_state.xdg_toplevel_id &&
