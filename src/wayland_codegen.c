@@ -166,6 +166,12 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
 	      String8 arg_name = arg_name_node->string;
 	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
+	      // TODO: better way of ignoring target object ids so they don't get passed as request args
+	      if((arg_name.string[0] == 'w' && arg_name.string[1] == 'l') ||
+		 (arg_name.string[0] == 'x' && arg_name.string[1] == 'd' && arg_name.string[1] == 'd')) {
+		continue;
+	      } 
+	      
 	      if(str8s_are_equal(arg_type, Str8Lit("U32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
 				 "  *arena_push_struct(scratch.arena, U32) = %.*s;\n",

@@ -47,8 +47,6 @@ struct WaylandWindow
 
   S32 width;
   S32 height;
-
-  String8List error_list;
 };
 
 typedef struct WaylandEvent
@@ -70,8 +68,11 @@ typedef struct WaylandState
   int display_socket_handle;
 #if 1
   Arena *arena;
+  
   WaylandWindow *first_window;
   WaylandWindow *last_window;
+  
+  String8List error_list;
 #else
   int shared_memory_handle;
 
@@ -123,17 +124,21 @@ global WaylandState wayland_state;
 proc WaylandHashKey wayland_hash(String8 s);
 //proc U32 *wayland_interface_object_id_from_name(String8 name);
 
-proc B32 wayland_display_connect(void);
-
 proc U32 wayland_new_id(WaylandWindow *window);
+
+proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);
 
-proc void wayland_handle_messages(WaylandWindow *window, Buffer *buffer);
-proc B32 wayland_registry_bind(U32 name, String8 interface, U32 version, U32 new_id);
+proc Buffer wayland_poll_events(WaylandWindow *window);
+//proc void wayland_handle_messages(WaylandWindow *window, Buffer *buffer);
+//proc B32 wayland_registry_bind(U32 name, String8 interface, U32 version, U32 new_id);
 proc B32 wayland_events_polled_this_frame(WaylandWindow *window);
+
+proc void wayland_log_error_(char *fmt, ...);
+#define wayland_log_error(message, ...) wayland_log_error_("ERROR(%s, %u): "message, __FUNCTION__, __LINE__, __VA_ARGS__)
 
 // NOTE: user-facing api
 proc B32 wayland_init(void);
