@@ -57,6 +57,25 @@ main(int argc, char **argv)
   app_state.box_vx = 10;
   app_state.box_vy = 10;
 
+#if 1
+  if(wayland_init()) {
+    WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480);
+    if(window) {
+      B32 running = 1;
+      while(running) {
+	WaylandEvent event = {0};
+	while(wayland_get_event(window, &event)) {
+	  // TODO: handle events
+	}
+
+	// TODO: update and render
+
+	wayland_swap_buffers(window);
+	// TODO: frame-rate wait
+      }
+    }
+  }
+#else
   //wayland_state_initialize();
 
   B32 connected = wayland_display_connect();
@@ -224,6 +243,7 @@ main(int argc, char **argv)
       }
     }
   }
+#endif
 
   return(0);
 }

@@ -18,6 +18,12 @@ typedef S64      B64;
 typedef float    R32;
 typedef double   R64;
 
+typedef struct Buffer
+{
+  U64 size;
+  U8 *mem;
+} Buffer;
+
 #define proc static
 #define local static
 #define global static

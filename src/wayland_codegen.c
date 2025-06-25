@@ -49,7 +49,7 @@ rygc_type_from_wayland_type(Arena *arena, String8 wayland_type)
   }
   else if(str8s_are_equal(wayland_type, Str8Lit("fd"))) {
     // NOTE: mark file descriptors to be passed as ancillary data, unlike other args
-    result = arena_push_str8_copy(arena, Str8Lit("void"));
+    result = arena_push_str8_copy(arena, Str8Lit("int"));
   }
   else {
     Assert(!"ERROR: unknown wayland type");
@@ -104,6 +104,12 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	    String8List arg_name_list = {0};
 	    String8List arg_type_list = {0};
 	    ArenaTemp arg_temp = arena_get_scratch(&codegen_arena, 1); // TODO: investigate
+
+	    str8_list_push_f(arg_temp.arena, &arg_name_list,
+			     "%.*s_id",
+			     (int)interface_name.count, interface_name.string);
+	    str8_list_push(arg_temp.arena, &arg_type_list, Str8Lit("uint"));
+
 	    for(XmlNode *arg = message->first; arg; arg = arg->next) {
 	      if(str8s_are_equal(arg->label, Str8Lit("arg"))) {
 		String8 arg_name = arg->first_attribute->value;
@@ -126,16 +132,11 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
 	      String8 arg_name = arg_name_node->string;
 	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
-
-	      if(!str8s_are_equal(arg_type, Str8Lit("void"))) {
-		str8_list_push_f(codegen_arena, &request_function_list, "%s%.*s %.*s",
-				 arg_name_node == arg_name_list.first ? "" : ", ",
-				 (int)arg_type.count, arg_type.string,
-				 (int)arg_name.count, arg_name.string);
-		/* if(arg_name_node->next) { */
-		/*   str8_list_push(codegen_arena, &request_function_list, Str8Lit(", ")); */
-		/* } */
-	      }
+	      
+	      str8_list_push_f(codegen_arena, &request_function_list, "%s%.*s %.*s",
+			       arg_name_node == arg_name_list.first ? "" : ", ",
+			       (int)arg_type.count, arg_type.string,
+			       (int)arg_name.count, arg_name.string);
 	    }
 	    str8_list_push(codegen_arena, &request_function_list, Str8Lit(")\n{\n"));
 
@@ -148,8 +149,11 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);\n"));
+	    /* str8_list_push_f(codegen_arena, &request_function_list, */
+	    /* 		     "  message_header->object_id = wayland_state.%.*s_id;\n", */
+	    /* 		     (int)interface_name.count, interface_name.string); */
 	    str8_list_push_f(codegen_arena, &request_function_list,
-			     "  message_header->object_id = wayland_state.%.*s_id;\n",
+			     "  message_header->object_id = %.*s_id;\n",
 			     (int)interface_name.count, interface_name.string);
 	    str8_list_push_f(codegen_arena, &request_function_list,
 			     "  message_header->opcode = %.*s_%.*s_opcode;\n\n",
@@ -180,7 +184,7 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 				 "  arena_push_str8_copy(scratch.arena, %.*s);\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
-	      else if(str8s_are_equal(arg_type, Str8Lit("void"))) {
+	      else if(str8s_are_equal(arg_type, Str8Lit("int"))) {
 		passes_fd = 1;
 	      }
 	    }
@@ -192,10 +196,9 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			   Str8Lit("  U32 message_size = message_end_pos - message_start_pos;\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  message_header->message_size = AlignPow2(message_size, 4);\n\n"));
-	    if(passes_fd) {
-	      // TODO: make sizeof handle more generic?
+	    if(passes_fd) {	      
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  U64 buffer_len = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));\n"));
+			     Str8Lit("  U64 buffer_len = CMSG_SPACE(sizeof(fd));\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);\n\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
@@ -212,9 +215,9 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			     Str8Lit("  cmsg->cmsg_len = buffer_len;\n\n"));
 	      // TODO: how to get particular handle here???
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  *((int *)CMSG_DATA(cmsg)) = wayland_state.shared_memory_handle;\n"));
+			     Str8Lit("  *((int *)CMSG_DATA(cmsg)) = fd;\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  socket_msg.msg_controllen = CMSG_SPACE(sizeof(wayland_state.shared_memory_handle));\n\n"));
+			     Str8Lit("  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));\n\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);\n"));
 	      str8_list_push(codegen_arena, &request_function_list,

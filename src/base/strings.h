@@ -43,6 +43,7 @@ proc String8 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep);
 proc void str8_list_push_ex(String8List *list, String8 string, String8Node *node);
 proc void str8_list_push(Arena *arena, String8List *list, String8 string);
 proc void str8_list_push_f(Arena *arena, String8List *list, char *fmt, ...);
+proc void str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list args);
 
 proc String8 str8_join(Arena *arena, String8List *list);
 proc String8List str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count);

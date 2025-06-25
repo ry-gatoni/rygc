@@ -106,9 +106,16 @@ str8_list_push_f(Arena *arena, String8List *list, char *fmt, ...)
 {
   va_list args;
   va_start(args, fmt);
-  String8 string = str8_push_fv(arena, fmt, args);
+  //String8 string = str8_push_fv(arena, fmt, args);
+  str8_list_push_fv(arena, list, fmt, args);
   va_end(args);
 
+  //str8_list_push(arena, list, string);
+}
+
+proc void
+str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list args) {
+  String8 string = str8_push_fv(arena, fmt, args);
   str8_list_push(arena, list, string);
 }
 
