@@ -43,6 +43,54 @@ colorU32_from_rgba(U8 r, U8 g, U8 b, U8 a)
   return(result);
 }
 
+proc void
+update_and_render(U32 *pixels, AppState *app_state)
+{  
+  // NOTE: handle colisions
+  if(app_state->box_vx < 0) {
+    if(app_state->box_posx + app_state->box_vx < 0) {
+      app_state->box_vx = -app_state->box_vx;
+    }
+  }
+  else {
+    if(app_state->box_posx + app_state->box_width + app_state->box_vx > app_state->window_width) {
+      app_state->box_vx = -app_state->box_vx;
+    }
+  }
+
+  if(app_state->box_vy < 0) {
+    if(app_state->box_posy + app_state->box_vy < 0) {
+      app_state->box_vy = -app_state->box_vy;
+    }
+  }
+  else {
+    if(app_state->box_posy + app_state->box_height + app_state->box_vy > app_state->window_height) {
+      app_state->box_vy = -app_state->box_vy;
+    }
+  }
+
+  // NOTE: render state
+  U8 *row = (U8 *)pixels;
+  for(S32 j = 0; j < app_state->window_height; ++j) {
+    U32 *pixel = (U32 *)row;
+    for(S32 i = 0; i < app_state->window_width; ++i, ++pixel) {
+      if(i >= app_state->box_posx && i <= app_state->box_posx + app_state->box_width &&
+	 j >= app_state->box_posy && j <= app_state->box_posy + app_state->box_height) {
+	*pixel = app_state->box_color;
+      }
+      else {
+	*pixel = app_state->background_color;
+      }
+    }
+
+    row += app_state->window_stride;
+  }
+
+  // NOTE: update state
+  app_state->box_posx += app_state->box_vx;
+  app_state->box_posy += app_state->box_vy;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -61,17 +109,57 @@ main(int argc, char **argv)
   if(wayland_init()) {
     WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480);
     if(window) {
+      app_state.window_width = window->width;
+      app_state.window_height = window->height;
+      app_state.window_stride = app_state.window_width*sizeof(U32);
       B32 running = 1;
       while(running) {
+	// NOTE: poll for events
 	WaylandEvent event = {0};
 	while(wayland_get_event(window, &event)) {
-	  // TODO: handle events
+	  // TODO: cleanup
+	  // TODO: handle input
+	  // NOTE: acknowledge ping
+	  if(event.object_id == window->xdg_wm_base_id &&
+	     event.opcode == xdg_wm_base_ping_opcode) {
+	    U32 serial = *(U32 *)event.body.mem;
+	    if(xdg_wm_base_pong(window->xdg_wm_base_id, serial)) {
+	      fprintf(stderr, "**acked ping**\n");
+	    }
+	  }
+	  else if(event.object_id == window->xdg_surface_id &&
+	     event.opcode == xdg_surface_configure_opcode) {
+	    U32 serial = *(U32 *)event.body.mem;
+	    if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
+	      fprintf(stderr, "**acked ping**\n");
+	    }
+	  }
+	  // NOTE: errors
+	  else if(event.object_id == window->wl_display_id &&
+		  event.opcode == wl_display_error_opcode) {
+	    U32 *event_body = (U32 *)event.body.mem;
+	    U32 error_object_id = event_body[0];
+	    U32 error_code = event_body[1];
+	    U32 error_string_count = event_body[2];
+	    U8 *error_string = (U8 *)(event_body + 3);
+	    // TODO: better logging
+	    fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+		    error_object_id, error_code, (int)error_string_count, error_string);
+	  }
+	  else {
+	    // TODO: better logging
+	    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%lu\n",
+		    event.object_id, event.opcode, event.body.size);
+	  }
 	}
 
-	// TODO: update and render
+	update_and_render((U32 *)window->shared_memory, &app_state);
 
-	wayland_swap_buffers(window);
-	// TODO: frame-rate wait
+	if(!wayland_swap_buffers(window)) {
+	  Assert(!"FATAL: swap buffers failed");
+	}
+	// TODO: better frame-rate wait
+	usleep(33333);
       }
     }
   }

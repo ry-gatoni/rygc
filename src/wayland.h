@@ -144,4 +144,4 @@ proc void wayland_log_error_(char *fmt, ...);
 proc B32 wayland_init(void);
 proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height);
 proc B32 wayland_get_event(WaylandWindow *window, WaylandEvent *event);
-proc void wayland_swap_buffers(WaylandWindow *window);
+proc B32 wayland_swap_buffers(WaylandWindow *window);

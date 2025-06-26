@@ -240,7 +240,8 @@ wayland_create_buffers(WaylandWindow *window, S32 width, S32 height)
 
     if(wl_surface_attach(window->wl_surface_id, window->wl_buffer_id, 0, 0)) {
       if(wl_surface_commit(window->wl_surface_id)) {
-	// NOTE: success
+	window->width = width;
+	window->height = height;
       } else {
 	// NOTE: commit failed
 	result = 0;
@@ -523,6 +524,8 @@ wayland_open_window(String8 title, S32 width, S32 height)
       if(wayland_allocate_shared_memory(window, shared_memory_size)) {
 	if(wayland_create_buffers(window, width, height)) {
 	  // NOTE: initialization successful
+	  window->frame_index = 1;
+	  window->event_frame_index = 0;
 	  SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	} else {
 	  // NOTE: buffer creation failure
@@ -572,11 +575,23 @@ wayland_get_event(WaylandWindow *window, WaylandEvent *event)
   return(result);
 }
 
-proc void
+proc B32
 wayland_swap_buffers(WaylandWindow *window)
 {
-  wl_surface_attach(window->wl_surface_id, window->wl_buffer_id, 0, 0);
-  wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height);
-  wl_surface_commit(window->wl_surface_id);
-  ++window->frame_index;
+  B32 result = 1;
+  if(wl_surface_attach(window->wl_surface_id, window->wl_buffer_id, 0, 0)) {
+    if(wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height)) {
+      if(wl_surface_commit(window->wl_surface_id)) {
+	++window->frame_index;
+      } else {
+	result = 0;
+      }
+    } else {
+      result = 0;
+    }
+  } else {
+    result = 0;
+  }
+
+  return(result);
 }
