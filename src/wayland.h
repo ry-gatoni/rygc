@@ -26,9 +26,15 @@ struct WaylandWindow
 
   U32 wl_display_id;
   U32 wl_registry_id;
+  
   U32 wl_shm_id;
   U32 wl_compositor_id;
   U32 xdg_wm_base_id;
+  U32 wl_seat_id;
+
+  U32 wl_keyboard_id;
+  U32 wl_pointer_id;
+
   U32 wl_surface_id;
   U32 xdg_surface_id;
   U32 xdg_toplevel_id;

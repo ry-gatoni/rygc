@@ -288,6 +288,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	String8 wl_shm_str = Str8Lit("wl_shm");
 	String8 xdg_wm_base_str = Str8Lit("xdg_wm_base");
 	String8 wl_compositor_str = Str8Lit("wl_compositor");
+	String8 wl_seat_str = Str8Lit("wl_seat");
 	if(str8s_are_equal(message_interface, wl_shm_str))
 	  {
 	    U32 shm_id = wayland_new_id(window);
@@ -307,6 +308,23 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	    U32 compositor_id = wayland_new_id(window);
 	    if(wl_registry_bind(window->wl_registry_id, name, wl_compositor_str, version, compositor_id)) {
 	      window->wl_compositor_id = compositor_id;
+	    }
+	  }
+	else if(str8s_are_equal(message_interface, wl_seat_str))
+	  {
+	    U32 seat_id = wayland_new_id(window);
+	    if(wl_registry_bind(window->wl_registry_id, name, wl_seat_str, version, seat_id)) {
+	      window->wl_seat_id = seat_id;
+
+	      U32 keyboard_id = wayland_new_id(window);
+	      if(wl_seat_get_keyboard(window->wl_seat_id, keyboard_id)) {
+		window->wl_keyboard_id = keyboard_id;
+	      }
+
+	      U32 pointer_id = wayland_new_id(window);
+	      if(wl_seat_get_pointer(window->wl_seat_id, pointer_id)) {
+		window->wl_pointer_id = pointer_id;
+	      }
 	    }
 	  }
       }

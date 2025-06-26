@@ -20,7 +20,13 @@ typedef struct AppState
   S32 window_height;
   S32 window_stride;
 
-  U32 box_color;
+  R32 mouse_x;
+  R32 mouse_y;
+
+  //U32 box_color;
+  //U32 alt_color;
+  U32 box_color_index;
+  U32 box_colors[2];
   U32 background_color;
 
   R32 box_posx;
@@ -69,17 +75,27 @@ update_and_render(U32 *pixels, AppState *app_state)
     }
   }
 
+  // NOTE: if mouse is in box, change its color
+  if(app_state->mouse_x >= app_state->box_posx &&
+     app_state->mouse_x <= app_state->box_posx + app_state->box_width &&
+     app_state->mouse_y >= app_state->box_posy &&
+     app_state->mouse_y <= app_state->box_posy + app_state->box_height) {
+    app_state->box_color_index = !app_state->box_color_index;
+  }
+
   // NOTE: render state
+  U32 box_color = app_state->box_colors[app_state->box_color_index];
+  U32 background_color = app_state->background_color;
   U8 *row = (U8 *)pixels;
   for(S32 j = 0; j < app_state->window_height; ++j) {
     U32 *pixel = (U32 *)row;
     for(S32 i = 0; i < app_state->window_width; ++i, ++pixel) {
       if(i >= app_state->box_posx && i <= app_state->box_posx + app_state->box_width &&
 	 j >= app_state->box_posy && j <= app_state->box_posy + app_state->box_height) {
-	*pixel = app_state->box_color;
+	*pixel = box_color;
       }
       else {
-	*pixel = app_state->background_color;
+	*pixel = background_color;
       }
     }
 
@@ -98,7 +114,8 @@ main(int argc, char **argv)
   Unused(argv);
 
   AppState app_state = {0};
-  app_state.box_color = colorU32_from_rgba(0xFF, 0, 0, 0xFF);
+  app_state.box_colors[0] = colorU32_from_rgba(0xFF, 0, 0, 0xFF);
+  app_state.box_colors[1] = colorU32_from_rgba(0, 0xFF, 0, 0xFF);
   app_state.background_color = colorU32_from_rgba(0, 0, 0, 0xFF);
   app_state.box_width = 50;
   app_state.box_height = 50;
@@ -132,6 +149,28 @@ main(int argc, char **argv)
 	    if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
 	      fprintf(stderr, "**acked ping**\n");
 	    }
+	  }
+	  else if(event.object_id == window->wl_pointer_id &&
+		  event.opcode == wl_pointer_motion_opcode) {
+	    U32 time = *(U32 *)event.body.mem;
+	    U32 surface_x__fixed = *((U32 *)event.body.mem + 1);
+	    U32 surface_y__fixed = *((U32 *)event.body.mem + 2);
+	    R32 surface_x = (R32)surface_x__fixed / 256.f;
+	    R32 surface_y = (R32)surface_y__fixed / 256.f;
+	    app_state.mouse_x = surface_x;
+	    app_state.mouse_y = surface_y;
+	    /* fprintf(stderr, "mouse motion: time=%u, pos=(%08.4f, %08.4f)\n", */
+	    /* 	    time, surface_x, surface_y); */
+	  }
+	  else if(event.object_id == window->wl_pointer_id &&
+		  event.opcode == wl_pointer_button_opcode) {
+	    U32 *event_body = (U32 *)event.body.mem;
+	    U32 serial = event_body[0];
+	    U32 time = event_body[1];
+	    U32 button = event_body[2];
+	    U32 state = event_body[3];
+	    fprintf(stderr, "mouse click: time=%u, serial=%u, button=%u, state=%s\n",
+		    time, serial, button, state ? "pressed" : "released");
 	  }
 	  // NOTE: errors
 	  else if(event.object_id == window->wl_display_id &&
