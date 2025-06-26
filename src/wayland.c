@@ -18,36 +18,6 @@ wayland_hash(String8 s)
   return(result);
 }
 
-#if 0
-proc U32 *
-wayland_interface_object_id_from_name(String8 name)
-{
-  U32 *result = 0;
-
-  WaylandHashKey hash_key = wayland_hash(name);
-  U64 hash_index = hash_key.hash % wayland_state.id_table_count;
-  WaylandIdBucket **buckets = wayland_state.id_table;
-  WaylandIdBucket *bucket = buckets[hash_index];
-  if(!bucket) {
-    buckets[hash_index] = arena_push_struct(wayland_state.id_table_arena, WaylandIdBucket);
-    bucket = buckets[hash_index];
-    bucket->interface_name = arena_push_str8_copy(wayland_state.id_table_arena, name);
-    result = &bucket->id;
-  }
-  else {
-    for(U64 i = hash_index; i < wayland_state.id_table_count; ++i) {
-      if(str8s_are_equal(name, bucket->interface_name)) {
-	result = &bucket->id;
-	break;
-      }
-    }
-  }
-
-  Assert(result);
-  return(result);
-}
-#endif
-
 proc B32
 wayland_display_connect(void)
 {
@@ -257,114 +227,6 @@ wayland_create_buffers(WaylandWindow *window, S32 width, S32 height)
   return(result);
 }
 
-// TODO: get rid of this. move all intialization logic into the open_window() and get_event() functions
-#if 0
-proc void
-wayland_handle_messages(WaylandWindow *window, Buffer *buffer)
-{
-  Assert(buffer->size >= 8);
-  WaylandMessageHeader *header = (WaylandMessageHeader *)buffer->mem;
-  U32 object_id = header->object_id;
-  U16 opcode = header->opcode;
-  U16 message_size = header->message_size;
-
-  printf("object_id: %u\n", object_id);
-  printf("opcode: %u\n", opcode);
-  printf("message size: %u\n", message_size);
-
-  U32 *message = (U32 *)(header + 1);
-
-  if(object_id == window->wl_display_id &&
-     opcode == wl_display_error_opcode) {
-    U32 error_object_id = *message;
-    U32 error_code = *(message + 1);
-    U32 error_string_count = *(message + 2);
-    U8 *error_string = (U8 *)(message + 3);
-    fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-	    error_object_id, error_code, (int)error_string_count, error_string);
-  }
-  else if(object_id == window->wl_registry_id &&
-	  opcode == wl_registry_global_opcode) {
-    U32 name = *message;
-    U32 interface_string_count = *(message + 1);
-    U8 *interface_string = (U8 *)(message + 2);
-    U32 version = *(U32 *)(interface_string + AlignPow2(interface_string_count, 4));
-    printf("registry global: name: %u, interface: %.*s, version: %u\n",
-	   name, (int)interface_string_count, interface_string, version);
-
-    String8 message_interface = {.count = (U64)interface_string_count - 1, .string = interface_string};
-    String8 wl_shm_str = Str8Lit("wl_shm");
-    String8 xdg_wm_base_str = Str8Lit("xdg_wm_base");
-    String8 wl_compositor_str = Str8Lit("wl_compositor");
-    if(str8s_are_equal(message_interface, wl_shm_str))
-      {
-	U32 shm_id = wayland_new_id(window);
-	if(wl_registry_bind(window->wl_registry_id, name, wl_shm_str, version, shm_id)) {
-	  window->wl_shm_id = shm_id;
-	}
-      }
-    else if(str8s_are_equal(message_interface, xdg_wm_base_str))
-      {
-	U32 wm_base_id = wayland_new_id(window);
-	if(wl_registry_bind(window->wl_registry_id, name, xdg_wm_base_str, version, wm_base_id)) {
-	  window->xdg_wm_base_id = wm_base_id;
-	}
-      }
-    else if(str8s_are_equal(message_interface, wl_compositor_str))
-      {
-	U32 compositor_id = wayland_new_id(window);
-	if(wl_registry_bind(window->wl_registry_id, name, wl_compositor_str, version, compositor_id)) {
-	  window->wl_compositor_id = compositor_id;
-	}
-      }
-  }
-  else if(object_id == window->wl_shm_id &&
-	  opcode == wl_shm_format_opcode) {
-    U32 format = *message;
-    printf("available format: 0x%x\n", format);
-  }
-  else if(object_id == window->xdg_wm_base_id &&
-	  opcode == xdg_wm_base_ping_opcode) {
-    U32 serial = *message;
-    if(xdg_wm_base_pong(window->xdg_wm_base_id, serial)) {
-      printf("ponged: %u\n", serial);
-    }
-  }
-  else if(object_id == window->xdg_surface_id &&
-	  opcode == xdg_surface_configure_opcode) {
-    U32 serial = *message;
-    if(xdg_surface_ack_configure(window->xdg_wm_base_id, serial)) {
-      if(wayland_state.init_state == WaylandInit_none) {
-	wayland_state.init_state = WaylandInit_acked;
-	printf("xdg surface configured\n");
-      }
-    }
-  }
-  else if(object_id == window->xdg_toplevel_id &&
-	  opcode == xdg_toplevel_wm_capabilities_opcode) {
-    U32 capabilities_count = *message;
-    U32 *capabilities = message + 1;
-    for(U32 i = 0; i < capabilities_count; ++i) {
-      U32 capability = capabilities[i];
-      if(capability >= 1 && capability <= 4) {
-	printf("xdg toplevel has capability: %u\n", capability);
-      }
-    }
-  }
-  else if(object_id == window->xdg_toplevel_id &&
-	  opcode == xdg_toplevel_configure_opcode) {
-    // TODO: implement
-    /* S32 width = *(S32 *)message; */
-    /* S32 height = *((S32 *)message + 1); */
-    /* U32 states_count = *(message + 2); */
-    /* U32 *states = message + 3; */
-  }
-
-  buffer->mem = (U8 *)header + message_size;
-  buffer->size -= message_size;
-}
-#endif
-
 proc void
 wayland_log_error_(char *fmt, ...)
 {
@@ -372,14 +234,6 @@ wayland_log_error_(char *fmt, ...)
   va_start(args, fmt);
   str8_list_push_fv(wayland_state.arena, &wayland_state.error_list, fmt, args);
   va_end(args);
-}
-
-proc B32
-wayland_events_polled_this_frame(WaylandWindow *window)
-{
-  Assert(window->event_frame_index <= window->frame_index);
-  B32 result = window->event_frame_index == window->frame_index;
-  return(result);
 }
 
 proc Buffer
@@ -397,20 +251,8 @@ wayland_poll_events(WaylandWindow *window) {
     wayland_log_error("recv failed: %s", strerror(errno));
   }
 
-  ++window->event_frame_index;
   return(result);
 }
-
-#if 0
-proc void
-wayland_poll_and_handle_events(WaylandWindow *window)
-{
-  Buffer messages = wayland_poll_events(window);
-  if(messages.size) {
-    wayland_handle_messages(window, &messages);
-  }
-}
-#endif
 
 proc WaylandWindow*
 wayland_open_window(String8 title, S32 width, S32 height)
@@ -424,7 +266,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
   if(wayland_display_get_registry(window)) {
     window->message_buffer.size = KB(4);
     window->message_buffer.mem = arena_push_array(wayland_state.arena, U8, window->message_buffer.size);
-    //wayland_poll_and_handle_events(window);    
+    
     Buffer events = wayland_poll_events(window);
     while(events.size) {
       WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
@@ -524,8 +366,6 @@ wayland_open_window(String8 title, S32 width, S32 height)
       if(wayland_allocate_shared_memory(window, shared_memory_size)) {
 	if(wayland_create_buffers(window, width, height)) {
 	  // NOTE: initialization successful
-	  window->frame_index = 1;
-	  window->event_frame_index = 0;
 	  SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	} else {
 	  // NOTE: buffer creation failure
@@ -555,8 +395,9 @@ proc B32
 wayland_get_event(WaylandWindow *window, WaylandEvent *event)
 {
   B32 result = 1;
-  if(!wayland_events_polled_this_frame(window)) {
+  if(!window->events_polled_this_frame) {
     window->frame_event_buffer = wayland_poll_events(window);
+    window->events_polled_this_frame = 1;
   }
 
   if(window->frame_event_buffer.size) {
@@ -583,6 +424,7 @@ wayland_swap_buffers(WaylandWindow *window)
     if(wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height)) {
       if(wl_surface_commit(window->wl_surface_id)) {
 	++window->frame_index;
+	window->events_polled_this_frame = 0;
       } else {
 	result = 0;
       }

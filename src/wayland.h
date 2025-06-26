@@ -26,12 +26,12 @@ struct WaylandWindow
 
   U32 wl_display_id;
   U32 wl_registry_id;
+  U32 wl_shm_id;
   U32 wl_compositor_id;
   U32 xdg_wm_base_id;
   U32 wl_surface_id;
   U32 xdg_surface_id;
   U32 xdg_toplevel_id;
-  U32 wl_shm_id;
   U32 wl_shm_pool_id;
   U32 wl_buffer_id;
 
@@ -42,13 +42,16 @@ struct WaylandWindow
 
   Buffer message_buffer;     // NOTE: underlying storage for messages (ie dest of recv())
   Buffer frame_event_buffer; // NOTE: view into message_buffer
+
+  B32 events_polled_this_frame;
+
   U64 frame_index;
-  U64 event_frame_index;     // NOTE: index of last frame events were polled
 
   S32 width;
   S32 height;
 };
 
+// TODO: make an easier to use abstraction for the kind of events a user wants to respond to
 typedef struct WaylandEvent
 {
   U32 object_id;
@@ -56,73 +59,24 @@ typedef struct WaylandEvent
   Buffer body;
 } WaylandEvent;
 
-typedef enum WaylandInitialization
-{
-  WaylandInit_none,
-  WaylandInit_acked,
-  WaylandInit_attached,
-} WaylandInitialization;
-
 typedef struct WaylandState
 {
   int display_socket_handle;
-#if 1
+
   Arena *arena;
   
   WaylandWindow *first_window;
   WaylandWindow *last_window;
   
   String8List error_list;
-#else
-  int shared_memory_handle;
-
-  void *shared_memory;
-
-  WaylandInitialization init_state;
-
-  U32 wl_display_id;
-  U32 wl_registry_id;
-  U32 wl_shm_id;  
-  U32 wl_compositor_id;
-  U32 xdg_wm_base_id;
-  U32 wl_surface_id;
-  U32 xdg_surface_id;
-  U32 xdg_toplevel_id;
-  U32 wl_shm_pool_id;
-  U32 wl_buffer_id;
-
-  // NOTE: required by generated functions but unused    
-  U32 wl_data_offer_id;
-  U32 wl_data_source_id;
-  U32 wl_data_device_id;
-  U32 wl_data_device_manager_id;
-  U32 wl_shell_id;
-  U32 wl_shell_surface_id;  
-  U32 wl_seat_id;
-  U32 wl_pointer_id;
-  U32 wl_keyboard_id;
-  U32 wl_touch_id;
-  U32 wl_output_id;
-  U32 wl_region_id;
-  U32 wl_subcompositor_id;
-  U32 wl_subsurface_id;
-
-  U32 xdg_positioner_id;  
-  U32 xdg_popup_id;
-  /* Arena *id_table_arena; */
-  /* WaylandIdBucket **id_table; */
-  /* U64 id_table_count; */
-#endif
 } WaylandState;
 
 global WaylandState wayland_state;
-//global U32 wayland_current_id = 1;
 
 #define WAYLAND_MAX_CLIENT_OBJECT_ID 0xFEFFFFFF
 
 // NOTE: functions
 proc WaylandHashKey wayland_hash(String8 s);
-//proc U32 *wayland_interface_object_id_from_name(String8 name);
 
 proc U32 wayland_new_id(WaylandWindow *window);
 
@@ -133,9 +87,6 @@ proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);
 
 proc Buffer wayland_poll_events(WaylandWindow *window);
-//proc void wayland_handle_messages(WaylandWindow *window, Buffer *buffer);
-//proc B32 wayland_registry_bind(U32 name, String8 interface, U32 version, U32 new_id);
-proc B32 wayland_events_polled_this_frame(WaylandWindow *window);
 
 proc void wayland_log_error_(char *fmt, ...);
 #define wayland_log_error(message, ...) wayland_log_error_("ERROR(%s, %u): "message, __FUNCTION__, __LINE__, __VA_ARGS__)
