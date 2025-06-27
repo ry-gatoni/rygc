@@ -20,7 +20,7 @@ mkdir -p ../build
 pushd ../build > /dev/null
 
 clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
-clang $CFLAGS $SRC/wayland_window_test.c -o wayland_window_test
+clang $CFLAGS $SRC/wayland_window_test.c -lxkbcommon -o wayland_window_test
 
 popd > /dev/null # ./build -> ./src
 

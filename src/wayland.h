@@ -1,3 +1,5 @@
+#include <xkbcommon/xkbcommon.h>
+
 #pragma pack(push, 1)
 typedef struct WaylandMessageHeader
 {
@@ -75,6 +77,10 @@ typedef struct WaylandState
   WaylandWindow *last_window;
   
   String8List error_list;
+
+  struct xkb_context *xkb_context;
+  struct xkb_keymap *xkb_keymap;
+  struct xkb_state *xkb_state;
 } WaylandState;
 
 global WaylandState wayland_state;
@@ -88,6 +94,7 @@ proc U32 wayland_new_id(WaylandWindow *window);
 
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(WaylandWindow *window);
+proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);

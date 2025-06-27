@@ -75,6 +75,7 @@ wayland_init(void)
   B32 result = wayland_display_connect();
   if(result){
     wayland_state.arena = arena_alloc();
+    wayland_state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);    
   }
 
   return(result);
@@ -96,6 +97,62 @@ wayland_display_get_registry(WaylandWindow *window)
     window->wl_registry_id = registry_id;
   }
   
+  return(result);
+}
+
+proc B32
+wayland_initialize_input(WaylandWindow *window)
+{
+  B32 result = 1;
+  U32 keyboard_id = wayland_new_id(window);
+  if(wl_seat_get_keyboard(window->wl_seat_id, keyboard_id)) {
+    window->wl_keyboard_id = keyboard_id;
+  } else {
+    result = 0;
+  }
+
+  U32 pointer_id = wayland_new_id(window);
+  if(wl_seat_get_pointer(window->wl_seat_id, pointer_id)) {
+    window->wl_pointer_id = pointer_id;
+  } else {
+    result = 0;
+  }
+
+  Buffer events = wayland_poll_events(window);
+  while(events.size) {
+    WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
+    U32 object_id = event_header->object_id;
+    U32 opcode = event_header->opcode;
+    U32 message_size = event_header->message_size;
+    U32 *event_body = (U32 *)(event_header + 1);
+    if(object_id == window->wl_keyboard_id &&
+       opcode == wl_keyboard_keymap_opcode) {
+      U32 format = event_body[0];
+      U32 size = event_body[1];      
+      fprintf(stderr, "%s (size=%u)\n", format ? "got xkb keymap" : "no keymap", size);
+      // TODO: how to get fd?
+      /* if(format) { */
+      /* 	window->keymap_shm = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0); */
+      /* 	window->xkb_keymap = xkb_keymap_new_from_string(wayland_state.xkb_context, */
+      /* 							(char *)window->keymap_shm, */
+      /* 							XKB_KEYMAP_FORMAT_TEXT_V1, */
+      /* 							XKB_KEYMAP_COMPILE_NO_FLAGS); */
+      /* 	window->xkb_state = xkb_state_new(wayland_state.xkb_keymap); */
+      /* } else { */
+      /* 	result = 0; */
+      /* 	break; */
+      /* } */
+    }
+    // TODO: keyboard repeat info
+    else {
+      // TODO: better logging
+      fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+    }
+
+    events.mem += message_size;
+    events.size -= message_size;
+  }
+
   return(result);
 }
 
@@ -314,17 +371,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	  {
 	    U32 seat_id = wayland_new_id(window);
 	    if(wl_registry_bind(window->wl_registry_id, name, wl_seat_str, version, seat_id)) {
-	      window->wl_seat_id = seat_id;
-
-	      U32 keyboard_id = wayland_new_id(window);
-	      if(wl_seat_get_keyboard(window->wl_seat_id, keyboard_id)) {
-		window->wl_keyboard_id = keyboard_id;
-	      }
-
-	      U32 pointer_id = wayland_new_id(window);
-	      if(wl_seat_get_pointer(window->wl_seat_id, pointer_id)) {
-		window->wl_pointer_id = pointer_id;
-	      }
+	      window->wl_seat_id = seat_id;	      
 	    }
 	  }
       }
@@ -337,68 +384,70 @@ wayland_open_window(String8 title, S32 width, S32 height)
       events.size -= message_size;
     }
 
-    if(wayland_create_surface(window, title)) {
-      B32 acked_configure = 0;
-      while(!acked_configure) {
-	events = wayland_poll_events(window);
-	while(events.size) {
-	  WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
-	  U32 object_id = event_header->object_id;
-	  U32 opcode = event_header->opcode;
-	  U32 message_size = event_header->message_size;
-	  U32 *event_body = (U32 *)(event_header + 1);
+    if(wayland_initialize_input(window)) {
+      if(wayland_create_surface(window, title)) {
+	B32 acked_configure = 0;
+	while(!acked_configure) {
+	  events = wayland_poll_events(window);
+	  while(events.size) {
+	    WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
+	    U32 object_id = event_header->object_id;
+	    U32 opcode = event_header->opcode;
+	    U32 message_size = event_header->message_size;
+	    U32 *event_body = (U32 *)(event_header + 1);
 
-	  if(object_id == window->xdg_wm_base_id &&
-	     opcode == xdg_wm_base_ping_opcode) {
-	    U32 serial = event_body[0];
-	    xdg_wm_base_pong(window->xdg_wm_base_id, serial);
-	  }
-	  else if(object_id == window->xdg_surface_id &&
-		  opcode == xdg_surface_configure_opcode) {
-	    U32 serial = event_body[0];
-	    if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
-	      acked_configure = 1;
+	    if(object_id == window->xdg_wm_base_id &&
+	       opcode == xdg_wm_base_ping_opcode) {
+	      U32 serial = event_body[0];
+	      xdg_wm_base_pong(window->xdg_wm_base_id, serial);
 	    }
-	  }
-	  else if(object_id == window->wl_display_id &&
-		  opcode == wl_display_error_opcode) {
-	    U32 error_object_id = event_body[0];
-	    U32 error_code = event_body[1];
-	    U32 error_string_count = event_body[2];
-	    U8 *error_string = (U8 *)(event_body + 3);
-	    // TODO: better logging
-	    fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-		    error_object_id, error_code, (int)error_string_count, error_string);
-	  }
-	  else {
-	    // TODO: better logging
-	    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
-	  }
+	    else if(object_id == window->xdg_surface_id &&
+		    opcode == xdg_surface_configure_opcode) {
+	      U32 serial = event_body[0];
+	      if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
+		acked_configure = 1;
+	      }
+	    }
+	    else if(object_id == window->wl_display_id &&
+		    opcode == wl_display_error_opcode) {
+	      U32 error_object_id = event_body[0];
+	      U32 error_code = event_body[1];
+	      U32 error_string_count = event_body[2];
+	      U8 *error_string = (U8 *)(event_body + 3);
+	      // TODO: better logging
+	      fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+		      error_object_id, error_code, (int)error_string_count, error_string);
+	    }
+	    else {
+	      // TODO: better logging
+	      fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+	    }
 
-	  events.mem += message_size;
-	  events.size -= message_size;
+	    events.mem += message_size;
+	    events.size -= message_size;
+	  }
 	}
-      }
 	
-      U64 shared_memory_size = width*height*sizeof(U32)*2;
-      if(wayland_allocate_shared_memory(window, shared_memory_size)) {
-	if(wayland_create_buffers(window, width, height)) {
-	  // NOTE: initialization successful
-	  SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
+	U64 shared_memory_size = width*height*sizeof(U32)*2;
+	if(wayland_allocate_shared_memory(window, shared_memory_size)) {
+	  if(wayland_create_buffers(window, width, height)) {
+	    // NOTE: initialization successful
+	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
+	  } else {
+	    // NOTE: buffer creation failure
+	    arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
+	    window = 0;
+	  }
 	} else {
-	  // NOTE: buffer creation failure
+	  // NOTE: shared memory allocation failure
 	  arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	  window = 0;
 	}
       } else {
-	// NOTE: shared memory allocation failure
+	// NOTE: surface creation failure
 	arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	window = 0;
       }
-    } else {
-      // NOTE: surface creation failure
-      arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
-      window = 0;
     }
   } else {
     // NOTE: registry creation failure
