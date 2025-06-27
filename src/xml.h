@@ -34,9 +34,7 @@ typedef struct ParsedXml
 
 typedef struct XmlParseContext
 {
-  U8 *at;
-  U64 count;
-  U64 len;
+  Buffer buffer;
 
   XmlNode *current_parent;
   ParsedXml *dest;
@@ -51,9 +49,10 @@ typedef struct XmlIterator
 
 // NOTE: parse utility functions
 proc XmlParseContext xml_parse_init(String8 s, ParsedXml *dest);
-proc B32 xml_parse_is_valid(XmlParseContext ctxt);
+proc B32 xml_parse_is_valid(XmlParseContext *ctxt);
 proc void xml_parse_advance(XmlParseContext *ctxt);
 proc void xml_parse_advance_count(XmlParseContext *ctxt, U64 count);
+proc U8 xml_parse_read_byte(XmlParseContext *ctxt);
 proc void xml_parse_eat_whitespace(XmlParseContext *ctxt);
 proc B32 xml_parse_expect_char(XmlParseContext *ctxt, char c);
 proc B32 xml_parse_expect_str(XmlParseContext *ctxt, String8 s);

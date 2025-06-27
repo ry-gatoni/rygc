@@ -150,6 +150,7 @@ main(int argc, char **argv)
 	      fprintf(stderr, "**acked ping**\n");
 	    }
 	  }
+	  // NOTE: mouse events
 	  else if(event.object_id == window->wl_pointer_id &&
 		  event.opcode == wl_pointer_motion_opcode) {
 	    U32 time = *(U32 *)event.body.mem;

@@ -11,7 +11,10 @@
 #define Unused(v) (void)(v)
 
 #define Statement(expr) do {expr} while(0)
-#define Glue(a, b) a##b
+#define Stringify_(a) #a
+#define Stringify(a) Stringify_(a)
+#define Glue_(a, b) a##b
+#define Glue(a, b) Glue_(a, b)
 
 #if BUILD_DEBUG == 1
 #  if COMPILER_CLANG || COMPILER_GCC
@@ -21,17 +24,25 @@
 #  else
 #    define Assert(cond) if(!(cond)) *(void *)0
 #  endif
+#  include <sanitizer/asan_interface.h>
+#  define AsanPoison(addr, size)   __asan_poison_memory_region((addr), (size))
+#  define AsanUnpoison(addr, size) __asan_unpoison_memory_region((addr), (size))
 #else
 #  define Assert(cond)
+#  define AsanPoison(addr, size)
+#  define AsanUnpoison(addr, size)
 #endif
-// TODO: implement
-#define StaticAssert(cond, var)
+
+#define StaticAssert(cond, var) typedef U8 Glue(var, __LINE__) [(cond)?1:-1]
 
 #define Max(a, b) (((a) < (b)) ? (b) : (a))
 #define Min(a, b) (((a) > (b)) ? (b) : (a))
 
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
 #define AlignPow2(n, a) (((n) + (a - 1)) & ~(a - 1))
+
+#define IntFromPtr(p) (U64)((U8 *)(p))
+#define PtrFromInt(n) (void *)((U8 *)0 + (n))
 
 // NOTE: linked-list utils
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))

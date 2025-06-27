@@ -274,26 +274,14 @@ main(int argc, char **argv)
   ParsedXml wayland_protocol = load_and_parse_xml(parse_arena, Str8Lit("../data/xml/wayland.xml"));
   ParsedXml xdg_shell_protocol = load_and_parse_xml(parse_arena, Str8Lit("../data/xml/xdg-shell.xml"));
 
-  print_parsed_xml(wayland_protocol);
-  print_parsed_xml(xdg_shell_protocol);
-  /* String8 wayland_protocol_contents = os_read_entire_file(scratch.arena, Str8Lit("../data/xml/wayland.xml")); */
-  /* printf("wayland protocol xml size: %lu\n", wayland_protocol_contents.count); */
+  //print_parsed_xml(wayland_protocol);
+  //print_parsed_xml(xdg_shell_protocol);
   
-  /* String8 xdg_shell_protocol_contents = os_read_entire_file(scratch.arena, Str8Lit("../data/xml/xdg-shell.xml")); */
-  /* printf("xdg-shell protocol xml size: %lu\n", xdg_shell_protocol_contents.count); */
-  
-  /* ParsedXml wayland_protocol_xml = xml_parse(scratch.arena, wayland_protocol_contents); */
-  /* printf("wayland protocol xml node count: %lu\n", wayland_protocol_xml.node_count); */
-  /* printf("wayland protocol xml protocol node child count: %lu\n", wayland_protocol_xml.root->child_count); */
-
-  /* ParsedXml xdg_shell_protocol_xml = xml_parse(scratch.arena, xdg_shell_protocol_contents); */
-  /* printf("xdg-shell protocol xml node count: %lu\n", xdg_shell_protocol_xml.node_count); */
-  /* printf("xdg-shell protocol xml protocol node child count: %lu\n", xdg_shell_protocol_xml.root->child_count); */
-
   // NOTE: codegen
   Arena *codegen = arena_alloc();
   generate_code_from_wayland_xml(codegen, wayland_protocol);
-  generate_code_from_wayland_xml(codegen, xdg_shell_protocol);  
+  generate_code_from_wayland_xml(codegen, xdg_shell_protocol);
+  printf("generated code\n");
   
   String8 message_opcodes = str8_join(codegen, &message_opcode_list);
   String8 request_functions = str8_join(codegen, &request_function_list);
@@ -304,7 +292,10 @@ main(int argc, char **argv)
   str8_list_push(codegen, &code_list, request_functions);
   String8 code = str8_join(codegen, &code_list);
 
+  printf("concatenated code\n");
+
   os_write_entire_file(code, Str8Lit("../src/wayland_generated.c"));
+  printf("wrote code to file\n");
 
   return(0);
 }

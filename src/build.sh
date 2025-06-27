@@ -2,9 +2,10 @@
 
 BUILD_DEBUG=1
 
+## TODO: it would be nice to enable -Wconversion, but it produces far too many warnings to be useful
 CFLAGS="-Wall -Wextra -Wshadow -Wno-initializer-overrides -Wno-unused-function"
 if [[ $BUILD_DEBUG == 1 ]]; then
-    CFLAGS+=" -g"
+    CFLAGS+=" -g -fsanitize=address"
 fi
 CFLAGS+=" -DBUILD_DEBUG=$BUILD_DEBUG"
 if [[ "$OS_TYPE" == "darwin"* ]]; then

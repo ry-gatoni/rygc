@@ -14,6 +14,8 @@ arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 grow
     }
   }
   if(base) {
+    AsanPoison(base, reserve_size);
+    AsanUnpoison(base, ARENA_HEADER_SIZE);
     result = (Arena *)base;
     result->current = result;
     result->prev = 0;
@@ -24,7 +26,6 @@ arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 grow
     result->capacity = reserve_size;
     result->pos = ARENA_HEADER_SIZE;
     result->commit_pos = commit_size;
-    // TODO: address sanitizer memory poisoning
   }  
 
   
@@ -90,8 +91,8 @@ arena_push(Arena *arena, U64 size, U64 alignment)
   Assert(new_pos <= arena->capacity);  
   Assert(new_pos <= arena->commit_pos);
   result = (U8 *)current + aligned_pos;
-  // TODO: address sanitizer unpoison 
   current->pos = new_pos;
+  AsanUnpoison(result, size);
   
   return(result);
 }
@@ -127,8 +128,8 @@ arena_pop_to(Arena *arena, U64 pos)
   arena->current = current;
   U64 new_pos = pos - current->base;
   Assert(new_pos <= current->pos);
+  AsanPoison((U8 *)current + new_pos, current->pos - new_pos);
   current->pos = new_pos;
-  // TODO: address sanitizer poison
 }
 
 proc void
