@@ -237,7 +237,7 @@ wl_registry_bind(U32 wl_registry_id, U32 name, String8 interface, U32 version, U
 
   *arena_push_struct(scratch.arena, U32) = name;
   *arena_push_struct(scratch.arena, U32) = interface.count + 1;
-  arena_push_str8_copy(scratch.arena, interface);
+  arena_push_str8_copy_ex(scratch.arena, interface, 4);
   *arena_push_struct(scratch.arena, U32) = version;
   *arena_push_struct(scratch.arena, U32) = id;
 
@@ -492,7 +492,7 @@ wl_data_offer_accept(U32 wl_data_offer_id, U32 serial, String8 mime_type)
 
   *arena_push_struct(scratch.arena, U32) = serial;
   *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy(scratch.arena, mime_type);
+  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -519,7 +519,7 @@ wl_data_offer_receive(U32 wl_data_offer_id, String8 mime_type, int fd)
   message_header->opcode = wl_data_offer_receive_opcode;
 
   *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy(scratch.arena, mime_type);
+  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -637,7 +637,7 @@ wl_data_source_offer(U32 wl_data_source_id, String8 mime_type)
   message_header->opcode = wl_data_source_offer_opcode;
 
   *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy(scratch.arena, mime_type);
+  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -1096,7 +1096,7 @@ wl_shell_surface_set_title(U32 wl_shell_surface_id, String8 title)
   message_header->opcode = wl_shell_surface_set_title_opcode;
 
   *arena_push_struct(scratch.arena, U32) = title.count + 1;
-  arena_push_str8_copy(scratch.arena, title);
+  arena_push_str8_copy_ex(scratch.arena, title, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -1123,7 +1123,7 @@ wl_shell_surface_set_class(U32 wl_shell_surface_id, String8 class_)
   message_header->opcode = wl_shell_surface_set_class_opcode;
 
   *arena_push_struct(scratch.arena, U32) = class_.count + 1;
-  arena_push_str8_copy(scratch.arena, class_);
+  arena_push_str8_copy_ex(scratch.arena, class_, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -2518,7 +2518,7 @@ xdg_toplevel_set_title(U32 xdg_toplevel_id, String8 title)
   message_header->opcode = xdg_toplevel_set_title_opcode;
 
   *arena_push_struct(scratch.arena, U32) = title.count + 1;
-  arena_push_str8_copy(scratch.arena, title);
+  arena_push_str8_copy_ex(scratch.arena, title, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;
@@ -2545,7 +2545,7 @@ xdg_toplevel_set_app_id(U32 xdg_toplevel_id, String8 app_id)
   message_header->opcode = xdg_toplevel_set_app_id_opcode;
 
   *arena_push_struct(scratch.arena, U32) = app_id.count + 1;
-  arena_push_str8_copy(scratch.arena, app_id);
+  arena_push_str8_copy_ex(scratch.arena, app_id, 4);
 
   U64 message_end_pos = arena_pos(scratch.arena);
   U32 message_size = message_end_pos - message_start_pos;

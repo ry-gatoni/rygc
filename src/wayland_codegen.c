@@ -149,9 +149,6 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);\n"));
-	    /* str8_list_push_f(codegen_arena, &request_function_list, */
-	    /* 		     "  message_header->object_id = wayland_state.%.*s_id;\n", */
-	    /* 		     (int)interface_name.count, interface_name.string); */
 	    str8_list_push_f(codegen_arena, &request_function_list,
 			     "  message_header->object_id = %.*s_id;\n",
 			     (int)interface_name.count, interface_name.string);
@@ -187,7 +184,7 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 				 "  *arena_push_struct(scratch.arena, U32) = %.*s.count + 1;\n",
 				 (int)arg_name.count, arg_name.string);
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  arena_push_str8_copy(scratch.arena, %.*s);\n",
+				 "  arena_push_str8_copy_ex(scratch.arena, %.*s, 4);\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("int"))) {
@@ -219,7 +216,6 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			     Str8Lit("  cmsg->cmsg_type = SCM_RIGHTS;\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  cmsg->cmsg_len = buffer_len;\n\n"));
-	      // TODO: how to get particular handle here???
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  *((int *)CMSG_DATA(cmsg)) = fd;\n"));
 	      str8_list_push(codegen_arena, &request_function_list,

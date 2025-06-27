@@ -35,7 +35,8 @@ typedef struct String8List
 
 proc String8 str8_push_f(Arena *arena, char *fmt, ...);
 proc String8 str8_push_fv(Arena *arena, char *fmt, va_list args);
-proc String8 arena_push_str8_copy(Arena *arena, String8 string);
+proc String8 arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alignment);
+#define arena_push_str8_copy(arena, string) arena_push_str8_copy_ex(arena, string, 0)
 
 proc B32 str8s_are_equal(String8 s1, String8 s2);
 proc String8 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep);

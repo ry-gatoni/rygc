@@ -43,11 +43,20 @@ str8_push_fv(Arena *arena, char *fmt, va_list args)
   return(result);
 }
 
+// NOTE: for situations where we need to push variable length strings onto a buffer, whose starting addresses require
+//       a particular alignment, and each byte of this buffer will be read downstream by something we have no control
+//       over (eg when we send certain requests to a wayland display server), we need to account for the padding
+//       bytes in the allocation here, so that the later read will not trip the address sanitizer.
+//       There is probably a more robust way of solving this problem, but this way is really easy.
 proc String8
-arena_push_str8_copy(Arena *arena, String8 string)
+arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alignment)
 {
   String8 result = {0};
-  result.string = arena_push_array_z(arena, U8, string.count + 1);
+  U64 push_size = string.count + 1; // NOTE: null-termination
+  if(next_alignment) {
+    push_size = AlignPow2(push_size, next_alignment);
+  }
+  result.string = arena_push_array_z(arena, U8, push_size);
   result.count = string.count;
   CopySize(result.string, string.string, string.count);
 
