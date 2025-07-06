@@ -45,9 +45,15 @@ struct WaylandWindow
 
   U32 next_id;
 
-  int shared_memory_handle;
+  //int shared_memory_handle;
   void *shared_memory;
+  U64 shared_memory_size;
 
+  void *keymap_shm;
+  U64 keymap_shm_size;
+  struct xkb_keymap *xkb_keymap;
+  struct xkb_state *xkb_state;
+  
   Buffer message_buffer;     // NOTE: underlying storage for messages (ie dest of recv())
   Buffer frame_event_buffer; // NOTE: view into message_buffer
 
@@ -78,9 +84,7 @@ typedef struct WaylandState
   
   String8List error_list;
 
-  struct xkb_context *xkb_context;
-  struct xkb_keymap *xkb_keymap;
-  struct xkb_state *xkb_state;
+  struct xkb_context *xkb_context;  
 } WaylandState;
 
 global WaylandState wayland_state;
@@ -109,3 +113,4 @@ proc B32 wayland_init(void);
 proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height);
 proc B32 wayland_get_event(WaylandWindow *window, WaylandEvent *event);
 proc B32 wayland_swap_buffers(WaylandWindow *window);
+proc void wayland_close_window(WaylandWindow *window);

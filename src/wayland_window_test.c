@@ -150,6 +150,11 @@ main(int argc, char **argv)
 	      fprintf(stderr, "**acked ping**\n");
 	    }
 	  }
+	  else if(event.object_id == window->xdg_toplevel_id &&
+		  event.opcode == xdg_toplevel_close_opcode) {
+	    fprintf(stderr, "closing window...\n");
+	    running = 0;
+	  }
 	  // NOTE: mouse events
 	  else if(event.object_id == window->wl_pointer_id &&
 		  event.opcode == wl_pointer_motion_opcode) {
@@ -200,6 +205,8 @@ main(int argc, char **argv)
 	// TODO: better frame-rate wait
 	usleep(33333);
       }
+
+      wayland_close_window(window);
     }
   }
 

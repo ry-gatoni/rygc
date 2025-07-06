@@ -1,3 +1,10 @@
+/** TODO:
+ * better frame-rate sync (wl_surface_frame request)
+ * finish keyboard setup
+ * better interface for querying and responding to events (more code generation?)
+ * hardware rendering via linux-dmabuf and egl
+ */
+
 #include "wayland_generated.c"
 
 proc WaylandHashKey
@@ -118,41 +125,69 @@ wayland_initialize_input(WaylandWindow *window)
     result = 0;
   }
 
-  Buffer events = wayland_poll_events(window);
-  while(events.size) {
-    WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
-    U32 object_id = event_header->object_id;
-    U32 opcode = event_header->opcode;
-    U32 message_size = event_header->message_size;
-    U32 *event_body = (U32 *)(event_header + 1);
-    if(object_id == window->wl_keyboard_id &&
-       opcode == wl_keyboard_keymap_opcode) {
-      U32 format = event_body[0];
-      U32 size = event_body[1];      
-      fprintf(stderr, "%s (size=%u)\n", format ? "got xkb keymap" : "no keymap", size);
-      // TODO: how to get fd?
-      /* if(format) { */
-      /* 	window->keymap_shm = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0); */
-      /* 	window->xkb_keymap = xkb_keymap_new_from_string(wayland_state.xkb_context, */
-      /* 							(char *)window->keymap_shm, */
-      /* 							XKB_KEYMAP_FORMAT_TEXT_V1, */
-      /* 							XKB_KEYMAP_COMPILE_NO_FLAGS); */
-      /* 	window->xkb_state = xkb_state_new(wayland_state.xkb_keymap); */
-      /* } else { */
-      /* 	result = 0; */
-      /* 	break; */
-      /* } */
+  //Buffer events = wayland_poll_events(window);
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+  U64 data_buffer_size = 256;
+  U64 control_buffer_size = 256;
+  U8 *data_buffer = arena_push_array(scratch.arena, U8, data_buffer_size);
+  U8 *control_buffer = arena_push_array(scratch.arena, U8, control_buffer_size);
+
+  struct iovec io = {.iov_base = data_buffer, .iov_len = data_buffer_size};
+  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1,
+			      .msg_control = control_buffer, .msg_controllen = control_buffer_size};
+  int bytes_received = recvmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+  if(bytes_received != -1) {    
+    // NOTE: process regular data
+    U32 keymap_format = 0;
+    U32 keymap_size = 0;
+    U32 bytes_remaining = bytes_received;
+    while(bytes_remaining) {
+      WaylandMessageHeader *event_header = (WaylandMessageHeader *)data_buffer;
+      U32 object_id = event_header->object_id;
+      U32 opcode = event_header->opcode;
+      U32 message_size = event_header->message_size;
+      Assert(message_size < data_buffer_size);
+      U32 *event_body = (U32 *)(event_header + 1);
+
+      // TODO: handle keyboard repeat info event
+      if(object_id == window->wl_keyboard_id &&
+	 opcode == wl_keyboard_keymap_opcode) {
+	keymap_format = event_body[0];
+	keymap_size = event_body[1];
+	fprintf(stderr, "%s (size=%u)\n", keymap_format ? "got xkb keymap" : "no keymap", keymap_size);
+      } else {
+	fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+      }
+
+      bytes_remaining -= message_size;
+      data_buffer += message_size;
     }
-    // TODO: keyboard repeat info
-    else {
-      // TODO: better logging
-      fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+    
+    // NOTE: process ancillary data
+    int keymap_fd = -1;
+    for(struct cmsghdr *cmsg =  CMSG_FIRSTHDR(&socket_msg); cmsg; cmsg = CMSG_NXTHDR(&socket_msg, cmsg)) {
+      if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+	keymap_fd = *(int *)CMSG_DATA(cmsg);
+      }
     }
 
-    events.mem += message_size;
-    events.size -= message_size;
+    if(keymap_fd != -1 && keymap_format) {
+      window->keymap_shm = mmap(0, keymap_size, PROT_READ, MAP_SHARED, keymap_fd, 0);
+      window->keymap_shm_size = keymap_size;
+      window->xkb_keymap = xkb_keymap_new_from_string(wayland_state.xkb_context,
+						      (char *)window->keymap_shm,
+						      XKB_KEYMAP_FORMAT_TEXT_V1,
+						      XKB_KEYMAP_COMPILE_NO_FLAGS);
+      window->xkb_state = xkb_state_new(window->xkb_keymap);
+      close(keymap_fd);
+    } else {
+      // TODO: log failed to get keymap file descriptor (or no xkb format)
+    }
+  } else {
+    // TODO: log recvmsg failed
   }
 
+  arena_release_scratch(scratch);
   return(result);
 }
 
@@ -218,12 +253,14 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
       if(ftruncate_result != -1) {
 	void *shared_memory = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_memory_handle, 0);
 	if(shared_memory) {
-	  window->shared_memory_handle = shared_memory_handle;
+	  //window->shared_memory_handle = shared_memory_handle;
 	  window->shared_memory = shared_memory;
+	  window->shared_memory_size = size;
 
 	  U32 wl_shm_pool_id = wayland_new_id(window);
-	  if(wl_shm_create_pool(window->wl_shm_id, wl_shm_pool_id, window->shared_memory_handle, size)) {
+	  if(wl_shm_create_pool(window->wl_shm_id, wl_shm_pool_id, shared_memory_handle, size)) {
 	    window->wl_shm_pool_id = wl_shm_pool_id;
+	    close(shared_memory_handle);
 	  } else {
 	    // NOTE: create pool failed
 	    result = 0;
@@ -503,4 +540,21 @@ wayland_swap_buffers(WaylandWindow *window)
   }
 
   return(result);
+}
+
+proc void
+wayland_close_window(WaylandWindow *window)
+{
+  wl_buffer_destroy(window->wl_buffer_id);
+  wl_shm_pool_destroy(window->wl_shm_pool_id);  
+  xdg_toplevel_destroy(window->xdg_toplevel_id);  
+  xdg_surface_destroy(window->xdg_surface_id);  
+  wl_surface_destroy(window->wl_surface_id); 
+  xdg_wm_base_destroy(window->xdg_wm_base_id);
+
+  munmap(window->shared_memory, window->shared_memory_size);
+  munmap(window->keymap_shm, window->keymap_shm_size);
+
+  xkb_keymap_unref(window->xkb_keymap);
+  xkb_state_unref(window->xkb_state);
 }
