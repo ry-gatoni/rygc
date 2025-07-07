@@ -36,6 +36,8 @@ typedef struct AppState
 
   R32 box_vx;
   R32 box_vy;
+
+  B32 running;
 } AppState;
 
 proc U32
@@ -51,38 +53,44 @@ colorU32_from_rgba(U8 r, U8 g, U8 b, U8 a)
 
 proc void
 update_and_render(U32 *pixels, AppState *app_state)
-{  
-  // NOTE: handle colisions
-  if(app_state->box_vx < 0) {
-    if(app_state->box_posx + app_state->box_vx < 0) {
-      app_state->box_vx = -app_state->box_vx;
+{
+  if(app_state->running) {
+    // NOTE: handle colisions
+    if(app_state->box_vx < 0) {
+      if(app_state->box_posx + app_state->box_vx < 0) {
+	app_state->box_vx = -app_state->box_vx;
+      }
     }
-  }
-  else {
-    if(app_state->box_posx + app_state->box_width + app_state->box_vx > app_state->window_width) {
-      app_state->box_vx = -app_state->box_vx;
+    else {
+      if(app_state->box_posx + app_state->box_width + app_state->box_vx > app_state->window_width) {
+	app_state->box_vx = -app_state->box_vx;
+      }
     }
-  }
 
-  if(app_state->box_vy < 0) {
-    if(app_state->box_posy + app_state->box_vy < 0) {
-      app_state->box_vy = -app_state->box_vy;
+    if(app_state->box_vy < 0) {
+      if(app_state->box_posy + app_state->box_vy < 0) {
+	app_state->box_vy = -app_state->box_vy;
+      }
     }
-  }
-  else {
-    if(app_state->box_posy + app_state->box_height + app_state->box_vy > app_state->window_height) {
-      app_state->box_vy = -app_state->box_vy;
+    else {
+      if(app_state->box_posy + app_state->box_height + app_state->box_vy > app_state->window_height) {
+	app_state->box_vy = -app_state->box_vy;
+      }
     }
-  }
 
-  // NOTE: if mouse is in box, change its color
-  if(app_state->mouse_x >= app_state->box_posx &&
-     app_state->mouse_x <= app_state->box_posx + app_state->box_width &&
-     app_state->mouse_y >= app_state->box_posy &&
-     app_state->mouse_y <= app_state->box_posy + app_state->box_height) {
-    app_state->box_color_index = !app_state->box_color_index;
-  }
+    // NOTE: if mouse is in box, change its color
+    if(app_state->mouse_x >= app_state->box_posx &&
+       app_state->mouse_x <= app_state->box_posx + app_state->box_width &&
+       app_state->mouse_y >= app_state->box_posy &&
+       app_state->mouse_y <= app_state->box_posy + app_state->box_height) {
+      app_state->box_color_index = !app_state->box_color_index;
+    }  
 
+    // NOTE: update state
+    app_state->box_posx += app_state->box_vx;
+    app_state->box_posy += app_state->box_vy;
+  }
+  
   // NOTE: render state
   U32 box_color = app_state->box_colors[app_state->box_color_index];
   U32 background_color = app_state->background_color;
@@ -101,10 +109,6 @@ update_and_render(U32 *pixels, AppState *app_state)
 
     row += app_state->window_stride;
   }
-
-  // NOTE: update state
-  app_state->box_posx += app_state->box_vx;
-  app_state->box_posy += app_state->box_vy;
 }
 
 int
@@ -128,6 +132,8 @@ main(int argc, char **argv)
       app_state.window_width = window->width;
       app_state.window_height = window->height;
       app_state.window_stride = app_state.window_width*sizeof(U32);
+      app_state.running = 1;
+
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {
@@ -193,7 +199,13 @@ main(int argc, char **argv)
 	      xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->xkb_state, keycode);
 	      U64 key_name_buffer_size = 128;
 	      U8 *key_name_buffer = arena_push_array_z(frame_arena, U8, 128);
-	      xkb_keysym_get_name(keysym, (char *)key_name_buffer, key_name_buffer_size);
+	      int key_name_length = xkb_keysym_get_name(keysym, (char *)key_name_buffer, key_name_buffer_size);
+	      String8 key_name = {.string = key_name_buffer, .count = key_name_length};
+
+	      if(keysym == XKB_KEY_space && state) {
+		app_state.running = !app_state.running;
+	      }
+
 	      fprintf(stderr, "key event: time=%u, serial=%u, key=%u(%s), state=%s\n",
 		      time, serial, key, (char *)key_name_buffer, state ? "pressed" : "released");	    
 	    } else {

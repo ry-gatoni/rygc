@@ -1,4 +1,5 @@
 /** TODO:
+ * set window title
  * better frame-rate sync (wl_surface_frame request)
  * finish keyboard setup
  * better interface for querying and responding to events (more code generation?)
