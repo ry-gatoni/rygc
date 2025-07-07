@@ -45,12 +45,9 @@ struct WaylandWindow
 
   U32 next_id;
 
-  //int shared_memory_handle;
   void *shared_memory;
   U64 shared_memory_size;
 
-  void *keymap_shm;
-  U64 keymap_shm_size;
   struct xkb_keymap *xkb_keymap;
   struct xkb_state *xkb_state;
   

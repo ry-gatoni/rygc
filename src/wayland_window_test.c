@@ -129,6 +129,7 @@ main(int argc, char **argv)
       app_state.window_height = window->height;
       app_state.window_stride = app_state.window_width*sizeof(U32);
       B32 running = 1;
+      Arena *frame_arena = arena_alloc();
       while(running) {
 	// NOTE: poll for events
 	WaylandEvent event = {0};
@@ -178,6 +179,27 @@ main(int argc, char **argv)
 	    fprintf(stderr, "mouse click: time=%u, serial=%u, button=%u, state=%s\n",
 		    time, serial, button, state ? "pressed" : "released");
 	  }
+	  // NOTE: keyboard events
+	  else if(event.object_id == window->wl_keyboard_id &&
+		  event.opcode == wl_keyboard_key_opcode) {
+	    U32 *event_body = (U32 *)event.body.mem;
+	    U32 serial = event_body[0];
+	    U32 time = event_body[1];
+	    U32 key = event_body[2];
+	    U32 state = event_body[3];
+
+	    if(window->xkb_state != 0 && window->xkb_keymap != 0) {
+	      U32 keycode = key + 8;
+	      xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->xkb_state, keycode);
+	      U64 key_name_buffer_size = 128;
+	      U8 *key_name_buffer = arena_push_array_z(frame_arena, U8, 128);
+	      xkb_keysym_get_name(keysym, (char *)key_name_buffer, key_name_buffer_size);
+	      fprintf(stderr, "key event: time=%u, serial=%u, key=%u(%s), state=%s\n",
+		      time, serial, key, (char *)key_name_buffer, state ? "pressed" : "released");	    
+	    } else {
+	      fprintf(stderr, "FUCK: where is my xkb???\n");
+	    }
+	  }
 	  // NOTE: errors
 	  else if(event.object_id == window->wl_display_id &&
 		  event.opcode == wl_display_error_opcode) {
@@ -204,6 +226,7 @@ main(int argc, char **argv)
 	}
 	// TODO: better frame-rate wait
 	usleep(33333);
+	arena_clear(frame_arena);
       }
 
       wayland_close_window(window);

@@ -111,6 +111,24 @@ proc B32
 wayland_initialize_input(WaylandWindow *window)
 {
   B32 result = 1;
+
+  // NOTE: events related to global registration
+  // TODO: maybe do something with these? or put them somewhere else?
+  Buffer event_buffer = wayland_poll_events(window);
+  while(event_buffer.size) {
+    WaylandMessageHeader *header = (WaylandMessageHeader *)event_buffer.mem;
+    U32 object_id = header->object_id;
+    U32 opcode = header->opcode;
+    U32 message_size = header->message_size;
+    
+    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+    event_buffer.mem += message_size;
+    event_buffer.size -= message_size;
+  }
+
+  // TODO: It would be more proper to wait until we receive capabilities from
+  //       the seat before we try getting keyboard and mouse. That might also
+  //       prevent us from having to call recvmsg in a loop below
   U32 keyboard_id = wayland_new_id(window);
   if(wl_seat_get_keyboard(window->wl_seat_id, keyboard_id)) {
     window->wl_keyboard_id = keyboard_id;
@@ -125,66 +143,80 @@ wayland_initialize_input(WaylandWindow *window)
     result = 0;
   }
 
-  //Buffer events = wayland_poll_events(window);
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-  U64 data_buffer_size = 256;
-  U64 control_buffer_size = 256;
-  U8 *data_buffer = arena_push_array(scratch.arena, U8, data_buffer_size);
-  U8 *control_buffer = arena_push_array(scratch.arena, U8, control_buffer_size);
+  int keymap_fd = -1;
+  U32 keymap_format = 0;
+  U32 keymap_size = 0;
+  
+  ArenaTemp scratch = arena_get_scratch(0, 0);  
 
-  struct iovec io = {.iov_base = data_buffer, .iov_len = data_buffer_size};
-  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1,
-			      .msg_control = control_buffer, .msg_controllen = control_buffer_size};
-  int bytes_received = recvmsg(wayland_state.display_socket_handle, &socket_msg, 0);
-  if(bytes_received != -1) {    
-    // NOTE: process regular data
-    U32 keymap_format = 0;
-    U32 keymap_size = 0;
-    U32 bytes_remaining = bytes_received;
-    while(bytes_remaining) {
-      WaylandMessageHeader *event_header = (WaylandMessageHeader *)data_buffer;
-      U32 object_id = event_header->object_id;
-      U32 opcode = event_header->opcode;
-      U32 message_size = event_header->message_size;
-      Assert(message_size < data_buffer_size);
-      U32 *event_body = (U32 *)(event_header + 1);
+  while(keymap_fd == -1) {
+    fprintf(stderr, "DEBUG(wayland_initialize_input): attempting to receive keymap file descriptor...\n");
 
-      // TODO: handle keyboard repeat info event
-      if(object_id == window->wl_keyboard_id &&
-	 opcode == wl_keyboard_keymap_opcode) {
-	keymap_format = event_body[0];
-	keymap_size = event_body[1];
-	fprintf(stderr, "%s (size=%u)\n", keymap_format ? "got xkb keymap" : "no keymap", keymap_size);
-      } else {
-	fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+    U64 data_buffer_size = 256;
+    U64 control_buffer_size = 256;
+    U8 *data_buffer = arena_push_array_z(scratch.arena, U8, data_buffer_size);
+    U8 *control_buffer = arena_push_array_z(scratch.arena, U8, control_buffer_size);
+
+    struct iovec io = {.iov_base = data_buffer, .iov_len = data_buffer_size};
+    struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1,
+				.msg_control = control_buffer, .msg_controllen = control_buffer_size};
+  
+    int bytes_received = recvmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+    if(bytes_received != -1) {    
+      // NOTE: process regular data
+      U32 bytes_remaining = bytes_received;
+      while(bytes_remaining) {
+	WaylandMessageHeader *event_header = (WaylandMessageHeader *)data_buffer;
+	U32 object_id = event_header->object_id;
+	U32 opcode = event_header->opcode;
+	U32 message_size = event_header->message_size;
+	Assert(message_size < data_buffer_size);
+	U32 *event_body = (U32 *)(event_header + 1);
+
+	// TODO: handle keyboard repeat info event
+	if(object_id == window->wl_keyboard_id &&
+	   opcode == wl_keyboard_keymap_opcode) {
+	  keymap_format = event_body[0];
+	  keymap_size = event_body[1];
+	  fprintf(stderr, "%s (size=%u)\n", keymap_format ? "got xkb keymap" : "no keymap", keymap_size);
+	} else {
+	  fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+	}
+
+	bytes_remaining -= message_size;
+	data_buffer += message_size;
       }
-
-      bytes_remaining -= message_size;
-      data_buffer += message_size;
-    }
     
-    // NOTE: process ancillary data
-    int keymap_fd = -1;
-    for(struct cmsghdr *cmsg =  CMSG_FIRSTHDR(&socket_msg); cmsg; cmsg = CMSG_NXTHDR(&socket_msg, cmsg)) {
-      if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-	keymap_fd = *(int *)CMSG_DATA(cmsg);
-      }
+      // NOTE: process ancillary data    
+      for(struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg); cmsg; cmsg = CMSG_NXTHDR(&socket_msg, cmsg)) {
+	fprintf(stderr, "DEBUG(wayland_initialize_input): recvmsg ancillary data loop iteration\n");
+	if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+	  fprintf(stderr, "DEBUG(wayland_initialize_input): reading file descriptor\n");
+	  keymap_fd = *(int *)CMSG_DATA(cmsg);
+	}
+      }      
     }
+    else {
+      fprintf(stderr, "ERROR(wayland_initialize_input): recvmsg failed\n");
+    }
+  }
 
-    if(keymap_fd != -1 && keymap_format) {
-      window->keymap_shm = mmap(0, keymap_size, PROT_READ, MAP_SHARED, keymap_fd, 0);
-      window->keymap_shm_size = keymap_size;
+  if(keymap_fd != -1) {
+    if(keymap_format) {
+      char *keymap_shm = mmap(0, keymap_size, PROT_READ, MAP_SHARED, keymap_fd, 0);
       window->xkb_keymap = xkb_keymap_new_from_string(wayland_state.xkb_context,
-						      (char *)window->keymap_shm,
+						      keymap_shm,
 						      XKB_KEYMAP_FORMAT_TEXT_V1,
 						      XKB_KEYMAP_COMPILE_NO_FLAGS);
       window->xkb_state = xkb_state_new(window->xkb_keymap);
+      munmap(keymap_shm, keymap_size);
       close(keymap_fd);
+      fprintf(stderr, "got keymap\n");
     } else {
-      // TODO: log failed to get keymap file descriptor (or no xkb format)
+      fprintf(stderr, "ERROR: no xkb format\n");
     }
   } else {
-    // TODO: log recvmsg failed
+    fprintf(stderr, "ERROR: no xkb keymap file descriptor\n");
   }
 
   arena_release_scratch(scratch);
@@ -552,8 +584,7 @@ wayland_close_window(WaylandWindow *window)
   wl_surface_destroy(window->wl_surface_id); 
   xdg_wm_base_destroy(window->xdg_wm_base_id);
 
-  munmap(window->shared_memory, window->shared_memory_size);
-  munmap(window->keymap_shm, window->keymap_shm_size);
+  munmap(window->shared_memory, window->shared_memory_size);  
 
   xkb_keymap_unref(window->xkb_keymap);
   xkb_state_unref(window->xkb_state);
