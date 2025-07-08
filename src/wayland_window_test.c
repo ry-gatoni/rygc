@@ -20,22 +20,16 @@ typedef struct AppState
   S32 window_height;
   S32 window_stride;
 
-  R32 mouse_x;
-  R32 mouse_y;
+  V2 mouse_pos;
 
-  //U32 box_color;
-  //U32 alt_color;
   U32 box_color_index;
   U32 box_colors[2];
   U32 background_color;
 
-  R32 box_posx;
-  R32 box_posy;
-  R32 box_width;
-  R32 box_height;
+  V2 box_pos;
+  V2 box_dim;
 
-  R32 box_vx;
-  R32 box_vy;
+  V2 box_v;
 
   B32 running;
 } AppState;
@@ -56,39 +50,39 @@ update_and_render(U32 *pixels, AppState *app_state)
 {
   if(app_state->running) {
     // NOTE: handle colisions
-    if(app_state->box_vx < 0) {
-      if(app_state->box_posx + app_state->box_vx < 0) {
-	app_state->box_vx = -app_state->box_vx;
+    if(app_state->box_v.x < 0) {
+      if(app_state->box_pos.x + app_state->box_v.x < 0) {
+	app_state->box_v.x = -app_state->box_v.x;
       }
     }
     else {
-      if(app_state->box_posx + app_state->box_width + app_state->box_vx > app_state->window_width) {
-	app_state->box_vx = -app_state->box_vx;
+      if(app_state->box_pos.x + app_state->box_dim.x + app_state->box_v.x > app_state->window_width) {
+	app_state->box_v.x = -app_state->box_v.x;
       }
     }
 
-    if(app_state->box_vy < 0) {
-      if(app_state->box_posy + app_state->box_vy < 0) {
-	app_state->box_vy = -app_state->box_vy;
+    if(app_state->box_v.y < 0) {
+      if(app_state->box_pos.y + app_state->box_v.y < 0) {
+	app_state->box_v.y = -app_state->box_v.y;
       }
     }
     else {
-      if(app_state->box_posy + app_state->box_height + app_state->box_vy > app_state->window_height) {
-	app_state->box_vy = -app_state->box_vy;
+      if(app_state->box_pos.y + app_state->box_dim.y + app_state->box_v.y > app_state->window_height) {
+	app_state->box_v.y = -app_state->box_v.y;
       }
     }
 
     // NOTE: if mouse is in box, change its color
-    if(app_state->mouse_x >= app_state->box_posx &&
-       app_state->mouse_x <= app_state->box_posx + app_state->box_width &&
-       app_state->mouse_y >= app_state->box_posy &&
-       app_state->mouse_y <= app_state->box_posy + app_state->box_height) {
+    if(app_state->mouse_pos.x >= app_state->box_pos.x &&
+       app_state->mouse_pos.x <= app_state->box_pos.x + app_state->box_dim.x &&
+       app_state->mouse_pos.y >= app_state->box_pos.y &&
+       app_state->mouse_pos.y <= app_state->box_pos.y + app_state->box_dim.y) {
       app_state->box_color_index = !app_state->box_color_index;
     }  
 
     // NOTE: update state
-    app_state->box_posx += app_state->box_vx;
-    app_state->box_posy += app_state->box_vy;
+    app_state->box_pos.x += app_state->box_v.x;
+    app_state->box_pos.y += app_state->box_v.y;
   }
   
   // NOTE: render state
@@ -98,8 +92,8 @@ update_and_render(U32 *pixels, AppState *app_state)
   for(S32 j = 0; j < app_state->window_height; ++j) {
     U32 *pixel = (U32 *)row;
     for(S32 i = 0; i < app_state->window_width; ++i, ++pixel) {
-      if(i >= app_state->box_posx && i <= app_state->box_posx + app_state->box_width &&
-	 j >= app_state->box_posy && j <= app_state->box_posy + app_state->box_height) {
+      if(i >= app_state->box_pos.x && i <= app_state->box_pos.x + app_state->box_dim.x &&
+	 j >= app_state->box_pos.y && j <= app_state->box_pos.y + app_state->box_dim.y) {
 	*pixel = box_color;
       }
       else {
@@ -121,10 +115,8 @@ main(int argc, char **argv)
   app_state.box_colors[0] = colorU32_from_rgba(0xFF, 0, 0, 0xFF);
   app_state.box_colors[1] = colorU32_from_rgba(0, 0xFF, 0, 0xFF);
   app_state.background_color = colorU32_from_rgba(0, 0, 0, 0xFF);
-  app_state.box_width = 50;
-  app_state.box_height = 50;
-  app_state.box_vx = 10;
-  app_state.box_vy = 10;
+  app_state.box_dim = (V2){.x = 50, .y = 50};
+  app_state.box_v = (V2){.x = 10, .y = 10};
 
   if(wayland_init()) {
     WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480);
@@ -138,96 +130,25 @@ main(int argc, char **argv)
       Arena *frame_arena = arena_alloc();
       while(running) {
 	// NOTE: poll for events
-	WaylandEvent event = {0};
-	while(wayland_get_event(window, &event)) {
-	  // TODO: cleanup
-	  // TODO: handle input
-	  // NOTE: acknowledge ping
-	  if(event.object_id == window->xdg_wm_base_id &&
-	     event.opcode == xdg_wm_base_ping_opcode) {
-	    U32 serial = *(U32 *)event.body.mem;
-	    if(xdg_wm_base_pong(window->xdg_wm_base_id, serial)) {
-	      fprintf(stderr, "**acked ping**\n");
-	    }
-	  }
-	  else if(event.object_id == window->xdg_surface_id &&
-	     event.opcode == xdg_surface_configure_opcode) {
-	    U32 serial = *(U32 *)event.body.mem;
-	    if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
-	      fprintf(stderr, "**acked ping**\n");
-	    }
-	  }
-	  else if(event.object_id == window->xdg_toplevel_id &&
-		  event.opcode == xdg_toplevel_close_opcode) {
-	    fprintf(stderr, "closing window...\n");
-	    running = 0;
-	  }
-	  // NOTE: mouse events
-	  else if(event.object_id == window->wl_pointer_id &&
-		  event.opcode == wl_pointer_motion_opcode) {
-	    U32 time = *(U32 *)event.body.mem;
-	    U32 surface_x__fixed = *((U32 *)event.body.mem + 1);
-	    U32 surface_y__fixed = *((U32 *)event.body.mem + 2);
-	    R32 surface_x = (R32)surface_x__fixed / 256.f;
-	    R32 surface_y = (R32)surface_y__fixed / 256.f;
-	    app_state.mouse_x = surface_x;
-	    app_state.mouse_y = surface_y;
-	    /* fprintf(stderr, "mouse motion: time=%u, pos=(%08.4f, %08.4f)\n", */
-	    /* 	    time, surface_x, surface_y); */
-	  }
-	  else if(event.object_id == window->wl_pointer_id &&
-		  event.opcode == wl_pointer_button_opcode) {
-	    U32 *event_body = (U32 *)event.body.mem;
-	    U32 serial = event_body[0];
-	    U32 time = event_body[1];
-	    U32 button = event_body[2];
-	    U32 state = event_body[3];
-	    fprintf(stderr, "mouse click: time=%u, serial=%u, button=%u, state=%s\n",
-		    time, serial, button, state ? "pressed" : "released");
-	  }
-	  // NOTE: keyboard events
-	  else if(event.object_id == window->wl_keyboard_id &&
-		  event.opcode == wl_keyboard_key_opcode) {
-	    U32 *event_body = (U32 *)event.body.mem;
-	    U32 serial = event_body[0];
-	    U32 time = event_body[1];
-	    U32 key = event_body[2];
-	    U32 state = event_body[3];
-
-	    if(window->xkb_state != 0 && window->xkb_keymap != 0) {
-	      U32 keycode = key + 8;
-	      xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->xkb_state, keycode);
-	      U64 key_name_buffer_size = 128;
-	      U8 *key_name_buffer = arena_push_array_z(frame_arena, U8, 128);
-	      int key_name_length = xkb_keysym_get_name(keysym, (char *)key_name_buffer, key_name_buffer_size);
-	      String8 key_name = {.string = key_name_buffer, .count = key_name_length};
-
-	      if(keysym == XKB_KEY_space && state) {
+	EventList events = wayland_get_events(window);
+	Event event = {0};
+	while(next_event(&events, &event)) {
+	  switch(event.kind) {
+	  case EventKind_Close:
+	    {
+	      running = 0;
+	    } break;
+	  case EventKind_Move:
+	    {
+	      app_state.mouse_pos = event.position;
+	    } break;
+	  case EventKind_Press:
+	    {
+	      if(event.button == EventButton_KeySpace) {
 		app_state.running = !app_state.running;
 	      }
-
-	      fprintf(stderr, "key event: time=%u, serial=%u, key=%u(%s), state=%s\n",
-		      time, serial, key, (char *)key_name_buffer, state ? "pressed" : "released");	    
-	    } else {
-	      fprintf(stderr, "FUCK: where is my xkb???\n");
-	    }
-	  }
-	  // NOTE: errors
-	  else if(event.object_id == window->wl_display_id &&
-		  event.opcode == wl_display_error_opcode) {
-	    U32 *event_body = (U32 *)event.body.mem;
-	    U32 error_object_id = event_body[0];
-	    U32 error_code = event_body[1];
-	    U32 error_string_count = event_body[2];
-	    U8 *error_string = (U8 *)(event_body + 3);
-	    // TODO: better logging
-	    fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-		    error_object_id, error_code, (int)error_string_count, error_string);
-	  }
-	  else {
-	    // TODO: better logging
-	    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%lu\n",
-		    event.object_id, event.opcode, event.body.size);
+	    } break;
+	  default: {} break;
 	  }
 	}
 

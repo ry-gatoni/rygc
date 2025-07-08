@@ -1,8 +1,8 @@
 /** TODO:
  * set window title
  * better frame-rate sync (wl_surface_frame request)
- * finish keyboard setup
- * better interface for querying and responding to events (more code generation?)
+ * window resizing
+ * (wip) better interface for querying and responding to events (more code generation?)
  * hardware rendering via linux-dmabuf and egl
  */
 
@@ -24,6 +24,21 @@ wayland_hash(String8 s)
   result.string = s;
 
   return(result);
+}
+
+proc void
+event_list_push_ex(EventList *list, Event event, EventNode *node)
+{
+  node->event = event;
+  SLLQueuePush(list->first, list->last, node);
+  ++list->count;
+}
+
+proc void
+event_list_push(Arena *arena, EventList *list, Event event)
+{
+  EventNode *node = arena_push_struct_z(arena, EventNode);
+  event_list_push_ex(list, event, node);
 }
 
 proc B32
@@ -503,6 +518,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	  if(wayland_create_buffers(window, width, height)) {
 	    // NOTE: initialization successful
 	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
+	    window->event_arena = arena_alloc();
 	  } else {
 	    // NOTE: buffer creation failure
 	    arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
@@ -527,7 +543,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
   
   return(window);
 }
-
+#if 0
 proc B32
 wayland_get_event(WaylandWindow *window, WaylandEvent *event)
 {
@@ -552,6 +568,139 @@ wayland_get_event(WaylandWindow *window, WaylandEvent *event)
 
   return(result);
 }
+#endif
+
+proc EventList
+wayland_get_events(WaylandWindow *window)
+{
+  EventList result = {0};
+  
+  if(!window->events_polled_this_frame) {
+    window->frame_event_buffer = wayland_poll_events(window);
+    window->events_polled_this_frame = 1;
+  }
+
+  while(window->frame_event_buffer.size) {
+    Event event = {0};
+    WaylandMessageHeader *header = (WaylandMessageHeader *)window->frame_event_buffer.mem;
+    U32 object_id = header->object_id;
+    U32 opcode = header->opcode;
+    U32 size = header->message_size;
+
+    U32 *body = (U32 *)(header + 1);
+    // NOTE: acknowledge ping
+    if(object_id == window->xdg_wm_base_id &&
+       opcode == xdg_wm_base_ping_opcode) {
+      U32 serial = body[0];
+      if(xdg_wm_base_pong(window->xdg_wm_base_id, serial)) {
+	fprintf(stderr, "**acked ping**\n");
+      }
+    }
+    else if(object_id == window->xdg_surface_id &&
+	    opcode == xdg_surface_configure_opcode) {
+      U32 serial = body[0];
+      if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
+	fprintf(stderr, "**acked ping**\n");
+      }
+    }
+    else if(object_id == window->xdg_toplevel_id &&
+	    opcode == xdg_toplevel_close_opcode) {
+      event.kind = EventKind_Close;
+      event_list_push(window->event_arena, &result, event);
+    }
+    // NOTE: mouse events
+    else if(object_id == window->wl_pointer_id &&
+	    opcode == wl_pointer_motion_opcode) {
+      U32 time = body[0];
+      U32 surface_x__fixed = body[1];
+      U32 surface_y__fixed = body[2];
+      R32 surface_x = (R32)surface_x__fixed / 256.f;
+      R32 surface_y = (R32)surface_y__fixed / 256.f;
+      Unused(time);
+
+      event.kind = EventKind_Move;
+      event.position = (V2){.x = surface_x, .y = surface_y};
+      event_list_push(window->event_arena, &result, event);
+    }
+    else if(object_id == window->wl_pointer_id &&
+	    opcode == wl_pointer_button_opcode) {
+      U32 serial = body[0];
+      U32 time = body[1];
+      U32 button = body[2];
+      U32 state = body[3];
+      Unused(serial);
+      Unused(time);
+
+      event.kind = state ? EventKind_Press : EventKind_Release;
+      event.button = button; // TODO: this might be wrong
+      event_list_push(window->event_arena, &result, event);
+    }
+    // NOTE: keyboard events
+    else if(object_id == window->wl_keyboard_id &&
+	    opcode == wl_keyboard_key_opcode) {
+      U32 serial = body[0];
+      U32 time = body[1];
+      U32 key = body[2];
+      U32 state = body[3];
+
+      if(window->xkb_state != 0 && window->xkb_keymap != 0) {
+	U32 keycode = key + 8;
+	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->xkb_state, keycode);
+	/* U64 key_name_buffer_size = 128; */
+	/* U8 *key_name_buffer = arena_push_array_z(window->event_arena, U8, 128); */
+	/* int key_name_length = xkb_keysym_get_name(keysym, (char *)key_name_buffer, key_name_buffer_size); */
+	/* String8 key_name = {.string = key_name_buffer, .count = key_name_length}; */
+	Unused(serial);
+	Unused(time);
+
+	event.kind = state ? EventKind_Press : EventKind_Release;
+	event.button = keysym; // TODO: this might be wrong
+	event_list_push(window->event_arena, &result, event);
+
+	/* fprintf(stderr, "key event: time=%u, serial=%u, key=%u(%s), state=%s\n", */
+	/* 	time, serial, key, (char *)key_name_buffer, state ? "pressed" : "released"); */
+      } else {
+	fprintf(stderr, "FUCK: where is my xkb???\n");
+      }
+    }
+    // NOTE: errors
+    else if(object_id == window->wl_display_id &&
+	    opcode == wl_display_error_opcode) {
+      U32 error_object_id = body[0];
+      U32 error_code = body[1];
+      U32 error_string_count = body[2];
+      U8 *error_string = (U8 *)(body + 3);
+      // TODO: better logging
+      fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+	      error_object_id, error_code, (int)error_string_count, error_string);
+    }
+    else {
+      // TODO: better logging
+      fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n",
+	      object_id, opcode, size);
+    }
+	
+    window->frame_event_buffer.size -= size;
+    window->frame_event_buffer.mem  += size;
+  }
+
+  return(result);
+}
+
+proc B32
+next_event(EventList *events, Event *event)
+{
+  B32 result = 0;
+  if(events->count) {
+    *event = events->first->event;
+    SLLQueuePop(events->first, events->last);
+    --events->count;
+      
+    result = 1;
+  } 
+
+  return result;
+}
 
 proc B32
 wayland_swap_buffers(WaylandWindow *window)
@@ -562,6 +711,7 @@ wayland_swap_buffers(WaylandWindow *window)
       if(wl_surface_commit(window->wl_surface_id)) {
 	++window->frame_index;
 	window->events_polled_this_frame = 0;
+	arena_clear(window->event_arena);
       } else {
 	result = 0;
       }

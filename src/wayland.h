@@ -55,6 +55,7 @@ struct WaylandWindow
   Buffer frame_event_buffer; // NOTE: view into message_buffer
 
   B32 events_polled_this_frame;
+  Arena *event_arena;
 
   U64 frame_index;
 
@@ -69,6 +70,51 @@ typedef struct WaylandEvent
   U32 opcode;
   Buffer body;
 } WaylandEvent;
+
+typedef enum EventKind
+{
+  EventKind_null,
+  EventKind_Press,
+  EventKind_Release,
+  EventKind_Move,
+  EventKind_Close,
+  
+  EventKind_Count,
+} EventKind;
+
+typedef enum EventButton
+{
+  EventButton_none = 1,
+  EventButton_MouseLeft = 1,
+  EventButton_MouseMiddle = 2,
+  EventButton_MouseRight = 3,
+  EventButton_KeySpace = XKB_KEY_space,
+  
+  EventButton_Count,
+} EventButton;
+
+typedef struct Event
+{
+  EventKind kind;
+
+  EventButton button;
+  V2 position;
+} Event;
+
+typedef struct EventNode EventNode;
+struct EventNode
+{
+  EventNode *next;
+  EventNode *prev;
+  Event event;
+};
+
+typedef struct EventList
+{
+  EventNode *first;
+  EventNode *last;
+  U64 count;
+} EventList;
 
 typedef struct WaylandState
 {
@@ -102,12 +148,21 @@ proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);
 
 proc Buffer wayland_poll_events(WaylandWindow *window);
 
+// NOTE: these functions don't depend on the wayland protocol or its
+//       implementation, and so should be moved to an implementation-independent
+//       place when the move to a full OS graphics abstraction layer is done
+proc void event_list_push_ex(EventList *list, Event event, EventNode *node);
+proc void event_list_push(Arena *arena, EventList *list, Event event);
+
 proc void wayland_log_error_(char *fmt, ...);
 #define wayland_log_error(message, ...) wayland_log_error_("ERROR(%s, %u): "message, __FUNCTION__, __LINE__, __VA_ARGS__)
 
 // NOTE: user-facing api
 proc B32 wayland_init(void);
 proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height);
-proc B32 wayland_get_event(WaylandWindow *window, WaylandEvent *event);
+
+proc EventList wayland_get_events(WaylandWindow *window);
+proc B32 next_event(EventList *events, Event *event);
+
 proc B32 wayland_swap_buffers(WaylandWindow *window);
 proc void wayland_close_window(WaylandWindow *window);

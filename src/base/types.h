@@ -18,6 +18,11 @@ typedef S64      B64;
 typedef float    R32;
 typedef double   R64;
 
+typedef struct V2
+{
+  R32 x, y;
+} V2;
+
 typedef struct Buffer
 {
   U64 size;

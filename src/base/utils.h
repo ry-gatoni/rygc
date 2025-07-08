@@ -54,6 +54,9 @@
 #define SLLQueuePush_N(f, l, n, next) ((((f)==0) ? ((f)=(l)=(n)) : ((l)->next=n, (l)=(n))), (n)->next=0)
 #define SLLQueuePush(f, l, n) SLLQueuePush_N(f, l, n, next)
 
+#define SLLQueuePop_N(f, l, next) (((f)==(l)) ? ((f)=(l)=0) : ((f)=(f)->next))
+#define SLLQueuePop(f, l) SLLQueuePop_N(f, l, next)
+
 #define DLLPushBack_NP(f, l, n, next, prev) ((((f)==0) ? ((f)=(l)=(n), (n)->prev=0) : ((n)->prev=(l), (l)->next=(n), (l)=(n))), (n)->next=0)
 #define DLLPushBack(f, l, n) DLLPushBack_NP(f, l, n, next, prev)
 
