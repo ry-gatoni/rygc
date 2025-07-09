@@ -23,12 +23,6 @@ typedef struct V2
   R32 x, y;
 } V2;
 
-typedef struct Buffer
-{
-  U64 size;
-  U8 *mem;
-} Buffer;
-
 #define proc static
 #define local static
 #define global static

@@ -159,10 +159,11 @@ main(int argc, char **argv)
 	if(!wayland_swap_buffers(window)) {
 	  Assert(!"FATAL: swap buffers failed");
 	}
-	// TODO: better frame-rate wait
-	usleep(33333);
 	arena_clear(frame_arena);
 
+	// TODO: this is measuring how often the loop to queue a frame is
+	//       called, not the frame rate. If we want to report the actual
+	//       frame rate, we should get it when we poll events
 	U64 frame_end_cycles = cpu_get_cycle_count_fixed();
 	U64 frame_cycles_elapsed = frame_end_cycles - frame_begin_cycles;
 	R32 frame_seconds_elapsed = (R32)frame_cycles_elapsed / (R32)cpu_get_cycle_counter_freq();

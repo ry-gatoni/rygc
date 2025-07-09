@@ -4,3 +4,4 @@
 #include "memory.h"
 #include "intrinsics.h"
 #include "strings.h"
+#include "buffer.h"

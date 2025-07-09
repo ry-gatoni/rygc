@@ -33,8 +33,7 @@ struct WaylandWindow
 {
   WaylandWindow *next;
 
-  Arena *arena; // NOTE: permanent for the duration of the window
-
+  // TODO: some of these ids should live in the global state
   U32 wl_display_id;
   U32 wl_registry_id;
   
@@ -54,20 +53,12 @@ struct WaylandWindow
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
 
-  /* WaylandTempId *id_freelist; */
-
-  /* U32 next_id; */
-
   void *shared_memory;
   U64 shared_memory_size;
 
   struct xkb_keymap *xkb_keymap;
   struct xkb_state *xkb_state;
-  
-  Buffer message_buffer;     // NOTE: underlying storage for messages (ie dest of recv())
-  Buffer frame_event_buffer; // NOTE: view into message_buffer
 
-  B32 events_polled_this_frame;
   Arena *event_arena; // NOTE: cleared each frame
 
   U64 frame_index;
@@ -158,12 +149,13 @@ proc WaylandTempId* wayland_temp_id(void);
 
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(WaylandWindow *window);
+proc B32 wayland_registry_bind_globals(WaylandWindow *window);
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);
 
-proc Buffer wayland_poll_events(WaylandWindow *window);
+proc Buffer wayland_poll_events(Arena *arena);
 
 // NOTE: these functions don't depend on the wayland protocol or its
 //       implementation, and so should be moved to an implementation-independent
