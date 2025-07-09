@@ -13,13 +13,13 @@
 # endif // clang OS
 
 # if defined(__amd64__)
-#  define ARCH_X64 1
+#  define CPU_X64 1
 # elif defined(__i386__)
-#  define ARCH_X86 1
+#  define CPU_X86 1
 # elif defined(__arm__)
-#  define ARCH_ARM 1
+#  define CPU_ARM 1
 # elif defined(__aarch64__)
-#  define ARCH_ARM64 1
+#  define CPU_ARM64 1
 # else
 #  error ERROR: architecture undetected
 # endif // clang architecture
@@ -34,13 +34,13 @@
 # endif // msvc OS
 
 # if defined(_M_AMD64)
-#  define ARCH_X64 1
+#  define CPU_X64 1
 # elif defined(_M_IX86)
-#  define ARCH_X86 1
+#  define CPU_X86 1
 # elif defined(_M_ARM)
-#  define ARCH_ARM 1
+#  define CPU_ARM 1
 # elif defined(_M_ARM64)
-#  define ARCH_ARM64 1
+#  define CPU_ARM64 1
 # else
 #  error ERROR: architecture undetected
 # endif // msvc architecture
@@ -59,13 +59,13 @@
 # endif // gcc OS
 
 # if defined(__amd64__)
-#  define ARCH_X64 1
+#  define CPU_X64 1
 # elif defined(__i386__)
-#  define ARCH_X86 1
+#  define CPU_X86 1
 # elif defined(__arm__)
-#  define ARCH_ARM 1
+#  define CPU_ARM 1
 # elif defined(__aarch64__)
-#  define ARCH_ARM64 1
+#  define CPU_ARM64 1
 # else
 #  error ERROR: architecture undetected
 # endif // gcc architecture
@@ -94,17 +94,17 @@
 # define OS_MAC 0
 #endif
 
-#if !defined(ARCH_X64)
-# define ARCH_X64 0
+#if !defined(CPU_X64)
+# define CPU_X64 0
 #endif
-#if !defined(ARCH_X86)
-# define ARCH_X86 0
+#if !defined(CPU_X86)
+# define CPU_X86 0
 #endif
-#if !defined(ARCH_ARM)
-# define ARCH_ARM 0
+#if !defined(CPU_ARM)
+# define CPU_ARM 0
 #endif
-#if !defined(ARCH_ARM64)
-# define ARCH_ARM64 0
+#if !defined(CPU_ARM64)
+# define CPU_ARM64 0
 #endif
 
 // NOTE: language

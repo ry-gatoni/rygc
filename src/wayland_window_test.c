@@ -129,6 +129,8 @@ main(int argc, char **argv)
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {
+	U64 frame_begin_cycles = cpu_get_cycle_count_fixed();
+
 	// NOTE: poll for events
 	EventList events = wayland_get_events(window);
 	Event event = {0};
@@ -160,6 +162,11 @@ main(int argc, char **argv)
 	// TODO: better frame-rate wait
 	usleep(33333);
 	arena_clear(frame_arena);
+
+	U64 frame_end_cycles = cpu_get_cycle_count_fixed();
+	U64 frame_cycles_elapsed = frame_end_cycles - frame_begin_cycles;
+	R32 frame_seconds_elapsed = (R32)frame_cycles_elapsed / (R32)cpu_get_cycle_counter_freq();
+	fprintf(stderr, "frames per second: %.2f\n", 1.f/frame_seconds_elapsed);
       }
 
       wayland_close_window(window);

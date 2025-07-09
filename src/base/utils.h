@@ -7,6 +7,11 @@
 #define GB(n) (1024ULL * MB(n))
 #define TB(n) (1024ULL * GB(n))
 
+#define Thousand(n) (1000ULL * n)
+#define Million(n)  (1000ULL * Thousand(n))
+#define Billion(n)  (1000ULL * Million(n))
+#define Trillion(n) (1000ULL * Billion(n))
+
 #define ArrayCount(arr) (sizeof((arr))/sizeof(*(arr)))
 #define Unused(v) (void)(v)
 

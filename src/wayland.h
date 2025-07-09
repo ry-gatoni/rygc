@@ -21,10 +21,19 @@ typedef struct WaylandHashKey
   String8 string;
 } WaylandHashKey;
 
+typedef struct WaylandTempId WaylandTempId;
+struct WaylandTempId
+{
+  WaylandTempId *next;
+  U32 id;
+};
+
 typedef struct WaylandWindow WaylandWindow;
 struct WaylandWindow
 {
   WaylandWindow *next;
+
+  Arena *arena; // NOTE: permanent for the duration of the window
 
   U32 wl_display_id;
   U32 wl_registry_id;
@@ -43,7 +52,11 @@ struct WaylandWindow
   U32 wl_shm_pool_id;
   U32 wl_buffer_id;
 
-  U32 next_id;
+  WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
+
+  /* WaylandTempId *id_freelist; */
+
+  /* U32 next_id; */
 
   void *shared_memory;
   U64 shared_memory_size;
@@ -55,7 +68,7 @@ struct WaylandWindow
   Buffer frame_event_buffer; // NOTE: view into message_buffer
 
   B32 events_polled_this_frame;
-  Arena *event_arena;
+  Arena *event_arena; // NOTE: cleared each frame
 
   U64 frame_index;
 
@@ -124,7 +137,10 @@ typedef struct WaylandState
   
   WaylandWindow *first_window;
   WaylandWindow *last_window;
-  
+
+  U32 next_id;
+  WaylandTempId *id_freelist;
+
   String8List error_list;
 
   struct xkb_context *xkb_context;  
@@ -137,7 +153,8 @@ global WaylandState wayland_state;
 // NOTE: functions
 proc WaylandHashKey wayland_hash(String8 s);
 
-proc U32 wayland_new_id(WaylandWindow *window);
+proc U32 wayland_new_id(void);
+proc WaylandTempId* wayland_temp_id(void);
 
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(WaylandWindow *window);

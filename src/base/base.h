@@ -2,4 +2,5 @@
 #include "types.h"
 #include "utils.h"
 #include "memory.h"
+#include "intrinsics.h"
 #include "strings.h"

@@ -2,6 +2,11 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+
+#if CPU_X86 || CPU_X64
+#  include <x86intrin.h>
+#endif
 
 // NOTE: memory
 proc void *
@@ -135,5 +140,44 @@ os_write_entire_file(String8 file, String8 path)
   }    
 
   arena_release_scratch(scratch);
+  return(result);
+}
+
+// NOTE: intrinsics
+proc U64
+cpu_get_cycle_count_fixed(void)
+{
+  U64 result = 0;
+#if CPU_X86 || CPU_X64
+  struct timeval t;
+  gettimeofday(&t, 0);
+  result = Million(1)*t.tv_sec + t.tv_usec;
+#else // TODO: arm
+#  error not implemented for this architecture
+#endif
+  return(result);
+}
+
+proc U64
+cpu_get_cycle_counter_freq(void)
+{
+  U64 result = 0;
+#if CPU_X86 || CPU_X64
+  result = Million(1);
+#else // TODO: arm
+#  error not implemented for this architecture
+#endif
+  return(result);
+}
+
+proc U64
+cpu_get_cycle_count(void)
+{
+  U64 result = 0;
+#if CPU_X86 || CPU_X64
+  result = __rdtsc();    
+#else // TODO: arm
+#  error not implemented for this architecture
+#endif
   return(result);
 }
