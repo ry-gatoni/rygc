@@ -145,10 +145,12 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			   Str8Lit("  B32 result = 1;\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  ArenaTemp scratch = arena_get_scratch(0, 0);\n\n"));
+	    /* str8_list_push(codegen_arena, &request_function_list, */
+	    /* 		   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n")); */
 	    str8_list_push(codegen_arena, &request_function_list,
-			   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n"));
+			   Str8Lit("  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
-			   Str8Lit("  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);\n"));
+			   Str8Lit("  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);\n"));
 	    str8_list_push_f(codegen_arena, &request_function_list,
 			     "  message_header->object_id = %.*s_id;\n",
 			     (int)interface_name.count, interface_name.string);
@@ -171,20 +173,20 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	      
 	      if(str8s_are_equal(arg_type, Str8Lit("U32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *arena_push_struct(scratch.arena, U32) = %.*s;\n",
+				 "  *buf_push_struct(&buf, U32) = %.*s;\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("S32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *arena_push_struct(scratch.arena, S32) = %.*s;\n",
+				 "  *buf_push_struct(&buf, S32) = %.*s;\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("String8"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *arena_push_struct(scratch.arena, U32) = %.*s.count + 1;\n",
+				 "  *buf_push_struct(&buf, U32) = %.*s.count + 1;\n",
 				 (int)arg_name.count, arg_name.string);
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  arena_push_str8_copy_ex(scratch.arena, %.*s, 4);\n",
+				 "  buf_push_str8_copy(&buf, %.*s);\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("int"))) {
@@ -193,19 +195,19 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	    }
 
 	    // NOTE: send message and return
+	    /* str8_list_push(codegen_arena, &request_function_list, */
+	    /* 		   Str8Lit("\n  U64 message_end_pos = arena_pos(scratch.arena);\n")); */
 	    str8_list_push(codegen_arena, &request_function_list,
-			   Str8Lit("\n  U64 message_end_pos = arena_pos(scratch.arena);\n"));
+			   Str8Lit("  U32 message_size = AlignPow2(buf.pos, 4);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
-			   Str8Lit("  U32 message_size = message_end_pos - message_start_pos;\n"));
-	    str8_list_push(codegen_arena, &request_function_list,
-			   Str8Lit("  message_header->message_size = AlignPow2(message_size, 4);\n\n"));
+			   Str8Lit("  message_header->message_size = message_size;\n\n"));
 	    if(passes_fd) {	      
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  U64 buffer_len = CMSG_SPACE(sizeof(fd));\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);\n\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  struct iovec io = {.iov_base = message_header, .iov_len = message_header->message_size};\n"));
+			     Str8Lit("  struct iovec io = {.iov_base = message_header, .iov_len = message_size};\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};\n\n"));
 	      str8_list_push(codegen_arena, &request_function_list,

@@ -1,8 +1,9 @@
 /** TODO:
  * set window title
  * support changing cursor icon
+ * drag to resize
  * pull out common code in initialization event handling functions (or generate it)
- * log errors somewhere besides the console
+ * log messages/errors somewhere besides the console
  * have the global state manage global objects
  * (wip) improve event handling interface
  * hardware rendering via linux-dmabuf and egl
@@ -351,6 +352,10 @@ wayland_create_surface(WaylandWindow *window, String8 title)
       U32 toplevel_id = wayland_new_id();
       if(xdg_surface_get_toplevel(window->xdg_surface_id, toplevel_id)) {
 	window->xdg_toplevel_id = toplevel_id;	
+	
+	if(!xdg_toplevel_set_title(window->xdg_toplevel_id, title)) {
+	  fprintf(stderr, "ERROR: xdg_toplevel_set_title failed\n");
+	}
 
 	if(wl_surface_commit(window->wl_surface_id)) {
 	  // TODO: better logging
@@ -360,11 +365,6 @@ wayland_create_surface(WaylandWindow *window, String8 title)
 	  result = 0;
 	}
 
-	/* if(xdg_toplevel_set_title(window->xdg_toplevel_id, title)) {	   */
-	/* } else { */
-	/*   // NOTE: set title failed */
-	/*   result = 0; */
-	/* } */
       } else {
 	// NOTE: get toplevel failed
 	result = 0;

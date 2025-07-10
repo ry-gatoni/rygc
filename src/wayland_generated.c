@@ -178,16 +178,14 @@ wl_display_sync(U32 wl_display_id, U32 callback)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_display_id;
   message_header->opcode = wl_display_sync_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = callback;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = callback;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -204,16 +202,14 @@ wl_display_get_registry(U32 wl_display_id, U32 registry)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_display_id;
   message_header->opcode = wl_display_get_registry_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = registry;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = registry;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -230,20 +226,18 @@ wl_registry_bind(U32 wl_registry_id, U32 name, String8 interface, U32 version, U
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_registry_id;
   message_header->opcode = wl_registry_bind_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = name;
-  *arena_push_struct(scratch.arena, U32) = interface.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, interface, 4);
-  *arena_push_struct(scratch.arena, U32) = version;
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = name;
+  *buf_push_struct(&buf, U32) = interface.count + 1;
+  buf_push_str8_copy(&buf, interface);
+  *buf_push_struct(&buf, U32) = version;
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -260,16 +254,14 @@ wl_compositor_create_surface(U32 wl_compositor_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_compositor_id;
   message_header->opcode = wl_compositor_create_surface_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -286,16 +278,14 @@ wl_compositor_create_region(U32 wl_compositor_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_compositor_id;
   message_header->opcode = wl_compositor_create_region_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -312,21 +302,19 @@ wl_shm_pool_create_buffer(U32 wl_shm_pool_id, U32 id, S32 offset, S32 width, S32
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shm_pool_id;
   message_header->opcode = wl_shm_pool_create_buffer_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, S32) = offset;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-  *arena_push_struct(scratch.arena, S32) = stride;
-  *arena_push_struct(scratch.arena, U32) = format;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, S32) = offset;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  *buf_push_struct(&buf, S32) = stride;
+  *buf_push_struct(&buf, U32) = format;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -343,15 +331,13 @@ wl_shm_pool_destroy(U32 wl_shm_pool_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shm_pool_id;
   message_header->opcode = wl_shm_pool_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -368,16 +354,14 @@ wl_shm_pool_resize(U32 wl_shm_pool_id, S32 size)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shm_pool_id;
   message_header->opcode = wl_shm_pool_resize_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = size;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = size;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -394,22 +378,20 @@ wl_shm_create_pool(U32 wl_shm_id, U32 id, int fd, S32 size)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shm_id;
   message_header->opcode = wl_shm_create_pool_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, S32) = size;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, S32) = size;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   U64 buffer_len = CMSG_SPACE(sizeof(fd));
   U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);
 
-  struct iovec io = {.iov_base = message_header, .iov_len = message_header->message_size};
+  struct iovec io = {.iov_base = message_header, .iov_len = message_size};
   struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};
 
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
@@ -435,15 +417,13 @@ wl_shm_release(U32 wl_shm_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shm_id;
   message_header->opcode = wl_shm_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -460,15 +440,13 @@ wl_buffer_destroy(U32 wl_buffer_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_buffer_id;
   message_header->opcode = wl_buffer_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -485,18 +463,16 @@ wl_data_offer_accept(U32 wl_data_offer_id, U32 serial, String8 mime_type)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_offer_id;
   message_header->opcode = wl_data_offer_accept_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, U32) = mime_type.count + 1;
+  buf_push_str8_copy(&buf, mime_type);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -513,22 +489,20 @@ wl_data_offer_receive(U32 wl_data_offer_id, String8 mime_type, int fd)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_offer_id;
   message_header->opcode = wl_data_offer_receive_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = mime_type.count + 1;
+  buf_push_str8_copy(&buf, mime_type);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   U64 buffer_len = CMSG_SPACE(sizeof(fd));
   U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);
 
-  struct iovec io = {.iov_base = message_header, .iov_len = message_header->message_size};
+  struct iovec io = {.iov_base = message_header, .iov_len = message_size};
   struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};
 
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
@@ -554,15 +528,13 @@ wl_data_offer_destroy(U32 wl_data_offer_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_offer_id;
   message_header->opcode = wl_data_offer_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -579,15 +551,13 @@ wl_data_offer_finish(U32 wl_data_offer_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_offer_id;
   message_header->opcode = wl_data_offer_finish_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -604,17 +574,15 @@ wl_data_offer_set_actions(U32 wl_data_offer_id, U32 dnd_actions, U32 preferred_a
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_offer_id;
   message_header->opcode = wl_data_offer_set_actions_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = dnd_actions;
-  *arena_push_struct(scratch.arena, U32) = preferred_action;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = dnd_actions;
+  *buf_push_struct(&buf, U32) = preferred_action;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -631,17 +599,15 @@ wl_data_source_offer(U32 wl_data_source_id, String8 mime_type)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_source_id;
   message_header->opcode = wl_data_source_offer_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = mime_type.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, mime_type, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = mime_type.count + 1;
+  buf_push_str8_copy(&buf, mime_type);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -658,15 +624,13 @@ wl_data_source_destroy(U32 wl_data_source_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_source_id;
   message_header->opcode = wl_data_source_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -683,16 +647,14 @@ wl_data_source_set_actions(U32 wl_data_source_id, U32 dnd_actions)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_source_id;
   message_header->opcode = wl_data_source_set_actions_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = dnd_actions;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = dnd_actions;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -709,19 +671,17 @@ wl_data_device_start_drag(U32 wl_data_device_id, U32 source, U32 origin, U32 ico
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_device_id;
   message_header->opcode = wl_data_device_start_drag_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = source;
-  *arena_push_struct(scratch.arena, U32) = origin;
-  *arena_push_struct(scratch.arena, U32) = icon;
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = source;
+  *buf_push_struct(&buf, U32) = origin;
+  *buf_push_struct(&buf, U32) = icon;
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -738,17 +698,15 @@ wl_data_device_set_selection(U32 wl_data_device_id, U32 source, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_device_id;
   message_header->opcode = wl_data_device_set_selection_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = source;
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = source;
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -765,15 +723,13 @@ wl_data_device_release(U32 wl_data_device_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_device_id;
   message_header->opcode = wl_data_device_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -790,16 +746,14 @@ wl_data_device_manager_create_data_source(U32 wl_data_device_manager_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_device_manager_id;
   message_header->opcode = wl_data_device_manager_create_data_source_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -816,17 +770,15 @@ wl_data_device_manager_get_data_device(U32 wl_data_device_manager_id, U32 id, U3
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_data_device_manager_id;
   message_header->opcode = wl_data_device_manager_get_data_device_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, U32) = seat;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = seat;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -843,17 +795,15 @@ wl_shell_get_shell_surface(U32 wl_shell_id, U32 id, U32 surface)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_id;
   message_header->opcode = wl_shell_get_shell_surface_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, U32) = surface;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = surface;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -870,16 +820,14 @@ wl_shell_surface_pong(U32 wl_shell_surface_id, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_pong_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -896,17 +844,15 @@ wl_shell_surface_move(U32 wl_shell_surface_id, U32 seat, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_move_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -923,18 +869,16 @@ wl_shell_surface_resize(U32 wl_shell_surface_id, U32 seat, U32 serial, U32 edges
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_resize_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, U32) = edges;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, U32) = edges;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -951,15 +895,13 @@ wl_shell_surface_set_toplevel(U32 wl_shell_surface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_toplevel_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -976,19 +918,17 @@ wl_shell_surface_set_transient(U32 wl_shell_surface_id, U32 parent, S32 x, S32 y
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_transient_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = parent;
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, U32) = flags;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = parent;
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, U32) = flags;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1005,18 +945,16 @@ wl_shell_surface_set_fullscreen(U32 wl_shell_surface_id, U32 method, U32 framera
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_fullscreen_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = method;
-  *arena_push_struct(scratch.arena, U32) = framerate;
-  *arena_push_struct(scratch.arena, U32) = output;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = method;
+  *buf_push_struct(&buf, U32) = framerate;
+  *buf_push_struct(&buf, U32) = output;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1033,21 +971,19 @@ wl_shell_surface_set_popup(U32 wl_shell_surface_id, U32 seat, U32 serial, U32 pa
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_popup_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, U32) = parent;
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, U32) = flags;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, U32) = parent;
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, U32) = flags;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1064,16 +1000,14 @@ wl_shell_surface_set_maximized(U32 wl_shell_surface_id, U32 output)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_maximized_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = output;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = output;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1090,17 +1024,15 @@ wl_shell_surface_set_title(U32 wl_shell_surface_id, String8 title)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_title_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = title.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, title, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = title.count + 1;
+  buf_push_str8_copy(&buf, title);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1117,17 +1049,15 @@ wl_shell_surface_set_class(U32 wl_shell_surface_id, String8 class_)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_shell_surface_id;
   message_header->opcode = wl_shell_surface_set_class_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = class_.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, class_, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = class_.count + 1;
+  buf_push_str8_copy(&buf, class_);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1144,15 +1074,13 @@ wl_surface_destroy(U32 wl_surface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1169,18 +1097,16 @@ wl_surface_attach(U32 wl_surface_id, U32 buffer, S32 x, S32 y)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_attach_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = buffer;
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = buffer;
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1197,19 +1123,17 @@ wl_surface_damage(U32 wl_surface_id, S32 x, S32 y, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_damage_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1226,16 +1150,14 @@ wl_surface_frame(U32 wl_surface_id, U32 callback)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_frame_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = callback;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = callback;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1252,16 +1174,14 @@ wl_surface_set_opaque_region(U32 wl_surface_id, U32 region)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_set_opaque_region_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = region;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = region;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1278,16 +1198,14 @@ wl_surface_set_input_region(U32 wl_surface_id, U32 region)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_set_input_region_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = region;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = region;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1304,15 +1222,13 @@ wl_surface_commit(U32 wl_surface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_commit_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1329,16 +1245,14 @@ wl_surface_set_buffer_transform(U32 wl_surface_id, S32 transform)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_set_buffer_transform_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = transform;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = transform;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1355,16 +1269,14 @@ wl_surface_set_buffer_scale(U32 wl_surface_id, S32 scale)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_set_buffer_scale_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = scale;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = scale;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1381,19 +1293,17 @@ wl_surface_damage_buffer(U32 wl_surface_id, S32 x, S32 y, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_damage_buffer_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1410,17 +1320,15 @@ wl_surface_offset(U32 wl_surface_id, S32 x, S32 y)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_surface_id;
   message_header->opcode = wl_surface_offset_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1437,16 +1345,14 @@ wl_seat_get_pointer(U32 wl_seat_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_seat_id;
   message_header->opcode = wl_seat_get_pointer_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1463,16 +1369,14 @@ wl_seat_get_keyboard(U32 wl_seat_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_seat_id;
   message_header->opcode = wl_seat_get_keyboard_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1489,16 +1393,14 @@ wl_seat_get_touch(U32 wl_seat_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_seat_id;
   message_header->opcode = wl_seat_get_touch_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1515,15 +1417,13 @@ wl_seat_release(U32 wl_seat_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_seat_id;
   message_header->opcode = wl_seat_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1540,19 +1440,17 @@ wl_pointer_set_cursor(U32 wl_pointer_id, U32 serial, U32 surface, S32 hotspot_x,
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_pointer_id;
   message_header->opcode = wl_pointer_set_cursor_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, U32) = surface;
-  *arena_push_struct(scratch.arena, S32) = hotspot_x;
-  *arena_push_struct(scratch.arena, S32) = hotspot_y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, U32) = surface;
+  *buf_push_struct(&buf, S32) = hotspot_x;
+  *buf_push_struct(&buf, S32) = hotspot_y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1569,15 +1467,13 @@ wl_pointer_release(U32 wl_pointer_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_pointer_id;
   message_header->opcode = wl_pointer_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1594,15 +1490,13 @@ wl_keyboard_release(U32 wl_keyboard_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_keyboard_id;
   message_header->opcode = wl_keyboard_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1619,15 +1513,13 @@ wl_touch_release(U32 wl_touch_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_touch_id;
   message_header->opcode = wl_touch_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1644,15 +1536,13 @@ wl_output_release(U32 wl_output_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_output_id;
   message_header->opcode = wl_output_release_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1669,15 +1559,13 @@ wl_region_destroy(U32 wl_region_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_region_id;
   message_header->opcode = wl_region_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1694,19 +1582,17 @@ wl_region_add(U32 wl_region_id, S32 x, S32 y, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_region_id;
   message_header->opcode = wl_region_add_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1723,19 +1609,17 @@ wl_region_subtract(U32 wl_region_id, S32 x, S32 y, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_region_id;
   message_header->opcode = wl_region_subtract_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1752,15 +1636,13 @@ wl_subcompositor_destroy(U32 wl_subcompositor_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subcompositor_id;
   message_header->opcode = wl_subcompositor_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1777,18 +1659,16 @@ wl_subcompositor_get_subsurface(U32 wl_subcompositor_id, U32 id, U32 surface, U3
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subcompositor_id;
   message_header->opcode = wl_subcompositor_get_subsurface_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, U32) = surface;
-  *arena_push_struct(scratch.arena, U32) = parent;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = surface;
+  *buf_push_struct(&buf, U32) = parent;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1805,15 +1685,13 @@ wl_subsurface_destroy(U32 wl_subsurface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1830,17 +1708,15 @@ wl_subsurface_set_position(U32 wl_subsurface_id, S32 x, S32 y)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_set_position_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1857,16 +1733,14 @@ wl_subsurface_place_above(U32 wl_subsurface_id, U32 sibling)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_place_above_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = sibling;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = sibling;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1883,16 +1757,14 @@ wl_subsurface_place_below(U32 wl_subsurface_id, U32 sibling)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_place_below_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = sibling;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = sibling;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1909,15 +1781,13 @@ wl_subsurface_set_sync(U32 wl_subsurface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_set_sync_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1934,15 +1804,13 @@ wl_subsurface_set_desync(U32 wl_subsurface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = wl_subsurface_id;
   message_header->opcode = wl_subsurface_set_desync_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1959,15 +1827,13 @@ xdg_wm_base_destroy(U32 xdg_wm_base_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_wm_base_id;
   message_header->opcode = xdg_wm_base_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -1984,16 +1850,14 @@ xdg_wm_base_create_positioner(U32 xdg_wm_base_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_wm_base_id;
   message_header->opcode = xdg_wm_base_create_positioner_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2010,17 +1874,15 @@ xdg_wm_base_get_xdg_surface(U32 xdg_wm_base_id, U32 id, U32 surface)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_wm_base_id;
   message_header->opcode = xdg_wm_base_get_xdg_surface_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, U32) = surface;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = surface;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2037,16 +1899,14 @@ xdg_wm_base_pong(U32 xdg_wm_base_id, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_wm_base_id;
   message_header->opcode = xdg_wm_base_pong_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2063,15 +1923,13 @@ xdg_positioner_destroy(U32 xdg_positioner_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2088,17 +1946,15 @@ xdg_positioner_set_size(U32 xdg_positioner_id, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_size_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2115,19 +1971,17 @@ xdg_positioner_set_anchor_rect(U32 xdg_positioner_id, S32 x, S32 y, S32 width, S
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_anchor_rect_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2144,16 +1998,14 @@ xdg_positioner_set_anchor(U32 xdg_positioner_id, U32 anchor)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_anchor_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = anchor;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = anchor;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2170,16 +2022,14 @@ xdg_positioner_set_gravity(U32 xdg_positioner_id, U32 gravity)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_gravity_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = gravity;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = gravity;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2196,16 +2046,14 @@ xdg_positioner_set_constraint_adjustment(U32 xdg_positioner_id, U32 constraint_a
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_constraint_adjustment_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = constraint_adjustment;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = constraint_adjustment;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2222,17 +2070,15 @@ xdg_positioner_set_offset(U32 xdg_positioner_id, S32 x, S32 y)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_offset_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2249,15 +2095,13 @@ xdg_positioner_set_reactive(U32 xdg_positioner_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_reactive_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2274,17 +2118,15 @@ xdg_positioner_set_parent_size(U32 xdg_positioner_id, S32 parent_width, S32 pare
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_parent_size_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = parent_width;
-  *arena_push_struct(scratch.arena, S32) = parent_height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = parent_width;
+  *buf_push_struct(&buf, S32) = parent_height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2301,16 +2143,14 @@ xdg_positioner_set_parent_configure(U32 xdg_positioner_id, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_positioner_id;
   message_header->opcode = xdg_positioner_set_parent_configure_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2327,15 +2167,13 @@ xdg_surface_destroy(U32 xdg_surface_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_surface_id;
   message_header->opcode = xdg_surface_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2352,16 +2190,14 @@ xdg_surface_get_toplevel(U32 xdg_surface_id, U32 id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_surface_id;
   message_header->opcode = xdg_surface_get_toplevel_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2378,18 +2214,16 @@ xdg_surface_get_popup(U32 xdg_surface_id, U32 id, U32 parent, U32 positioner)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_surface_id;
   message_header->opcode = xdg_surface_get_popup_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = id;
-  *arena_push_struct(scratch.arena, U32) = parent;
-  *arena_push_struct(scratch.arena, U32) = positioner;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = parent;
+  *buf_push_struct(&buf, U32) = positioner;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2406,19 +2240,17 @@ xdg_surface_set_window_geometry(U32 xdg_surface_id, S32 x, S32 y, S32 width, S32
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_surface_id;
   message_header->opcode = xdg_surface_set_window_geometry_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2435,16 +2267,14 @@ xdg_surface_ack_configure(U32 xdg_surface_id, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_surface_id;
   message_header->opcode = xdg_surface_ack_configure_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2461,15 +2291,13 @@ xdg_toplevel_destroy(U32 xdg_toplevel_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2486,16 +2314,14 @@ xdg_toplevel_set_parent(U32 xdg_toplevel_id, U32 parent)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_parent_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = parent;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = parent;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2512,17 +2338,15 @@ xdg_toplevel_set_title(U32 xdg_toplevel_id, String8 title)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_title_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = title.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, title, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = title.count + 1;
+  buf_push_str8_copy(&buf, title);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2539,17 +2363,15 @@ xdg_toplevel_set_app_id(U32 xdg_toplevel_id, String8 app_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_app_id_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = app_id.count + 1;
-  arena_push_str8_copy_ex(scratch.arena, app_id, 4);
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = app_id.count + 1;
+  buf_push_str8_copy(&buf, app_id);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2566,19 +2388,17 @@ xdg_toplevel_show_window_menu(U32 xdg_toplevel_id, U32 seat, U32 serial, S32 x, 
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_show_window_menu_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, S32) = x;
-  *arena_push_struct(scratch.arena, S32) = y;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, S32) = x;
+  *buf_push_struct(&buf, S32) = y;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2595,17 +2415,15 @@ xdg_toplevel_move(U32 xdg_toplevel_id, U32 seat, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_move_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2622,18 +2440,16 @@ xdg_toplevel_resize(U32 xdg_toplevel_id, U32 seat, U32 serial, U32 edges)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_resize_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-  *arena_push_struct(scratch.arena, U32) = edges;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  *buf_push_struct(&buf, U32) = edges;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2650,17 +2466,15 @@ xdg_toplevel_set_max_size(U32 xdg_toplevel_id, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_max_size_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2677,17 +2491,15 @@ xdg_toplevel_set_min_size(U32 xdg_toplevel_id, S32 width, S32 height)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_min_size_opcode;
 
-  *arena_push_struct(scratch.arena, S32) = width;
-  *arena_push_struct(scratch.arena, S32) = height;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2704,15 +2516,13 @@ xdg_toplevel_set_maximized(U32 xdg_toplevel_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_maximized_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2729,15 +2539,13 @@ xdg_toplevel_unset_maximized(U32 xdg_toplevel_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_unset_maximized_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2754,16 +2562,14 @@ xdg_toplevel_set_fullscreen(U32 xdg_toplevel_id, U32 output)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_fullscreen_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = output;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = output;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2780,15 +2586,13 @@ xdg_toplevel_unset_fullscreen(U32 xdg_toplevel_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_unset_fullscreen_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2805,15 +2609,13 @@ xdg_toplevel_set_minimized(U32 xdg_toplevel_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_toplevel_id;
   message_header->opcode = xdg_toplevel_set_minimized_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2830,15 +2632,13 @@ xdg_popup_destroy(U32 xdg_popup_id)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_popup_id;
   message_header->opcode = xdg_popup_destroy_opcode;
 
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2855,17 +2655,15 @@ xdg_popup_grab(U32 xdg_popup_id, U32 seat, U32 serial)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_popup_id;
   message_header->opcode = xdg_popup_grab_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = seat;
-  *arena_push_struct(scratch.arena, U32) = serial;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = seat;
+  *buf_push_struct(&buf, U32) = serial;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2882,17 +2680,15 @@ xdg_popup_reposition(U32 xdg_popup_id, U32 positioner, U32 token)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U64 message_start_pos = arena_pos(scratch.arena);
-  WaylandMessageHeader *message_header = arena_push_struct(scratch.arena, WaylandMessageHeader);
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
   message_header->object_id = xdg_popup_id;
   message_header->opcode = xdg_popup_reposition_opcode;
 
-  *arena_push_struct(scratch.arena, U32) = positioner;
-  *arena_push_struct(scratch.arena, U32) = token;
-
-  U64 message_end_pos = arena_pos(scratch.arena);
-  U32 message_size = message_end_pos - message_start_pos;
-  message_header->message_size = AlignPow2(message_size, 4);
+  *buf_push_struct(&buf, U32) = positioner;
+  *buf_push_struct(&buf, U32) = token;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
 
   int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
@@ -2902,4 +2698,3 @@ xdg_popup_reposition(U32 xdg_popup_id, U32 positioner, U32 token)
   arena_release_scratch(scratch);
   return(result);
 }
-
