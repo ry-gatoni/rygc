@@ -4,6 +4,18 @@ typedef struct Buffer
   U8 *mem;
 } Buffer;
 
+typedef struct BufferU32
+{
+  U64 count;
+  U32 *mem;
+} BufferU32;
+
+typedef struct BufferR32
+{
+  U64 count;
+  R32 *mem;
+} BufferR32;
+
 typedef struct RingBuffer
 {
   U64 size;

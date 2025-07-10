@@ -1,7 +1,9 @@
 /** TODO:
  * set window title
- * window resizing
+ * support changing cursor icon
  * pull out common code in initialization event handling functions (or generate it)
+ * log errors somewhere besides the console
+ * have the global state manage global objects
  * (wip) improve event handling interface
  * hardware rendering via linux-dmabuf and egl
  */
@@ -126,6 +128,12 @@ wayland_temp_id(void)
   }
 
   return(result);
+}
+
+proc void
+wayland_release_id(WaylandTempId *id)
+{
+  SLLStackPush(wayland_state.id_freelist, id);
 }
 
 proc B32
@@ -389,7 +397,6 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
       if(ftruncate_result != -1) {
 	void *shared_memory = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_memory_handle, 0);
 	if(shared_memory) {
-	  //window->shared_memory_handle = shared_memory_handle;
 	  window->shared_memory = shared_memory;
 	  window->shared_memory_size = size;
 
@@ -428,27 +435,18 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
 }
 
 proc B32
-wayland_create_buffers(WaylandWindow *window, S32 width, S32 height)
+wayland_create_buffer(WaylandWindow *window)
 {
   B32 result = 1;
 
-  S32 stride = width*sizeof(U32);
+  S32 stride = window->width*sizeof(U32);
   U32 format = 0x34324241; // NOTE: ABGR 32-bit little-endian // TODO: generate enums
-  U32 wl_buffer_id = wayland_new_id();
-  if(wl_shm_pool_create_buffer(window->wl_shm_pool_id, wl_buffer_id, 0, width, height, stride, format)) {
-    window->wl_buffer_id = wl_buffer_id;
-
-    if(wl_surface_attach(window->wl_surface_id, window->wl_buffer_id, 0, 0)) {
-      if(wl_surface_commit(window->wl_surface_id)) {
-	window->width = width;
-	window->height = height;
-      } else {
-	// NOTE: commit failed
-	result = 0;
-      }
-    } else {
-      // NOTE: attach failed
-    }
+  
+  Assert(!window->buffer_id);
+  window->buffer_id = wayland_temp_id();
+  if(wl_shm_pool_create_buffer(window->wl_shm_pool_id, window->buffer_id->id,
+			       0, window->width, window->height, stride, format)) {
+    // NOTE: success
   } else {
     // NOTE: buffer creation failed
     result = 0;
@@ -544,15 +542,17 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	    }
 	  }
 	
-	  U64 shared_memory_size = width*height*sizeof(U32)*2;
+	  U64 shared_memory_size = 1960*1080*sizeof(U32)*2;
 	  if(wayland_allocate_shared_memory(window, shared_memory_size)) {
-	    if(wayland_create_buffers(window, width, height)) {
+	    window->event_arena = arena_alloc();
+	    
+	    window->width = width;
+	    window->height = height;
+	    if(wayland_end_frame(window)) {
 	      // NOTE: initialization successful
-	      //window->arena = arena_alloc();
-	      window->event_arena = arena_alloc();
 	      SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	    } else {
-	      // NOTE: buffer creation failure
+	      // NOTE: failure to create buffer or commit surface
 	      arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	      window = 0;
 	    }
@@ -593,12 +593,11 @@ wayland_get_events(WaylandWindow *window)
 
   // NOTE: if we don't have a callback id, then we don't need to wait for it
   // TODO: we should probably still poll events, even if we don't have a callback
-  B32 ready_to_render = !window->frame_callback_id;
 
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
   // TODO this infinite loop is a bit jank
-  while(!ready_to_render) {
+  while(window->frame_callback_id) {
     Buffer message_buffer = wayland_poll_events(scratch.arena);
     while(message_buffer.size) {
       Event event = {0};
@@ -621,7 +620,7 @@ wayland_get_events(WaylandWindow *window)
 	      opcode == xdg_surface_configure_opcode) {
 	U32 serial = body[0];
 	if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
-	  fprintf(stderr, "**acked ping**\n");
+	  fprintf(stderr, "**acked configure**\n");
 	}
       }
       else if(object_id == window->xdg_toplevel_id &&
@@ -629,15 +628,34 @@ wayland_get_events(WaylandWindow *window)
 	event.kind = EventKind_Close;
 	event_list_push(window->event_arena, &result, event);
       }
+      else if(object_id == window->xdg_toplevel_id &&
+	      opcode == xdg_toplevel_configure_opcode) {
+	S32 width = *(S32*)(body + 0);
+	S32 height = *(S32*)(body + 1);
+	BufferU32 states = {.count = body[2]/sizeof(U32), .mem = body + 3};
+
+	window->width = width;
+	window->height = height;
+	fprintf(stderr, "xdg_toplevel configured: width=%u, height=%u, %lu states\n",
+		width, height, states.count);
+      }
       else if(window->frame_callback_id &&
 	      object_id == window->frame_callback_id->id &&
 	      opcode == wl_callback_done_opcode) {
 	U32 data = body[0];
-	ready_to_render = 1;
-	fprintf(stderr, "frame callback timestamp: %u(ms)\n", data);
+	window->last_frame_ms_elapsed = data - window->last_frame_timestamp;
+	window->last_frame_timestamp = data;
 
-	SLLStackPush(wayland_state.id_freelist, window->frame_callback_id);
+	//SLLStackPush(wayland_state.id_freelist, window->frame_callback_id);
+	wayland_release_id(window->frame_callback_id);
 	window->frame_callback_id = 0;
+      }
+      else if(window->buffer_id &&
+	      object_id == window->buffer_id->id &&
+	      opcode == wl_buffer_release_opcode) {
+	wayland_release_id(window->buffer_id);
+	wl_buffer_destroy(window->buffer_id->id);
+	window->buffer_id = 0;
       }
       // NOTE: mouse events
       else if(object_id == window->wl_pointer_id &&
@@ -736,19 +754,24 @@ next_event(EventList *events, Event *event)
 }
 
 proc B32
-wayland_swap_buffers(WaylandWindow *window)
+wayland_end_frame(WaylandWindow *window)
 {
   B32 result = 1;
 
-  window->frame_callback_id = wayland_temp_id();
-
-  if(wl_surface_attach(window->wl_surface_id, window->wl_buffer_id, 0, 0)) {
-    if(wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height)) {
-      if(wl_surface_frame(window->wl_surface_id, window->frame_callback_id->id)) {
-	if(wl_surface_commit(window->wl_surface_id)) {
-	  ++window->frame_index;
-	  arena_clear(window->event_arena);
-	  fprintf(stderr, "(render) surface committed\n");
+  Assert(!window->frame_callback_id);
+  if(wayland_create_buffer(window)) {
+    if(wl_surface_attach(window->wl_surface_id, window->buffer_id->id, 0, 0)) {
+      if(wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height)) {
+	
+	window->frame_callback_id = wayland_temp_id();
+	if(wl_surface_frame(window->wl_surface_id, window->frame_callback_id->id)) {
+	  if(wl_surface_commit(window->wl_surface_id)) {
+	    ++window->frame_index;
+	    arena_clear(window->event_arena);
+	    fprintf(stderr, "(render) surface committed\n");
+	  } else {
+	    result = 0;
+	  }
 	} else {
 	  result = 0;
 	}
@@ -757,10 +780,10 @@ wayland_swap_buffers(WaylandWindow *window)
       }
     } else {
       result = 0;
-    }
+    } 
   } else {
     result = 0;
-  }
+  }  
 
   return(result);
 }
@@ -768,7 +791,6 @@ wayland_swap_buffers(WaylandWindow *window)
 proc void
 wayland_close_window(WaylandWindow *window)
 {
-  wl_buffer_destroy(window->wl_buffer_id);
   wl_shm_pool_destroy(window->wl_shm_pool_id);  
   xdg_toplevel_destroy(window->xdg_toplevel_id);  
   xdg_surface_destroy(window->xdg_surface_id);  

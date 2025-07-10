@@ -49,9 +49,12 @@ struct WaylandWindow
   U32 xdg_surface_id;
   U32 xdg_toplevel_id;
   U32 wl_shm_pool_id;
-  U32 wl_buffer_id;
+  
+  WaylandTempId *buffer_id;
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
+  U32 last_frame_timestamp;
+  U32 last_frame_ms_elapsed;
 
   void *shared_memory;
   U64 shared_memory_size;
@@ -146,6 +149,7 @@ proc WaylandHashKey wayland_hash(String8 s);
 
 proc U32 wayland_new_id(void);
 proc WaylandTempId* wayland_temp_id(void);
+proc void wayland_release_id(WaylandTempId *id);
 
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(WaylandWindow *window);
@@ -153,7 +157,7 @@ proc B32 wayland_registry_bind_globals(WaylandWindow *window);
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
-proc B32 wayland_create_buffers(WaylandWindow *window, S32 width, S32 height);
+proc B32 wayland_create_buffer(WaylandWindow *window);
 
 proc Buffer wayland_poll_events(Arena *arena);
 
@@ -173,5 +177,5 @@ proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height);
 proc EventList wayland_get_events(WaylandWindow *window);
 proc B32 next_event(EventList *events, Event *event);
 
-proc B32 wayland_swap_buffers(WaylandWindow *window);
+proc B32 wayland_end_frame(WaylandWindow *window);
 proc void wayland_close_window(WaylandWindow *window);

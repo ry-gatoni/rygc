@@ -48,6 +48,8 @@ colorU32_from_rgba(U8 r, U8 g, U8 b, U8 a)
 proc void
 update_and_render(U32 *pixels, AppState *app_state)
 {
+  // TODO: handle the case when the box becomes outside the window dimensions
+  //       as a result of the window size changing
   if(app_state->running) {
     // NOTE: handle colisions
     if(app_state->box_v.x < 0) {
@@ -117,19 +119,17 @@ main(int argc, char **argv)
   app_state.background_color = colorU32_from_rgba(0, 0, 0, 0xFF);
   app_state.box_dim = (V2){.x = 50, .y = 50};
   app_state.box_v = (V2){.x = 10, .y = 10};
+  app_state.mouse_pos = (V2){.x = -1, .y = -1};
 
   if(wayland_init()) {
     WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480);
     if(window) {
-      app_state.window_width = window->width;
-      app_state.window_height = window->height;
-      app_state.window_stride = app_state.window_width*sizeof(U32);
       app_state.running = 1;
 
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {
-	U64 frame_begin_cycles = cpu_get_cycle_count_fixed();
+	U64 frame_begin_cycles = cpu_get_cycle_count();
 
 	// NOTE: poll for events
 	EventList events = wayland_get_events(window);
@@ -154,20 +154,20 @@ main(int argc, char **argv)
 	  }
 	}
 
+	app_state.window_width = window->width;
+	app_state.window_height = window->height;
+	app_state.window_stride = app_state.window_width * sizeof(U32);
 	update_and_render((U32 *)window->shared_memory, &app_state);
 
-	if(!wayland_swap_buffers(window)) {
+	if(!wayland_end_frame(window)) {
 	  Assert(!"FATAL: swap buffers failed");
 	}
 	arena_clear(frame_arena);
 
-	// TODO: this is measuring how often the loop to queue a frame is
-	//       called, not the frame rate. If we want to report the actual
-	//       frame rate, we should get it when we poll events
-	U64 frame_end_cycles = cpu_get_cycle_count_fixed();
+	U64 frame_end_cycles = cpu_get_cycle_count();
 	U64 frame_cycles_elapsed = frame_end_cycles - frame_begin_cycles;
-	R32 frame_seconds_elapsed = (R32)frame_cycles_elapsed / (R32)cpu_get_cycle_counter_freq();
-	fprintf(stderr, "frames per second: %.2f\n", 1.f/frame_seconds_elapsed);
+	R32 fps = 1000.f / (R32)window->last_frame_ms_elapsed;
+	fprintf(stderr, "frames per second: %.2f (%lu cy)\n", fps, frame_cycles_elapsed);
       }
 
       wayland_close_window(window);
