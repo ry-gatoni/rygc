@@ -32,16 +32,7 @@ typedef struct WaylandWindow WaylandWindow;
 struct WaylandWindow
 {
   WaylandWindow *next;
-
-  // TODO: some of these ids should live in the global state
-  U32 wl_display_id;
-  U32 wl_registry_id;
   
-  U32 wl_shm_id;
-  U32 wl_compositor_id;
-  U32 xdg_wm_base_id;
-  U32 wl_seat_id;
-
   U32 wl_keyboard_id;
   U32 wl_pointer_id;
 
@@ -132,6 +123,14 @@ typedef struct WaylandState
   WaylandWindow *first_window;
   WaylandWindow *last_window;
 
+  U32 wl_display_id;
+  U32 wl_registry_id;
+  
+  U32 wl_shm_id;
+  U32 wl_compositor_id;
+  U32 xdg_wm_base_id;
+  U32 wl_seat_id;
+
   U32 next_id;
   WaylandTempId *id_freelist;
 
@@ -152,8 +151,8 @@ proc WaylandTempId* wayland_temp_id(void);
 proc void wayland_release_id(WaylandTempId *id);
 
 proc B32 wayland_display_connect(void);
-proc B32 wayland_display_get_registry(WaylandWindow *window);
-proc B32 wayland_registry_bind_globals(WaylandWindow *window);
+proc B32 wayland_display_get_registry(void);
+proc B32 wayland_registry_bind_globals(void);
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);

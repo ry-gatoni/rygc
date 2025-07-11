@@ -35,6 +35,8 @@ typedef struct String8List
 
 proc String8 str8_push_f(Arena *arena, char *fmt, ...);
 proc String8 str8_push_fv(Arena *arena, char *fmt, va_list args);
+// TODO: we can get rid of this hacky thing with the next alignment now.
+//       wayland message alignment is no longer coupled to arena memory unpoisoning
 proc String8 arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alignment);
 #define arena_push_str8_copy(arena, string) arena_push_str8_copy_ex(arena, string, 0)
 

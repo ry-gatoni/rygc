@@ -1,10 +1,8 @@
 /** TODO:
- * set window title
  * support changing cursor icon
  * drag to resize
  * pull out common code in initialization event handling functions (or generate it)
  * log messages/errors somewhere besides the console
- * have the global state manage global objects
  * (wip) improve event handling interface
  * hardware rendering via linux-dmabuf and egl
  */
@@ -100,10 +98,28 @@ proc B32
 wayland_init(void)
 {
   B32 result = wayland_display_connect();
-  if(result){
+  if(result) {
     wayland_state.arena = arena_alloc();
+    wayland_state.wl_display_id = 1;
     wayland_state.next_id = 2;
-    wayland_state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);    
+    wayland_state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    if(wayland_display_get_registry()) {
+      if(wayland_registry_bind_globals()) {
+	// NOTE: success
+      } else {
+	// NOTE: global binding failure
+	result = 0;
+	arena_release(wayland_state.arena);
+      }    
+    } else {
+      // NOTE: registry creation failure
+      result = 0;
+      arena_release(wayland_state.arena);
+    }
+  } else {
+    // NOTE: display
+    result = 0;
+    arena_release(wayland_state.arena);
   }
 
   return(result);
@@ -138,12 +154,12 @@ wayland_release_id(WaylandTempId *id)
 }
 
 proc B32
-wayland_display_get_registry(WaylandWindow *window)
+wayland_display_get_registry(void)
 {
   U32 registry_id = wayland_new_id();
-  B32 result = wl_display_get_registry(window->wl_display_id, registry_id);
+  B32 result = wl_display_get_registry(wayland_state.wl_display_id, registry_id);
   if(result) {
-    window->wl_registry_id = registry_id;
+    wayland_state.wl_registry_id = registry_id;
   }
   
   return(result);
@@ -152,7 +168,7 @@ wayland_display_get_registry(WaylandWindow *window)
 // TODO: all these initialization functions that poll for and handle events
 //       should call a common routine. Or maybe generated routines?
 proc B32
-wayland_registry_bind_globals(WaylandWindow *window)
+wayland_registry_bind_globals(void)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
@@ -165,7 +181,7 @@ wayland_registry_bind_globals(WaylandWindow *window)
 
     U32 *event_body = (U32*)(header + 1);
 
-    if(object_id == window->wl_registry_id &&
+    if(object_id == wayland_state.wl_registry_id &&
        opcode == wl_registry_global_opcode) {
       U32 name = event_body[0];
       U32 interface_string_count = event_body[1];
@@ -179,26 +195,26 @@ wayland_registry_bind_globals(WaylandWindow *window)
       String8 wl_seat_str = Str8Lit("wl_seat");
       if(str8s_are_equal(message_interface, wl_shm_str)) {
 	U32 shm_id = wayland_new_id();
-	if(wl_registry_bind(window->wl_registry_id, name, wl_shm_str, version, shm_id)) {
-	  window->wl_shm_id = shm_id;
+	if(wl_registry_bind(wayland_state.wl_registry_id, name, wl_shm_str, version, shm_id)) {
+	  wayland_state.wl_shm_id = shm_id;
 	}
       }
       else if(str8s_are_equal(message_interface, xdg_wm_base_str)) {
 	U32 wm_base_id = wayland_new_id();
-	if(wl_registry_bind(window->wl_registry_id, name, xdg_wm_base_str, version, wm_base_id)) {
-	  window->xdg_wm_base_id = wm_base_id;
+	if(wl_registry_bind(wayland_state.wl_registry_id, name, xdg_wm_base_str, version, wm_base_id)) {
+	  wayland_state.xdg_wm_base_id = wm_base_id;
 	}
       }
       else if(str8s_are_equal(message_interface, wl_compositor_str)) {
 	U32 compositor_id = wayland_new_id();
-	if(wl_registry_bind(window->wl_registry_id, name, wl_compositor_str, version, compositor_id)) {
-	  window->wl_compositor_id = compositor_id;
+	if(wl_registry_bind(wayland_state.wl_registry_id, name, wl_compositor_str, version, compositor_id)) {
+	  wayland_state.wl_compositor_id = compositor_id;
 	}
       }
       else if(str8s_are_equal(message_interface, wl_seat_str)) {
 	U32 seat_id = wayland_new_id();
-	if(wl_registry_bind(window->wl_registry_id, name, wl_seat_str, version, seat_id)) {
-	  window->wl_seat_id = seat_id;	      
+	if(wl_registry_bind(wayland_state.wl_registry_id, name, wl_seat_str, version, seat_id)) {
+	  wayland_state.wl_seat_id = seat_id;	      
 	}
       }
       else {
@@ -216,7 +232,7 @@ wayland_registry_bind_globals(WaylandWindow *window)
     message_buffer.mem += message_size;
   }
 
-  B32 result = window->wl_shm_id && window->xdg_wm_base_id && window->wl_compositor_id && window->wl_seat_id;
+  B32 result = wayland_state.wl_shm_id && wayland_state.xdg_wm_base_id && wayland_state.wl_compositor_id && wayland_state.wl_seat_id;
   arena_release_scratch(scratch);
   return(result);
 }
@@ -245,14 +261,14 @@ wayland_initialize_input(WaylandWindow *window)
   //       the seat before we try getting keyboard and mouse. That might also
   //       prevent us from having to call recvmsg in a loop below
   U32 keyboard_id = wayland_new_id();
-  if(wl_seat_get_keyboard(window->wl_seat_id, keyboard_id)) {
+  if(wl_seat_get_keyboard(wayland_state.wl_seat_id, keyboard_id)) {
     window->wl_keyboard_id = keyboard_id;
   } else {
     result = 0;
   }
 
   U32 pointer_id = wayland_new_id();
-  if(wl_seat_get_pointer(window->wl_seat_id, pointer_id)) {
+  if(wl_seat_get_pointer(wayland_state.wl_seat_id, pointer_id)) {
     window->wl_pointer_id = pointer_id;
   } else {
     result = 0;
@@ -342,11 +358,11 @@ wayland_create_surface(WaylandWindow *window, String8 title)
   B32 result = 1;
 
   U32 wl_surface_id = wayland_new_id();
-  if(wl_compositor_create_surface(window->wl_compositor_id, wl_surface_id)) {
+  if(wl_compositor_create_surface(wayland_state.wl_compositor_id, wl_surface_id)) {
     window->wl_surface_id = wl_surface_id;
 
     U32 xdg_surface_id = wayland_new_id();
-    if(xdg_wm_base_get_xdg_surface(window->xdg_wm_base_id, xdg_surface_id, wl_surface_id)) {
+    if(xdg_wm_base_get_xdg_surface(wayland_state.xdg_wm_base_id, xdg_surface_id, wl_surface_id)) {
       window->xdg_surface_id = xdg_surface_id;
 
       U32 toplevel_id = wayland_new_id();
@@ -401,7 +417,7 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
 	  window->shared_memory_size = size;
 
 	  U32 wl_shm_pool_id = wayland_new_id();
-	  if(wl_shm_create_pool(window->wl_shm_id, wl_shm_pool_id, shared_memory_handle, size)) {
+	  if(wl_shm_create_pool(wayland_state.wl_shm_id, wl_shm_pool_id, shared_memory_handle, size)) {
 	    window->wl_shm_pool_id = wl_shm_pool_id;
 	    close(shared_memory_handle);
 	  } else {
@@ -493,95 +509,82 @@ wayland_open_window(String8 title, S32 width, S32 height)
   U64 wayland_arena_pre_init_pos = arena_pos(wayland_state.arena);
   
   WaylandWindow *window = arena_push_struct(wayland_state.arena, WaylandWindow);
-  window->wl_display_id = 1;  
     
-  if(wayland_display_get_registry(window)) {
-    if(wayland_registry_bind_globals(window)) {
-      if(wayland_initialize_input(window)) {
-	if(wayland_create_surface(window, title)) {
-	  // TODO: pull out into another function?
-	  B32 acked_configure = 0;
-	  while(!acked_configure) {
-	    Buffer events = wayland_poll_events(scratch.arena);
-	    while(events.size) {
-	      WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
-	      U32 object_id = event_header->object_id;
-	      U32 opcode = event_header->opcode;
-	      U32 message_size = event_header->message_size;
-	      U32 *event_body = (U32 *)(event_header + 1);
+  if(wayland_initialize_input(window)) {
+    if(wayland_create_surface(window, title)) {
+      // TODO: pull out into another function?
+      B32 acked_configure = 0;
+      while(!acked_configure) {
+	Buffer events = wayland_poll_events(scratch.arena);
+	while(events.size) {
+	  WaylandMessageHeader *event_header = (WaylandMessageHeader *)events.mem;
+	  U32 object_id = event_header->object_id;
+	  U32 opcode = event_header->opcode;
+	  U32 message_size = event_header->message_size;
+	  U32 *event_body = (U32 *)(event_header + 1);
 
-	      if(object_id == window->xdg_wm_base_id &&
-		 opcode == xdg_wm_base_ping_opcode) {
-		U32 serial = event_body[0];
-		xdg_wm_base_pong(window->xdg_wm_base_id, serial);
-	      }
-	      else if(object_id == window->xdg_surface_id &&
-		      opcode == xdg_surface_configure_opcode) {
-		U32 serial = event_body[0];
-		if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
-		  acked_configure = 1;
-		}
-	      }
-	      else if(object_id == window->wl_display_id &&
-		      opcode == wl_display_error_opcode) {
-		U32 error_object_id = event_body[0];
-		U32 error_code = event_body[1];
-		U32 error_string_count = event_body[2];
-		U8 *error_string = (U8 *)(event_body + 3);
-		// TODO: better logging
-		fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-			error_object_id, error_code, (int)error_string_count, error_string);
-	      }
-	      else {
-		// TODO: better logging
-		fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
-	      }
-
-	      events.mem += message_size;
-	      events.size -= message_size;
+	  if(object_id == wayland_state.xdg_wm_base_id &&
+	     opcode == xdg_wm_base_ping_opcode) {
+	    U32 serial = event_body[0];
+	    xdg_wm_base_pong(wayland_state.xdg_wm_base_id, serial);
+	  }
+	  else if(object_id == window->xdg_surface_id &&
+		  opcode == xdg_surface_configure_opcode) {
+	    U32 serial = event_body[0];
+	    if(xdg_surface_ack_configure(window->xdg_surface_id, serial)) {
+	      acked_configure = 1;
 	    }
 	  }
+	  else if(object_id == wayland_state.wl_display_id &&
+		  opcode == wl_display_error_opcode) {
+	    U32 error_object_id = event_body[0];
+	    U32 error_code = event_body[1];
+	    U32 error_string_count = event_body[2];
+	    U8 *error_string = (U8 *)(event_body + 3);
+	    // TODO: better logging
+	    fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+		    error_object_id, error_code, (int)error_string_count, error_string);
+	  }
+	  else {
+	    // TODO: better logging
+	    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+	  }
+
+	  events.mem += message_size;
+	  events.size -= message_size;
+	}
+      }
 	
-	  U64 shared_memory_size = 1960*1080*sizeof(U32)*2;
-	  if(wayland_allocate_shared_memory(window, shared_memory_size)) {
-	    window->event_arena = arena_alloc();
+      U64 shared_memory_size = 1960*1080*sizeof(U32)*2;
+      if(wayland_allocate_shared_memory(window, shared_memory_size)) {
+	window->event_arena = arena_alloc();
 	    
-	    window->width = width;
-	    window->height = height;
-	    if(wayland_end_frame(window)) {
-	      // NOTE: initialization successful
-	      SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
-	    } else {
-	      // NOTE: failure to create buffer or commit surface
-	      arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
-	      window = 0;
-	    }
-	  } else {
-	    // NOTE: shared memory allocation failure
-	    arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
-	    window = 0;
-	  }
+	window->width = width;
+	window->height = height;
+	if(wayland_end_frame(window)) {
+	  // NOTE: initialization successful
+	  SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	} else {
-	  // NOTE: surface creation failure
+	  // NOTE: failure to create buffer or commit surface
 	  arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	  window = 0;
 	}
       } else {
-	// NOTE: input initialization failure
+	// NOTE: shared memory allocation failure
 	arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	window = 0;
       }
     } else {
-      // NOTE: global binding failure
+      // NOTE: surface creation failure
       arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
       window = 0;
-    }    
+    }
   } else {
-    // NOTE: registry creation failure
+    // NOTE: input initialization failure
     arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
     window = 0;
   }
-
+   
   arena_release_scratch(scratch);
   return(window);
 }
@@ -609,10 +612,10 @@ wayland_get_events(WaylandWindow *window)
       U32 *body = (U32*)(header + 1);
 
       // NOTE: acknowledge ping
-      if(object_id == window->xdg_wm_base_id &&
+      if(object_id == wayland_state.xdg_wm_base_id &&
 	 opcode == xdg_wm_base_ping_opcode) {
 	U32 serial = body[0];
-	if(xdg_wm_base_pong(window->xdg_wm_base_id, serial)) {
+	if(xdg_wm_base_pong(wayland_state.xdg_wm_base_id, serial)) {
 	  fprintf(stderr, "**acked ping**\n");
 	}
       }
@@ -713,7 +716,7 @@ wayland_get_events(WaylandWindow *window)
 	}
       }    
       // NOTE: errors
-      else if(object_id == window->wl_display_id &&
+      else if(object_id == wayland_state.wl_display_id &&
 	      opcode == wl_display_error_opcode) {
 	U32 error_object_id = body[0];
 	U32 error_code = body[1];
@@ -795,7 +798,6 @@ wayland_close_window(WaylandWindow *window)
   xdg_toplevel_destroy(window->xdg_toplevel_id);  
   xdg_surface_destroy(window->xdg_surface_id);  
   wl_surface_destroy(window->wl_surface_id); 
-  xdg_wm_base_destroy(window->xdg_wm_base_id);
 
   munmap(window->shared_memory, window->shared_memory_size);  
 
