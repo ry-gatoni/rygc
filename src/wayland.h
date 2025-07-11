@@ -40,7 +40,9 @@ struct WaylandWindow
   U32 xdg_surface_id;
   U32 xdg_toplevel_id;
   U32 wl_shm_pool_id;
-  
+
+  U32 zwp_linux_buffer_params_v1_id;  
+
   WaylandTempId *buffer_id;
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
@@ -127,9 +129,11 @@ typedef struct WaylandState
   U32 wl_registry_id;
   
   U32 wl_shm_id;
+  U32 zwp_linux_dmabuf_v1_id;
   U32 wl_compositor_id;
   U32 xdg_wm_base_id;
   U32 wl_seat_id;
+  U32 zwp_linux_dmabuf_feedback_v1_id;
 
   U32 next_id;
   WaylandTempId *id_freelist;
@@ -157,6 +161,7 @@ proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffer(WaylandWindow *window);
+proc B32 wayland_dmabuf_create_buffer(WaylandWindow *window);
 
 proc Buffer wayland_poll_events(Arena *arena);
 

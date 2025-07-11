@@ -42,6 +42,34 @@ event_list_push(Arena *arena, EventList *list, Event event)
   event_list_push_ex(list, event, node);
 }
 
+proc U32
+wayland_new_id(void) {
+  Assert(wayland_state.next_id <= WAYLAND_MAX_CLIENT_OBJECT_ID);
+  U32 result = wayland_state.next_id++;
+  return(result);
+}
+
+proc WaylandTempId*
+wayland_temp_id(void)
+{
+  WaylandTempId *result = 0;
+  if(wayland_state.id_freelist) {
+    result = wayland_state.id_freelist;
+    SLLStackPop(wayland_state.id_freelist);
+  } else {
+    result = arena_push_struct(wayland_state.arena, WaylandTempId);
+    result->id = wayland_new_id();
+  }
+
+  return(result);
+}
+
+proc void
+wayland_release_id(WaylandTempId *id)
+{
+  SLLStackPush(wayland_state.id_freelist, id);
+}
+
 proc B32
 wayland_display_connect(void)
 {
@@ -95,65 +123,6 @@ wayland_display_connect(void)
 }
 
 proc B32
-wayland_init(void)
-{
-  B32 result = wayland_display_connect();
-  if(result) {
-    wayland_state.arena = arena_alloc();
-    wayland_state.wl_display_id = 1;
-    wayland_state.next_id = 2;
-    wayland_state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    if(wayland_display_get_registry()) {
-      if(wayland_registry_bind_globals()) {
-	// NOTE: success
-      } else {
-	// NOTE: global binding failure
-	result = 0;
-	arena_release(wayland_state.arena);
-      }    
-    } else {
-      // NOTE: registry creation failure
-      result = 0;
-      arena_release(wayland_state.arena);
-    }
-  } else {
-    // NOTE: display
-    result = 0;
-    arena_release(wayland_state.arena);
-  }
-
-  return(result);
-}
-
-proc U32
-wayland_new_id(void) {
-  Assert(wayland_state.next_id <= WAYLAND_MAX_CLIENT_OBJECT_ID);
-  U32 result = wayland_state.next_id++;
-  return(result);
-}
-
-proc WaylandTempId*
-wayland_temp_id(void)
-{
-  WaylandTempId *result = 0;
-  if(wayland_state.id_freelist) {
-    result = wayland_state.id_freelist;
-    SLLStackPop(wayland_state.id_freelist);
-  } else {
-    result = arena_push_struct(wayland_state.arena, WaylandTempId);
-    result->id = wayland_new_id();
-  }
-
-  return(result);
-}
-
-proc void
-wayland_release_id(WaylandTempId *id)
-{
-  SLLStackPush(wayland_state.id_freelist, id);
-}
-
-proc B32
 wayland_display_get_registry(void)
 {
   U32 registry_id = wayland_new_id();
@@ -193,6 +162,8 @@ wayland_registry_bind_globals(void)
       String8 xdg_wm_base_str = Str8Lit("xdg_wm_base");
       String8 wl_compositor_str = Str8Lit("wl_compositor");
       String8 wl_seat_str = Str8Lit("wl_seat");
+      String8 zwp_linux_dmabuf_v1_str = Str8Lit("zwp_linux_dmabuf_v1");
+      
       if(str8s_are_equal(message_interface, wl_shm_str)) {
 	U32 shm_id = wayland_new_id();
 	if(wl_registry_bind(wayland_state.wl_registry_id, name, wl_shm_str, version, shm_id)) {
@@ -217,6 +188,12 @@ wayland_registry_bind_globals(void)
 	  wayland_state.wl_seat_id = seat_id;	      
 	}
       }
+      else if(str8s_are_equal(message_interface, zwp_linux_dmabuf_v1_str)) {
+	U32 linux_dmabuf_id = wayland_new_id();
+	if(wl_registry_bind(wayland_state.wl_registry_id, name, zwp_linux_dmabuf_v1_str, version, linux_dmabuf_id)) {
+	  wayland_state.zwp_linux_dmabuf_v1_id = linux_dmabuf_id;
+	}
+      }
       else {
 	fprintf(stderr, "unbound available global: name=%u, interface=%.*s, version=%u\n",
 		name, (int)interface_string_count, interface_string, version);
@@ -232,8 +209,45 @@ wayland_registry_bind_globals(void)
     message_buffer.mem += message_size;
   }
 
-  B32 result = wayland_state.wl_shm_id && wayland_state.xdg_wm_base_id && wayland_state.wl_compositor_id && wayland_state.wl_seat_id;
+  B32 result = wayland_state.wl_shm_id && wayland_state.xdg_wm_base_id && wayland_state.wl_compositor_id && wayland_state.wl_seat_id && wayland_state.zwp_linux_dmabuf_v1_id;
   arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+wayland_init(void)
+{
+  B32 result = wayland_display_connect();
+  if(result) {
+    wayland_state.arena = arena_alloc();
+    wayland_state.wl_display_id = 1;
+    wayland_state.next_id = 2;
+    wayland_state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    if(wayland_display_get_registry()) {
+      if(wayland_registry_bind_globals()) {
+	
+	U32 feedback_id = wayland_new_id();
+	if(zwp_linux_dmabuf_v1_get_default_feedback(wayland_state.zwp_linux_dmabuf_v1_id, feedback_id)) {
+	  wayland_state.zwp_linux_dmabuf_feedback_v1_id = feedback_id;
+	} else {
+	  result = 0;
+	}
+      } else {
+	// NOTE: global binding failure
+	result = 0;
+	arena_release(wayland_state.arena);
+      }    
+    } else {
+      // NOTE: registry creation failure
+      result = 0;
+      arena_release(wayland_state.arena);
+    }
+  } else {
+    // NOTE: display
+    result = 0;
+    arena_release(wayland_state.arena);
+  }
+
   return(result);
 }
 
@@ -251,7 +265,20 @@ wayland_initialize_input(WaylandWindow *window)
     U32 object_id = header->object_id;
     U32 opcode = header->opcode;
     U32 message_size = header->message_size;
-    fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+
+    U32 *body = (U32*)(header + 1);
+    if(object_id == wayland_state.wl_display_id &&
+       opcode == wl_display_error_opcode) {
+      U32 error_object_id = body[0];
+      U32 error_code = body[1];
+      U32 error_string_count = body[2];
+      U8 *error_string = (U8 *)(body + 3);
+      // TODO: better logging
+      fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+	      error_object_id, error_code, (int)error_string_count, error_string);
+    } else {
+      fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+    }
 
     message_buffer.size -= message_size;
     message_buffer.mem += message_size;
@@ -471,6 +498,21 @@ wayland_create_buffer(WaylandWindow *window)
   return(result);
 }
 
+proc B32
+wayland_dmabuf_create_buffer(WaylandWindow *window)
+{
+  B32 result = 1;
+
+  U32 params_id = wayland_new_id();
+  if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
+    window->zwp_linux_buffer_params_v1_id = params_id;
+  } else {
+    result = 0;
+  }
+
+  return(result);
+}
+
 proc void
 wayland_log_error_(char *fmt, ...)
 {
@@ -562,8 +604,14 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	window->width = width;
 	window->height = height;
 	if(wayland_end_frame(window)) {
-	  // NOTE: initialization successful
-	  SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
+	  if(wayland_dmabuf_create_buffer(window)) {
+	    // NOTE: initialization successful
+	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
+	  } else {
+	    // NOTE: failure to create dmabuf
+	    arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
+	    window = 0;
+	  }
 	} else {
 	  // NOTE: failure to create buffer or commit surface
 	  arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);

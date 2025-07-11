@@ -58,6 +58,23 @@ rygc_type_from_wayland_type(Arena *arena, String8 wayland_type)
   return(result);
 }
 
+proc String8
+prefix_from_string(String8 string, U8 delimiter)
+{
+  U32 delimiter_pos = 0;
+  for(U32 i = 0; i < string.count; ++i) {
+    if(string.string[i] == delimiter) {
+      delimiter_pos = i;
+      break;
+    }
+  }
+      
+  String8 result = {.string = string.string, .count = delimiter_pos};
+  return(result);
+}
+
+global String8List ignored_prefixes = {0};
+
 global String8List message_opcode_list = {0};
 global String8List request_function_list = {0};
 
@@ -85,6 +102,19 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 
     if(str8s_are_equal(node->label, Str8Lit("interface"))) {
       String8 interface_name = node->first_attribute->value;      
+
+      String8 prefix = prefix_from_string(interface_name, '_');
+      B32 prefix_is_in_list = 0;
+      for(String8Node *prefix_node = ignored_prefixes.first; prefix_node; prefix_node = prefix_node->next) {
+	if(str8s_are_equal(prefix_node->string, prefix)) {
+	  prefix_is_in_list = 1;
+	  break;
+	}
+      }
+
+      if(!prefix_is_in_list) {
+	str8_list_push(codegen_arena, &ignored_prefixes, prefix);
+      }
 
       U32 request_counter = 0;
       U32 event_counter = 0;
@@ -145,8 +175,6 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 			   Str8Lit("  B32 result = 1;\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  ArenaTemp scratch = arena_get_scratch(0, 0);\n\n"));
-	    /* str8_list_push(codegen_arena, &request_function_list, */
-	    /* 		   Str8Lit("  U64 message_start_pos = arena_pos(scratch.arena);\n")); */
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
@@ -166,10 +194,22 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	      String8 arg_name = arg_name_node->string;
 	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
 	      // TODO: better way of ignoring target object ids so they don't get passed as request args
-	      if((arg_name.string[0] == 'w' && arg_name.string[1] == 'l') ||
-		 (arg_name.string[0] == 'x' && arg_name.string[1] == 'd' && arg_name.string[1] == 'd')) {
-		continue;
-	      } 
+	      /* if((arg_name.string[0] == 'w' && arg_name.string[1] == 'l') || */
+	      /* 	 (arg_name.string[0] == 'x' && arg_name.string[1] == 'd' && arg_name.string[2] == 'g') || */
+	      /* 	 (arg_name.string[0] == 'z' && arg_name.string[1] == 'w' && arg_name.string[2] == 'p')) { */
+	      /* 	continue; */
+	      /* }  */
+	      
+	      String8 arg_name_prefix = prefix_from_string(arg_name, '_');
+	      B32 prefix_is_ignored = 0;
+	      for(String8Node *prefix_node = ignored_prefixes.first; prefix_node; prefix_node = prefix_node->next) {
+		if(str8s_are_equal(prefix_node->string, arg_name_prefix)) {
+		  prefix_is_ignored = 1;
+		  break;
+		}
+	      }
+
+	      if(prefix_is_ignored) continue;
 	      
 	      if(str8s_are_equal(arg_type, Str8Lit("U32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
@@ -195,8 +235,6 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	    }
 
 	    // NOTE: send message and return
-	    /* str8_list_push(codegen_arena, &request_function_list, */
-	    /* 		   Str8Lit("\n  U64 message_end_pos = arena_pos(scratch.arena);\n")); */
 	    str8_list_push(codegen_arena, &request_function_list,
 			   Str8Lit("  U32 message_size = AlignPow2(buf.pos, 4);\n"));
 	    str8_list_push(codegen_arena, &request_function_list,
@@ -271,6 +309,7 @@ main(int argc, char **argv)
   Arena *parse_arena = arena_alloc();
   ParsedXml wayland_protocol = load_and_parse_xml(parse_arena, Str8Lit("../data/xml/wayland.xml"));
   ParsedXml xdg_shell_protocol = load_and_parse_xml(parse_arena, Str8Lit("../data/xml/xdg-shell.xml"));
+  ParsedXml linux_dmabuf_v1_protocol = load_and_parse_xml(parse_arena, Str8Lit("../data/xml/linux-dmabuf-v1.xml"));
 
   //print_parsed_xml(wayland_protocol);
   //print_parsed_xml(xdg_shell_protocol);
@@ -279,6 +318,7 @@ main(int argc, char **argv)
   Arena *codegen = arena_alloc();
   generate_code_from_wayland_xml(codegen, wayland_protocol);
   generate_code_from_wayland_xml(codegen, xdg_shell_protocol);
+  generate_code_from_wayland_xml(codegen, linux_dmabuf_v1_protocol);
   printf("generated code\n");
   
   String8 message_opcodes = str8_join(codegen, &message_opcode_list);

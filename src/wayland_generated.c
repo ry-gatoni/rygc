@@ -170,6 +170,26 @@ global U32 xdg_popup_configure_opcode                           =  0; // event
 global U32 xdg_popup_popup_done_opcode                          =  1; // event
 global U32 xdg_popup_reposition_opcode                          =  2; // request
 global U32 xdg_popup_repositioned_opcode                        =  2; // event
+global U32 zwp_linux_dmabuf_v1_destroy_opcode                   =  0; // request
+global U32 zwp_linux_dmabuf_v1_create_params_opcode             =  1; // request
+global U32 zwp_linux_dmabuf_v1_format_opcode                    =  0; // event
+global U32 zwp_linux_dmabuf_v1_modifier_opcode                  =  1; // event
+global U32 zwp_linux_dmabuf_v1_get_default_feedback_opcode      =  2; // request
+global U32 zwp_linux_dmabuf_v1_get_surface_feedback_opcode      =  3; // request
+global U32 zwp_linux_buffer_params_v1_destroy_opcode            =  0; // request
+global U32 zwp_linux_buffer_params_v1_add_opcode                =  1; // request
+global U32 zwp_linux_buffer_params_v1_create_opcode             =  2; // request
+global U32 zwp_linux_buffer_params_v1_created_opcode            =  0; // event
+global U32 zwp_linux_buffer_params_v1_failed_opcode             =  1; // event
+global U32 zwp_linux_buffer_params_v1_create_immed_opcode       =  3; // request
+global U32 zwp_linux_dmabuf_feedback_v1_destroy_opcode          =  0; // request
+global U32 zwp_linux_dmabuf_feedback_v1_done_opcode             =  0; // event
+global U32 zwp_linux_dmabuf_feedback_v1_format_table_opcode     =  1; // event
+global U32 zwp_linux_dmabuf_feedback_v1_main_device_opcode      =  2; // event
+global U32 zwp_linux_dmabuf_feedback_v1_tranche_done_opcode     =  3; // event
+global U32 zwp_linux_dmabuf_feedback_v1_tranche_target_device_opcode =  4; // event
+global U32 zwp_linux_dmabuf_feedback_v1_tranche_formats_opcode  =  5; // event
+global U32 zwp_linux_dmabuf_feedback_v1_tranche_flags_opcode    =  6; // event
 
 // NOTE: message request functions
 proc B32
@@ -2698,3 +2718,243 @@ xdg_popup_reposition(U32 xdg_popup_id, U32 positioner, U32 token)
   arena_release_scratch(scratch);
   return(result);
 }
+
+proc B32
+zwp_linux_dmabuf_v1_destroy(U32 zwp_linux_dmabuf_v1_id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_dmabuf_v1_id;
+  message_header->opcode = zwp_linux_dmabuf_v1_destroy_opcode;
+
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_dmabuf_v1_create_params(U32 zwp_linux_dmabuf_v1_id, U32 params_id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_dmabuf_v1_id;
+  message_header->opcode = zwp_linux_dmabuf_v1_create_params_opcode;
+
+  *buf_push_struct(&buf, U32) = params_id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_dmabuf_v1_get_default_feedback(U32 zwp_linux_dmabuf_v1_id, U32 id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_dmabuf_v1_id;
+  message_header->opcode = zwp_linux_dmabuf_v1_get_default_feedback_opcode;
+
+  *buf_push_struct(&buf, U32) = id;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_dmabuf_v1_get_surface_feedback(U32 zwp_linux_dmabuf_v1_id, U32 id, U32 surface)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_dmabuf_v1_id;
+  message_header->opcode = zwp_linux_dmabuf_v1_get_surface_feedback_opcode;
+
+  *buf_push_struct(&buf, U32) = id;
+  *buf_push_struct(&buf, U32) = surface;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_buffer_params_v1_destroy(U32 zwp_linux_buffer_params_v1_id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_buffer_params_v1_id;
+  message_header->opcode = zwp_linux_buffer_params_v1_destroy_opcode;
+
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_buffer_params_v1_add(U32 zwp_linux_buffer_params_v1_id, int fd, U32 plane_idx, U32 offset, U32 stride, U32 modifier_hi, U32 modifier_lo)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_buffer_params_v1_id;
+  message_header->opcode = zwp_linux_buffer_params_v1_add_opcode;
+
+  *buf_push_struct(&buf, U32) = plane_idx;
+  *buf_push_struct(&buf, U32) = offset;
+  *buf_push_struct(&buf, U32) = stride;
+  *buf_push_struct(&buf, U32) = modifier_hi;
+  *buf_push_struct(&buf, U32) = modifier_lo;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  U64 buffer_len = CMSG_SPACE(sizeof(fd));
+  U8 *buffer = arena_push_array(scratch.arena, U8, buffer_len);
+
+  struct iovec io = {.iov_base = message_header, .iov_len = message_size};
+  struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1, .msg_control = buffer, .msg_controllen = buffer_len};
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = buffer_len;
+
+  *((int *)CMSG_DATA(cmsg)) = fd;
+  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));
+
+  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_buffer_params_v1_create(U32 zwp_linux_buffer_params_v1_id, S32 width, S32 height, U32 format, U32 flags)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_buffer_params_v1_id;
+  message_header->opcode = zwp_linux_buffer_params_v1_create_opcode;
+
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  *buf_push_struct(&buf, U32) = format;
+  *buf_push_struct(&buf, U32) = flags;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_buffer_params_v1_create_immed(U32 zwp_linux_buffer_params_v1_id, U32 buffer_id, S32 width, S32 height, U32 format, U32 flags)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_buffer_params_v1_id;
+  message_header->opcode = zwp_linux_buffer_params_v1_create_immed_opcode;
+
+  *buf_push_struct(&buf, U32) = buffer_id;
+  *buf_push_struct(&buf, S32) = width;
+  *buf_push_struct(&buf, S32) = height;
+  *buf_push_struct(&buf, U32) = format;
+  *buf_push_struct(&buf, U32) = flags;
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc B32
+zwp_linux_dmabuf_feedback_v1_destroy(U32 zwp_linux_dmabuf_feedback_v1_id)
+{
+  B32 result = 1;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  PushBuffer buf = push_buffer_alloc(scratch.arena, 1024);
+  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);
+  message_header->object_id = zwp_linux_dmabuf_feedback_v1_id;
+  message_header->opcode = zwp_linux_dmabuf_feedback_v1_destroy_opcode;
+
+  U32 message_size = AlignPow2(buf.pos, 4);
+  message_header->message_size = message_size;
+
+  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  if(send_size == -1) {
+    result = 0;
+  }
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
