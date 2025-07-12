@@ -193,13 +193,7 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
 	      String8 arg_name = arg_name_node->string;
 	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
-	      // TODO: better way of ignoring target object ids so they don't get passed as request args
-	      /* if((arg_name.string[0] == 'w' && arg_name.string[1] == 'l') || */
-	      /* 	 (arg_name.string[0] == 'x' && arg_name.string[1] == 'd' && arg_name.string[2] == 'g') || */
-	      /* 	 (arg_name.string[0] == 'z' && arg_name.string[1] == 'w' && arg_name.string[2] == 'p')) { */
-	      /* 	continue; */
-	      /* }  */
-	      
+
 	      String8 arg_name_prefix = prefix_from_string(arg_name, '_');
 	      B32 prefix_is_ignored = 0;
 	      for(String8Node *prefix_node = ignored_prefixes.first; prefix_node; prefix_node = prefix_node->next) {

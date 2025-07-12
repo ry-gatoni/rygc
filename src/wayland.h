@@ -1,4 +1,12 @@
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <dirent.h>
+#include <xf86drm.h>
+
 #include <xkbcommon/xkbcommon.h>
+
+#include <errno.h>
 
 #pragma pack(push, 1)
 typedef struct WaylandMessageHeader
@@ -125,6 +133,8 @@ typedef struct WaylandState
   WaylandWindow *first_window;
   WaylandWindow *last_window;
 
+  String8 gpu_render_device_filepath;
+
   U32 wl_display_id;
   U32 wl_registry_id;
   
@@ -134,6 +144,8 @@ typedef struct WaylandState
   U32 xdg_wm_base_id;
   U32 wl_seat_id;
   U32 zwp_linux_dmabuf_feedback_v1_id;
+
+  WaylandTempId *sync_id;
 
   U32 next_id;
   WaylandTempId *id_freelist;
@@ -154,9 +166,11 @@ proc U32 wayland_new_id(void);
 proc WaylandTempId* wayland_temp_id(void);
 proc void wayland_release_id(WaylandTempId *id);
 
+// NOTE: initialization helpers
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(void);
 proc B32 wayland_registry_bind_globals(void);
+proc B32 wayland_get_capabilities(void);
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);

@@ -4,12 +4,8 @@
 #include "base/base.c"
 #include "os/os.c"
 
-#include <sys/socket.h>
-#include <sys/un.h>
-
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
 
 #include "wayland.h"
 #include "wayland.c"
