@@ -150,6 +150,9 @@ typedef struct WaylandState
   U32 next_id;
   WaylandTempId *id_freelist;
 
+  void *dmabuf_format_table;
+  U64 dmabuf_format_table_size;
+
   String8List error_list;
 
   struct xkb_context *xkb_context;  

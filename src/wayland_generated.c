@@ -417,11 +417,9 @@ wl_shm_create_pool(U32 wl_shm_id, U32 id, int fd, S32 size)
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = buffer_len;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));
-
   int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
@@ -528,11 +526,9 @@ wl_data_offer_receive(U32 wl_data_offer_id, String8 mime_type, int fd)
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = buffer_len;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));
-
   int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
@@ -2866,11 +2862,9 @@ zwp_linux_buffer_params_v1_add(U32 zwp_linux_buffer_params_v1_id, int fd, U32 pl
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg);
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = buffer_len;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));
-
   int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
@@ -2957,4 +2951,3 @@ zwp_linux_dmabuf_feedback_v1_destroy(U32 zwp_linux_dmabuf_feedback_v1_id)
   arena_release_scratch(scratch);
   return(result);
 }
-

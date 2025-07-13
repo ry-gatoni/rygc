@@ -249,11 +249,11 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  cmsg->cmsg_type = SCM_RIGHTS;\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  cmsg->cmsg_len = buffer_len;\n\n"));
+			     Str8Lit("  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));\n\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  *((int *)CMSG_DATA(cmsg)) = fd;\n"));
-	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));\n\n"));
+	      /* str8_list_push(codegen_arena, &request_function_list, */
+	      /* 		     Str8Lit("  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));\n\n")); */
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);\n"));
 	      str8_list_push(codegen_arena, &request_function_list,

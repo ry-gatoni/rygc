@@ -220,67 +220,106 @@ wayland_get_capabilities(void)
   B32 result = 1;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
+  int dmabuf_format_table_fd = -1;
+  U32 dmabuf_format_table_size = 0;
+
   Assert(wayland_state.sync_id);
   B32 sync_received = 0;
   while(!sync_received) {
-    Buffer message_buffer = wayland_poll_events(scratch.arena);
+    //Buffer message_buffer = wayland_poll_events(scratch.arena);
+    U64 data_buffer_size = KB(4);
+    U64 control_buffer_size = KB(1);
+    U8 *data_buffer = arena_push_array_z(scratch.arena, U8, data_buffer_size);
+    U8 *control_buffer = arena_push_array_z(scratch.arena, U8, control_buffer_size);
 
-    while(message_buffer.size) {
-      WaylandMessageHeader *header = (WaylandMessageHeader*)message_buffer.mem;    
-      U32 object_id = header->object_id;
-      U32 opcode = header->opcode;
-      U32 message_size = header->message_size;
+    struct iovec io = {.iov_base = data_buffer, .iov_len = data_buffer_size};
+    struct msghdr socket_msg = {.msg_iov = &io, .msg_iovlen = 1,
+				.msg_control = control_buffer, .msg_controllen = control_buffer_size};
 
-      U32 *body = (U32*)(header + 1);
+    int bytes_received = recvmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+    if(bytes_received) {
+      U32 bytes_remaining = bytes_received;
+      while(bytes_remaining) {
+	WaylandMessageHeader *header = (WaylandMessageHeader*)data_buffer;
+	U32 object_id = header->object_id;
+	U32 opcode = header->opcode;
+	U32 message_size = header->message_size;
 
-      // TODO: get shm formats, seat capabilities
-      if(object_id == wayland_state.wl_display_id &&
-	 opcode == wl_display_error_opcode) {
-	U32 error_object_id = body[0];
-	U32 error_code = body[1];
-	U32 error_string_count = body[2];
-	U8 *error_string = (U8 *)(body + 3);
-	// TODO: better logging
-	fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-		error_object_id, error_code, (int)error_string_count, error_string);
-      }
-      else if(object_id == wayland_state.sync_id->id &&
-	      opcode == wl_callback_done_opcode) {
-	sync_received = 1;
-      }
-      else if(object_id == wayland_state.zwp_linux_dmabuf_feedback_v1_id &&
-	      opcode == zwp_linux_dmabuf_feedback_v1_main_device_opcode) {
-	U32 array_count = body[0];
-	U32 *array_body = body + 1;
+	U32 *body = (U32*)(header + 1);
 
-	// NOTE: find the path to the device file corresponding to the preferred device id
-	U32 first_device_id = array_body[0];
-	DIR *dev_dri = opendir("/dev/dri");
+	// TODO: get shm formats, seat capabilities
+	if(object_id == wayland_state.wl_display_id &&
+	   opcode == wl_display_error_opcode) {
+	  U32 error_object_id = body[0];
+	  U32 error_code = body[1];
+	  U32 error_string_count = body[2];
+	  U8 *error_string = (U8 *)(body + 3);
+	  // TODO: better logging
+	  fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+		  error_object_id, error_code, (int)error_string_count, error_string);
+	}
+	else if(object_id == wayland_state.sync_id->id &&
+		opcode == wl_callback_done_opcode) {
+	  sync_received = 1;
+	}
+	else if(object_id == wayland_state.zwp_linux_dmabuf_feedback_v1_id &&
+		opcode == zwp_linux_dmabuf_feedback_v1_format_table_opcode) {
+	  dmabuf_format_table_size = body[0];
+	}
+	else if(object_id == wayland_state.zwp_linux_dmabuf_feedback_v1_id &&
+		opcode == zwp_linux_dmabuf_feedback_v1_main_device_opcode) {
+	  U32 array_count = body[0];
+	  U32 *array_body = body + 1;
+
+	  // NOTE: find the path to the device file corresponding to the preferred device id
+	  U32 first_device_id = array_body[0];
+	  DIR *dev_dri = opendir("/dev/dri");
 	
-	struct dirent *dir_entry;
-	while((dir_entry = readdir(dev_dri)) != 0) {
-	  String8 filename = Str8Cstr(dir_entry->d_name);
-	  String8 path_to_file = str8_concat(scratch.arena, Str8Lit("/dev/dri"), filename, Str8Lit("/"));
+	  struct dirent *dir_entry;
+	  while((dir_entry = readdir(dev_dri)) != 0) {
+	    String8 filename = Str8Cstr(dir_entry->d_name);
+	    String8 path_to_file = str8_concat(scratch.arena, Str8Lit("/dev/dri"), filename, Str8Lit("/"));
 	  
-	  struct stat file_stat;
-	  if(stat((char*)path_to_file.string, &file_stat) != -1) {
-	    if(file_stat.st_rdev == first_device_id) {
-	      wayland_state.gpu_render_device_filepath = arena_push_str8_copy(wayland_state.arena, path_to_file);
+	    struct stat file_stat;
+	    if(stat((char*)path_to_file.string, &file_stat) != -1) {
+	      if(file_stat.st_rdev == first_device_id) {
+		wayland_state.gpu_render_device_filepath = arena_push_str8_copy(wayland_state.arena, path_to_file);
+		break;
+	      }
 	    }
 	  }
+
+	  fprintf(stderr, "zwp linux dmabuf feedback: main device:\n");
+	  for(U32 i = 0; i < array_count; ++i) {
+	    fprintf(stderr, "  device id: %u\n", array_body[i]);
+	  }
+	}
+	else {
+	  fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
 	}
 
-	fprintf(stderr, "zwp linux dmabuf feedback: main device:\n");
-	for(U32 i = 0; i < array_count; ++i) {
-	  fprintf(stderr, "  device id: %u\n", array_body[i]);
-	}
-      }
-      else {
-	fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
+	bytes_remaining -= message_size;
+	data_buffer += message_size;
       }
 
-      message_buffer.size -= message_size;
-      message_buffer.mem += message_size;
+      for(struct cmsghdr *cmsg = CMSG_FIRSTHDR(&socket_msg); cmsg; cmsg = CMSG_NXTHDR(&socket_msg, cmsg)) {
+	if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+	  dmabuf_format_table_fd = *(int*)CMSG_DATA(cmsg);	  
+	}
+      }
+    }
+  }
+
+  if(dmabuf_format_table_fd != -1) {
+    if(dmabuf_format_table_size) {
+      void *dmabuf_format_table = mmap(0, dmabuf_format_table_size,
+				       PROT_READ, MAP_PRIVATE,
+				       dmabuf_format_table_fd, 0);
+      if(dmabuf_format_table != (void*)-1) {
+	wayland_state.dmabuf_format_table = dmabuf_format_table;
+	wayland_state.dmabuf_format_table_size = dmabuf_format_table_size;
+	close(dmabuf_format_table_fd);
+      }
     }
   }
   
@@ -573,13 +612,15 @@ wayland_dmabuf_create_buffer(WaylandWindow *window)
   if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
     window->zwp_linux_buffer_params_v1_id = params_id;
 
-    int gpu_render_device_fd = open((char*)wayland_state.gpu_render_device_filepath.string, O_RDWR, O_CLOEXEC);
+    int gpu_render_device_fd = open((char*)wayland_state.gpu_render_device_filepath.string, O_RDWR | O_CLOEXEC);
     if(gpu_render_device_fd != -1) {
       struct drm_mode_create_dumb drm_req = {0};
       drm_req.height = 1080;
       drm_req.width = 1920;
       drm_req.bpp = sizeof(U32)*8;
+      // TODO: set format
 
+      // TODO: getting "permission denied" error here
       if(ioctl(gpu_render_device_fd, DRM_IOCTL_MODE_CREATE_DUMB, &drm_req) != -1) {
 	U32 handle = drm_req.handle;
 	U32 stride = drm_req.pitch;
