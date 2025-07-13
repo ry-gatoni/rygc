@@ -41,6 +41,7 @@ proc String8 arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alig
 #define arena_push_str8_copy(arena, string) arena_push_str8_copy_ex(arena, string, 0)
 
 proc B32 str8s_are_equal(String8 s1, String8 s2);
+proc B32 str8_contains(String8 s1, String8 s2);
 proc String8 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep);
 
 proc void str8_list_push_ex(String8List *list, String8 string, String8Node *node);

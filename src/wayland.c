@@ -265,35 +265,7 @@ wayland_get_capabilities(void)
 	else if(object_id == wayland_state.zwp_linux_dmabuf_feedback_v1_id &&
 		opcode == zwp_linux_dmabuf_feedback_v1_format_table_opcode) {
 	  dmabuf_format_table_size = body[0];
-	}
-	else if(object_id == wayland_state.zwp_linux_dmabuf_feedback_v1_id &&
-		opcode == zwp_linux_dmabuf_feedback_v1_main_device_opcode) {
-	  U32 array_count = body[0];
-	  U32 *array_body = body + 1;
-
-	  // NOTE: find the path to the device file corresponding to the preferred device id
-	  U32 first_device_id = array_body[0];
-	  DIR *dev_dri = opendir("/dev/dri");
-	
-	  struct dirent *dir_entry;
-	  while((dir_entry = readdir(dev_dri)) != 0) {
-	    String8 filename = Str8Cstr(dir_entry->d_name);
-	    String8 path_to_file = str8_concat(scratch.arena, Str8Lit("/dev/dri"), filename, Str8Lit("/"));
-	  
-	    struct stat file_stat;
-	    if(stat((char*)path_to_file.string, &file_stat) != -1) {
-	      if(file_stat.st_rdev == first_device_id) {
-		wayland_state.gpu_render_device_filepath = arena_push_str8_copy(wayland_state.arena, path_to_file);
-		break;
-	      }
-	    }
-	  }
-
-	  fprintf(stderr, "zwp linux dmabuf feedback: main device:\n");
-	  for(U32 i = 0; i < array_count; ++i) {
-	    fprintf(stderr, "  device id: %u\n", array_body[i]);
-	  }
-	}
+	}	
 	else {
 	  fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n", object_id, opcode, message_size);
 	}
@@ -328,6 +300,58 @@ wayland_get_capabilities(void)
 }
 
 proc B32
+wayland_gl_init(void)
+{
+  B32 result = 1;
+
+  EGLDisplay egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+  if(egl_display != EGL_NO_DISPLAY) {
+    
+    EGLint egl_major, egl_minor;
+    if(eglInitialize(egl_display, &egl_major, &egl_minor)) {
+      
+      const char *egl_extensions_cstr = eglQueryString(egl_display, EGL_EXTENSIONS);
+      fprintf(stderr, "egl extensions: %s\n", egl_extensions_cstr);
+
+      String8 egl_extensions_str = Str8Cstr((char*)egl_extensions_cstr);
+      if(str8_contains(egl_extensions_str, Str8Lit("EGL_MESA_image_dma_buf_export"))) {
+
+	EGLint attrib_list[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE};
+	EGLConfig egl_config;
+	EGLint num_config;
+	if(eglChooseConfig(egl_display, attrib_list, &egl_config, 1, &num_config)) {
+	  
+	  EGLContext egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, 0);
+	  if(egl_context != EGL_NO_CONTEXT) {
+	    if(eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context)) {
+	      // NOTE: success
+	      //eglCreateImage();
+	    } else {
+	      result = 0;
+	    }
+	  } else {
+	    result = 0;
+	  }
+	} else {
+	  result = 0;
+	}
+      } else {
+	// NOTE: image dmabuf export extension not supported
+	result = 0;
+      }
+    } else {
+      // NOTE: egl not initialized
+      result = 0;      
+    }
+  } else {
+    // NOTE: no egl display
+    result = 0;
+  }
+  
+  return(result);
+}
+
+proc B32
 wayland_init(void)
 {
   ZeroStruct(&wayland_state, WaylandState);
@@ -353,6 +377,12 @@ wayland_init(void)
 	    if(wayland_get_capabilities()) {
 	      wayland_release_id(sync_id);
 	      wayland_state.sync_id = 0;
+
+	      if(wayland_gl_init()) {
+		// NOTE: success
+	      } else {
+		result = 0;
+	      }
 	    } else {
 	      result = 0;
 	    }
@@ -604,7 +634,7 @@ wayland_create_buffer(WaylandWindow *window)
 }
 
 proc B32
-wayland_dmabuf_create_buffer(WaylandWindow *window)
+wayland_create_gl_buffer(WaylandWindow *window)
 {
   B32 result = 1;
 
@@ -612,47 +642,7 @@ wayland_dmabuf_create_buffer(WaylandWindow *window)
   if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
     window->zwp_linux_buffer_params_v1_id = params_id;
 
-    int gpu_render_device_fd = open((char*)wayland_state.gpu_render_device_filepath.string, O_RDWR | O_CLOEXEC);
-    if(gpu_render_device_fd != -1) {
-      struct drm_mode_create_dumb drm_req = {0};
-      drm_req.height = 1080;
-      drm_req.width = 1920;
-      drm_req.bpp = sizeof(U32)*8;
-      // TODO: set format
-
-      // TODO: getting "permission denied" error here
-      if(ioctl(gpu_render_device_fd, DRM_IOCTL_MODE_CREATE_DUMB, &drm_req) != -1) {
-	U32 handle = drm_req.handle;
-	U32 stride = drm_req.pitch;
-
-	struct drm_prime_handle prime_handle_req = {0};
-	prime_handle_req.handle = handle;
-	prime_handle_req.flags = DRM_CLOEXEC;
-	prime_handle_req.fd = -1;
-
-	if(ioctl(gpu_render_device_fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &prime_handle_req) != -1) {
-	  int dmabuf_fd = prime_handle_req.fd;
-	  if(dmabuf_fd != -1) {
-	    // TODO: create a dmabuf and wl_buffer
-	    close(dmabuf_fd);
-	  } else {
-	    result = 0;
-	  }
-	} else {
-	  result = 0;
-	}
-
-	struct drm_mode_destroy_dumb destroy_dumb_req = {0};
-	destroy_dumb_req.handle = handle;
-	ioctl(gpu_render_device_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb_req);
-      } else {
-	result = 0;
-      }
-
-      close(gpu_render_device_fd);
-    } else {
-      result = 0;
-    }
+    // TODO: get dmabuf fd from gl land, add dmabuf, create buffer
   } else {
     result = 0;
   }
@@ -751,7 +741,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	window->width = width;
 	window->height = height;
 	if(wayland_end_frame(window)) {
-	  if(wayland_dmabuf_create_buffer(window)) {
+	  if(wayland_create_gl_buffer(window)) {
 	    // NOTE: initialization successful
 	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	  } else {

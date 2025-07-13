@@ -1,10 +1,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/ioctl.h>
-#include <dirent.h>
-#include <xf86drm.h>
 
 #include <xkbcommon/xkbcommon.h>
+
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include <errno.h>
 
@@ -133,8 +134,6 @@ typedef struct WaylandState
   WaylandWindow *first_window;
   WaylandWindow *last_window;
 
-  String8 gpu_render_device_filepath;
-
   U32 wl_display_id;
   U32 wl_registry_id;
   
@@ -174,11 +173,13 @@ proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(void);
 proc B32 wayland_registry_bind_globals(void);
 proc B32 wayland_get_capabilities(void);
+proc B32 wayland_gl_init(void);
+
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_create_buffer(WaylandWindow *window);
-proc B32 wayland_dmabuf_create_buffer(WaylandWindow *window);
+proc B32 wayland_create_gl_buffer(WaylandWindow *window);
 
 proc Buffer wayland_poll_events(Arena *arena);
 

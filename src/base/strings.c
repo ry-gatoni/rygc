@@ -81,6 +81,22 @@ str8s_are_equal(String8 s1, String8 s2)
   return(result);
 }
 
+proc B32
+str8_contains(String8 s1, String8 s2)
+{
+  B32 result = 0;
+  
+  U8 *at1 = s1.string;
+  for(U64 i = 0; i < s1.count && !result; ++i, ++at1) {
+    result = 1;
+    for(U64 j = 0; j < s2.count && result; ++j) {
+      result = at1[j] == s2.string[j];
+    }
+  }
+
+  return(result);
+}
+
 proc String8
 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep)
 {
