@@ -7,6 +7,9 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+
 #include <errno.h>
 
 #pragma pack(push, 1)
@@ -152,6 +155,9 @@ typedef struct WaylandState
   void *dmabuf_format_table;
   U64 dmabuf_format_table_size;
 
+  EGLDisplay egl_display;
+  EGLContext egl_context;
+
   String8List error_list;
 
   struct xkb_context *xkb_context;  
@@ -160,6 +166,11 @@ typedef struct WaylandState
 global WaylandState wayland_state;
 
 #define WAYLAND_MAX_CLIENT_OBJECT_ID 0xFEFFFFFF
+
+// NOTE: import from egl
+global PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
+global PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC eglExportDMABUFImageQueryMESA;
+global PFNEGLEXPORTDMABUFIMAGEMESAPROC eglExportDMABUFImageMESA;
 
 // NOTE: functions
 proc WaylandHashKey wayland_hash(String8 s);

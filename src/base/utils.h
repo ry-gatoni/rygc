@@ -46,8 +46,8 @@
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
 #define AlignPow2(n, a) (((n) + (a - 1)) & ~(a - 1))
 
-#define IntFromPtr(p) (U64)((U8 *)(p))
-#define PtrFromInt(n) (void *)((U8 *)0 + (n))
+#define IntFromPtr(p) (U64)((U8*)(p))
+#define PtrFromInt(n) (void*)((uintptr_t)(n))//(void *)((U8 *)0 + (n))
 
 // NOTE: linked-list utils
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))

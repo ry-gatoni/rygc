@@ -299,6 +299,14 @@ wayland_get_capabilities(void)
   return(result);
 }
 
+proc void
+gl_debug_message_callback(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei len,
+			  const GLchar *msg, const void *user_param)
+{
+  Unused(user_param);
+  fprintf(stderr, "src=%u, type=%u, id=%u, severity=%u: %.*s\n", src, type, id, severity, len, msg);
+}
+
 proc B32
 wayland_gl_init(void)
 {
@@ -315,17 +323,21 @@ wayland_gl_init(void)
 
       String8 egl_extensions_str = Str8Cstr((char*)egl_extensions_cstr);
       if(str8_contains(egl_extensions_str, Str8Lit("EGL_MESA_image_dma_buf_export"))) {
-
-	EGLint attrib_list[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE};
-	EGLConfig egl_config;
-	EGLint num_config;
-	if(eglChooseConfig(egl_display, attrib_list, &egl_config, 1, &num_config)) {
+	if(eglBindAPI(EGL_OPENGL_API)) {
 	  
-	  EGLContext egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, 0);
-	  if(egl_context != EGL_NO_CONTEXT) {
-	    if(eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context)) {
-	      // NOTE: success
-	      //eglCreateImage();
+	  EGLint attrib_list[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE};
+	  EGLConfig egl_config;
+	  EGLint num_config;
+	  if(eglChooseConfig(egl_display, attrib_list, &egl_config, 1, &num_config)) {
+	  
+	    EGLContext egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, 0);
+	    if(egl_context != EGL_NO_CONTEXT) {
+	      if(eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context)) {
+		wayland_state.egl_display = egl_display;
+		wayland_state.egl_context = egl_context;
+	      } else {
+		result = 0;
+	      }
 	    } else {
 	      result = 0;
 	    }
@@ -379,7 +391,12 @@ wayland_init(void)
 	      wayland_state.sync_id = 0;
 
 	      if(wayland_gl_init()) {
-		// NOTE: success
+		eglCreateImageKHR =
+		  (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+		eglExportDMABUFImageQueryMESA =
+		  (PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC)eglGetProcAddress("eglExportDMABUFImageQueryMESA");
+		eglExportDMABUFImageMESA =
+		  (PFNEGLEXPORTDMABUFIMAGEMESAPROC)eglGetProcAddress("eglExportDMABUFImageMESA");
 	      } else {
 		result = 0;
 	      }
@@ -642,7 +659,55 @@ wayland_create_gl_buffer(WaylandWindow *window)
   if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
     window->zwp_linux_buffer_params_v1_id = params_id;
 
-    // TODO: get dmabuf fd from gl land, add dmabuf, create buffer
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(gl_debug_message_callback, 0);
+
+    glEnable(GL_DEPTH_TEST);
+
+    GLuint color_texture, depth_texture;
+    glGenTextures(1, &color_texture);
+    glGenTextures(1, &depth_texture);
+    
+    glBindTexture(GL_TEXTURE_2D, color_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1920, 1080, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);            
+
+    glBindTexture(GL_TEXTURE_2D, depth_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1920, 1080, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
+
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
+
+    EGLImageKHR egl_image = eglCreateImageKHR(wayland_state.egl_display, wayland_state.egl_context,
+					      EGL_GL_TEXTURE_2D, PtrFromInt(color_texture), 0);
+    glFlush(); // NOTE: very important
+
+    int num_planes, fourcc;
+    EGLuint64KHR modifiers;
+    if(eglExportDMABUFImageQueryMESA(wayland_state.egl_display, egl_image, &fourcc, &num_planes, &modifiers)) {
+      Assert(num_planes == 1); // TODO: guarantee this somehow
+
+      int fd;
+      EGLint stride, offset;
+      if(eglExportDMABUFImageMESA(wayland_state.egl_display, egl_image, &fd, &stride, &offset)) {
+	// NOTE: success
+	// TODO: add dmabuf (sending fd), create buffer
+      } else {
+	result = 0;
+      }
+    } else {
+      result = 0;
+    }
   } else {
     result = 0;
   }
