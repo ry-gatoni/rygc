@@ -2,9 +2,10 @@
  * support changing cursor icon
  * drag to resize
  * pull out common code in initialization event handling functions (or generate it)
- * log messages/errors somewhere besides the console
  * (wip) improve event handling interface
- * hardware rendering via linux-dmabuf and egl
+ * log messages/errors somewhere besides the console
+ * allow applications to use hardware rendering
+ * explicit framebuffer and backbuffer
  */
 
 #include "wayland_generated.c"
@@ -655,6 +656,8 @@ wayland_create_gl_buffer(WaylandWindow *window)
 {
   B32 result = 1;
 
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
   U32 params_id = wayland_new_id();
   if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
     window->zwp_linux_buffer_params_v1_id = params_id;
@@ -667,20 +670,25 @@ wayland_create_gl_buffer(WaylandWindow *window)
     GLuint color_texture, depth_texture;
     glGenTextures(1, &color_texture);
     glGenTextures(1, &depth_texture);
-    
+
+    S32 buffer_width = 1920, buffer_height =  1080;
     glBindTexture(GL_TEXTURE_2D, color_texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1920, 1080, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);            
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+		 buffer_width, buffer_height,
+		 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
     glBindTexture(GL_TEXTURE_2D, depth_texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1920, 1080, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
+		 buffer_width, buffer_height,
+		 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
 
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
@@ -702,6 +710,46 @@ wayland_create_gl_buffer(WaylandWindow *window)
       if(eglExportDMABUFImageMESA(wayland_state.egl_display, egl_image, &fd, &stride, &offset)) {
 	// NOTE: success
 	// TODO: add dmabuf (sending fd), create buffer
+	U32 modifier_hi = modifiers >> 32;
+	U32 modifier_lo = modifiers & U32_MAX;
+	if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1_id,
+					  fd, 0, offset, stride, modifier_hi, modifier_lo)) {
+
+	  if(zwp_linux_buffer_params_v1_create(window->zwp_linux_buffer_params_v1_id,
+					       buffer_width, buffer_height, fourcc, 0)) {
+	    while(!window->gl_buffer_id) {
+	      Buffer message_buffer = wayland_poll_events(scratch.arena);
+	      while(message_buffer.size) {
+		WaylandMessageHeader *header = (WaylandMessageHeader*)message_buffer.mem;
+		U32 object_id = header->object_id;
+		U32 opcode = header->opcode;
+		U32 message_size = header->message_size;
+
+		U32 *body = (U32*)(header + 1);
+		if(object_id == window->zwp_linux_buffer_params_v1_id &&
+		   opcode == zwp_linux_buffer_params_v1_created_opcode) {
+		  window->gl_buffer_id = body[0];
+		}
+		else if(object_id == wayland_state.wl_display_id &&
+			opcode == wl_display_error_opcode) {
+		  U32 error_object_id = body[0];
+		  U32 error_code = body[1];
+		  U32 error_string_count = body[2];
+		  U8 *error_string = (U8*)(body + 3);
+		  fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
+			  error_object_id, error_code, (int)error_string_count, error_string);
+		}
+		else {
+		  fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n",
+			  object_id, opcode, message_size);
+		}
+
+		message_buffer.mem += message_size;
+		message_buffer.size -= message_size;
+	      }
+	    }	      
+	  }
+	}
       } else {
 	result = 0;
       }
@@ -712,6 +760,7 @@ wayland_create_gl_buffer(WaylandWindow *window)
     result = 0;
   }
 
+  arena_release_scratch(scratch);
   return(result);
 }
 
@@ -805,17 +854,17 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	    
 	window->width = width;
 	window->height = height;
-	if(wayland_end_frame(window)) {
-	  if(wayland_create_gl_buffer(window)) {
+	if(wayland_create_gl_buffer(window)) {
+	  if(wayland_end_frame(window)) {
 	    // NOTE: initialization successful
 	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
 	  } else {
-	    // NOTE: failure to create dmabuf
+	    // NOTE: failure to create buffer or commit surface
 	    arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	    window = 0;
 	  }
 	} else {
-	  // NOTE: failure to create buffer or commit surface
+	  // NOTE: failure to create dmabuf
 	  arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	  window = 0;
 	}

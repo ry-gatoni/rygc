@@ -18,6 +18,16 @@ typedef S64      B64;
 typedef float    R32;
 typedef double   R64;
 
+#define U8_MAX  (0xFF)
+#define U16_MAX (0xFFFF)
+#define U32_MAX (0xFFFFFFFF)
+#define U64_MAX (0xFFFFFFFFFFFFFFFF)
+
+#define S8_MAX  (0x7F)
+#define S16_MAX (0x7FFF)
+#define S32_MAX (0x7FFFFFFF)
+#define S64_MAX (0x7FFFFFFFFFFFFFFF)
+
 typedef struct V2
 {
   R32 x, y;

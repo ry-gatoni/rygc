@@ -56,6 +56,7 @@ struct WaylandWindow
   U32 zwp_linux_buffer_params_v1_id;  
 
   WaylandTempId *buffer_id;
+  U32 gl_buffer_id;
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
   U32 last_frame_timestamp;
