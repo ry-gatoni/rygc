@@ -11,7 +11,7 @@
 #include "wayland.c"
 
 typedef struct AppState
-{
+{ 
   S32 window_width;
   S32 window_height;
   S32 window_stride;
@@ -28,6 +28,8 @@ typedef struct AppState
   V2 box_v;
 
   B32 running;
+
+  RenderTarget render_target;
 } AppState;
 
 proc U32
@@ -86,20 +88,24 @@ update_and_render(U32 *pixels, AppState *app_state)
   // NOTE: render state
   U32 box_color = app_state->box_colors[app_state->box_color_index];
   U32 background_color = app_state->background_color;
-  U8 *row = (U8 *)pixels;
-  for(S32 j = 0; j < app_state->window_height; ++j) {
-    U32 *pixel = (U32 *)row;
-    for(S32 i = 0; i < app_state->window_width; ++i, ++pixel) {
-      if(i >= app_state->box_pos.x && i <= app_state->box_pos.x + app_state->box_dim.x &&
-	 j >= app_state->box_pos.y && j <= app_state->box_pos.y + app_state->box_dim.y) {
-	*pixel = box_color;
+  if(app_state->render_target == RenderTarget_software) {    
+    U8 *row = (U8 *)pixels;
+    for(S32 j = 0; j < app_state->window_height; ++j) {
+      U32 *pixel = (U32 *)row;
+      for(S32 i = 0; i < app_state->window_width; ++i, ++pixel) {
+	if(i >= app_state->box_pos.x && i <= app_state->box_pos.x + app_state->box_dim.x &&
+	   j >= app_state->box_pos.y && j <= app_state->box_pos.y + app_state->box_dim.y) {
+	  *pixel = box_color;
+	}
+	else {
+	  *pixel = background_color;
+	}
       }
-      else {
-	*pixel = background_color;
-      }
-    }
 
-    row += app_state->window_stride;
+      row += app_state->window_stride;
+    }
+  } else if(app_state->render_target == RenderTarget_hardware) {
+    
   }
 }
 
@@ -118,8 +124,9 @@ main(int argc, char **argv)
   app_state.mouse_pos = (V2){.x = -1, .y = -1};
 
   if(wayland_init()) {
-    WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480);
+    WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480, RenderTarget_software);
     if(window) {
+      app_state.render_target = window->render_target;
       app_state.running = 1;
 
       B32 running = 1;
@@ -153,7 +160,8 @@ main(int argc, char **argv)
 	app_state.window_width = window->width;
 	app_state.window_height = window->height;
 	app_state.window_stride = app_state.window_width * sizeof(U32);
-	update_and_render((U32 *)window->shared_memory, &app_state);
+	U32 *pixels = wayland_get_render_pixels(window);
+	update_and_render(pixels, &app_state);
 
 	if(!wayland_end_frame(window)) {
 	  Assert(!"FATAL: swap buffers failed");

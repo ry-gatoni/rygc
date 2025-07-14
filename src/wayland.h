@@ -40,6 +40,21 @@ struct WaylandTempId
   U32 id;
 };
 
+typedef struct GlFramebuffer
+{
+  GLuint color_texture;
+  GLuint depth_texture;
+  GLuint fbo;
+
+  S32 width, height;
+} GlFramebuffer;
+
+typedef enum RenderTarget
+{
+  RenderTarget_software,
+  RenderTarget_hardware,
+} RenderTarget;
+
 typedef struct WaylandWindow WaylandWindow;
 struct WaylandWindow
 {
@@ -55,8 +70,10 @@ struct WaylandWindow
 
   U32 zwp_linux_buffer_params_v1_id;  
 
-  WaylandTempId *buffer_id;
+
+  WaylandTempId *buffer_id[2];
   U32 gl_buffer_id;
+  U32 backbuffer_index;
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
   U32 last_frame_timestamp;
@@ -65,10 +82,14 @@ struct WaylandWindow
   void *shared_memory;
   U64 shared_memory_size;
 
+  GlFramebuffer gl_framebuffer;
+
   struct xkb_keymap *xkb_keymap;
   struct xkb_state *xkb_state;
 
   Arena *event_arena; // NOTE: cleared each frame
+
+  RenderTarget render_target;
 
   U64 frame_index;
 
@@ -206,8 +227,9 @@ proc void wayland_log_error_(char *fmt, ...);
 
 // NOTE: user-facing api
 proc B32 wayland_init(void);
-proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height);
+proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height, RenderTarget render_target);
 
+proc U32 *wayland_get_render_pixels(WaylandWindow *window);
 proc EventList wayland_get_events(WaylandWindow *window);
 proc B32 next_event(EventList *events, Event *event);
 

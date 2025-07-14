@@ -631,18 +631,19 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
 }
 
 proc B32
-wayland_create_buffer(WaylandWindow *window)
+wayland_create_shm_buffer(WaylandWindow *window)
 {
   B32 result = 1;
 
   S32 stride = window->width*sizeof(U32);
   U32 format = 0x34324241; // NOTE: ABGR 32-bit little-endian // TODO: generate enums
   
-  Assert(!window->buffer_id);
-  window->buffer_id = wayland_temp_id();
-  if(wl_shm_pool_create_buffer(window->wl_shm_pool_id, window->buffer_id->id,
-			       0, window->width, window->height, stride, format)) {
-    // NOTE: success
+  //Assert(!window->buffer_id[window->backbuffer_index]);
+  WaylandTempId *buffer_id = wayland_temp_id();
+  if(wl_shm_pool_create_buffer(window->wl_shm_pool_id, buffer_id->id,
+			       window->backbuffer_index*window->shared_memory_size/2,
+			       window->width, window->height, stride, format)) {
+    window->buffer_id[window->backbuffer_index] = buffer_id;
   } else {
     // NOTE: buffer creation failed
     result = 0;
@@ -650,6 +651,12 @@ wayland_create_buffer(WaylandWindow *window)
 
   return(result);
 }
+
+#define GlTextureDefaultParams() \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
 
 proc B32
 wayland_create_gl_buffer(WaylandWindow *window)
@@ -673,19 +680,13 @@ wayland_create_gl_buffer(WaylandWindow *window)
 
     S32 buffer_width = 1920, buffer_height =  1080;
     glBindTexture(GL_TEXTURE_2D, color_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    GlTextureDefaultParams();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
 		 buffer_width, buffer_height,
 		 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
     glBindTexture(GL_TEXTURE_2D, depth_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    GlTextureDefaultParams();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
 		 buffer_width, buffer_height,
 		 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
@@ -695,6 +696,12 @@ wayland_create_gl_buffer(WaylandWindow *window)
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
+
+    window->gl_framebuffer.color_texture = color_texture;
+    window->gl_framebuffer.depth_texture = depth_texture;
+    window->gl_framebuffer.fbo = fbo;
+    window->gl_framebuffer.width = buffer_width;
+    window->gl_framebuffer.height = buffer_height;
 
     EGLImageKHR egl_image = eglCreateImageKHR(wayland_state.egl_display, wayland_state.egl_context,
 					      EGL_GL_TEXTURE_2D, PtrFromInt(color_texture), 0);
@@ -708,8 +715,6 @@ wayland_create_gl_buffer(WaylandWindow *window)
       int fd;
       EGLint stride, offset;
       if(eglExportDMABUFImageMESA(wayland_state.egl_display, egl_image, &fd, &stride, &offset)) {
-	// NOTE: success
-	// TODO: add dmabuf (sending fd), create buffer
 	U32 modifier_hi = modifiers >> 32;
 	U32 modifier_lo = modifiers & U32_MAX;
 	if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1_id,
@@ -764,6 +769,19 @@ wayland_create_gl_buffer(WaylandWindow *window)
   return(result);
 }
 
+proc B32
+wayland_create_buffer(WaylandWindow *window)
+{
+  B32 result = 1;
+  if(window->render_target == RenderTarget_software) {
+    result = wayland_create_shm_buffer(window);
+  } else if(window->render_target == RenderTarget_hardware) {
+    result = wayland_create_gl_buffer(window);
+  }
+
+  return(result);
+}
+
 proc void
 wayland_log_error_(char *fmt, ...)
 {
@@ -795,7 +813,7 @@ wayland_poll_events(Arena *arena)
 }
 
 proc WaylandWindow*
-wayland_open_window(String8 title, S32 width, S32 height)
+wayland_open_window(String8 title, S32 width, S32 height, RenderTarget render_target)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
   
@@ -854,6 +872,7 @@ wayland_open_window(String8 title, S32 width, S32 height)
 	    
 	window->width = width;
 	window->height = height;
+	window->render_target = render_target;
 	if(wayland_create_gl_buffer(window)) {
 	  if(wayland_end_frame(window)) {
 	    // NOTE: initialization successful
@@ -886,6 +905,13 @@ wayland_open_window(String8 title, S32 width, S32 height)
    
   arena_release_scratch(scratch);
   return(window);
+}
+
+proc U32*
+wayland_get_render_pixels(WaylandWindow *window)
+{
+  U32 *result = (U32*)((U8*)window->shared_memory + window->backbuffer_index*window->shared_memory_size/2);
+  return(result);
 }
 
 proc EventList
@@ -952,12 +978,12 @@ wayland_get_events(WaylandWindow *window)
 	wayland_release_id(window->frame_callback_id);
 	window->frame_callback_id = 0;
       }
-      else if(window->buffer_id &&
-	      object_id == window->buffer_id->id &&
+      else if(window->buffer_id[window->backbuffer_index] &&
+	      object_id == window->buffer_id[window->backbuffer_index]->id &&
 	      opcode == wl_buffer_release_opcode) {
-	wayland_release_id(window->buffer_id);
-	wl_buffer_destroy(window->buffer_id->id);
-	window->buffer_id = 0;
+	wayland_release_id(window->buffer_id[window->backbuffer_index]);
+	wl_buffer_destroy(window->buffer_id[window->backbuffer_index]->id);
+	window->buffer_id[window->backbuffer_index] = 0;
       }
       // NOTE: mouse events
       else if(object_id == window->wl_pointer_id &&
@@ -1062,13 +1088,17 @@ wayland_end_frame(WaylandWindow *window)
 
   Assert(!window->frame_callback_id);
   if(wayland_create_buffer(window)) {
-    if(wl_surface_attach(window->wl_surface_id, window->buffer_id->id, 0, 0)) {
+    if(wl_surface_attach(window->wl_surface_id, window->buffer_id[window->backbuffer_index]->id, 0, 0)) {
       if(wl_surface_damage(window->wl_surface_id, 0, 0, window->width, window->height)) {
 	
 	window->frame_callback_id = wayland_temp_id();
 	if(wl_surface_frame(window->wl_surface_id, window->frame_callback_id->id)) {
 	  if(wl_surface_commit(window->wl_surface_id)) {
 	    ++window->frame_index;
+	    
+	    ++window->backbuffer_index;
+	    window->backbuffer_index %= ArrayCount(window->buffer_id);
+
 	    arena_clear(window->event_arena);
 	    fprintf(stderr, "(render) surface committed\n");
 	  } else {
@@ -1097,9 +1127,14 @@ wayland_close_window(WaylandWindow *window)
   xdg_toplevel_destroy(window->xdg_toplevel_id);  
   xdg_surface_destroy(window->xdg_surface_id);  
   wl_surface_destroy(window->wl_surface_id); 
+  zwp_linux_buffer_params_v1_destroy(window->zwp_linux_buffer_params_v1_id);
 
   munmap(window->shared_memory, window->shared_memory_size);  
 
   xkb_keymap_unref(window->xkb_keymap);
   xkb_state_unref(window->xkb_state);
+
+  glDeleteTextures(1, &window->gl_framebuffer.color_texture);
+  glDeleteTextures(1, &window->gl_framebuffer.depth_texture);
+  glDeleteFramebuffers(1, &window->gl_framebuffer.fbo);
 }
