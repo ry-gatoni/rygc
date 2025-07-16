@@ -44,7 +44,7 @@ colorU32_from_rgba(U8 r, U8 g, U8 b, U8 a)
 }
 
 proc void
-update_and_render(U32 *pixels, AppState *app_state)
+update_and_render(U32 *pixels, GlFramebuffer gl_framebuffer, AppState *app_state)
 {
   // TODO: handle the case when the box becomes outside the window dimensions
   //       as a result of the window size changing
@@ -105,7 +105,11 @@ update_and_render(U32 *pixels, AppState *app_state)
       row += app_state->window_stride;
     }
   } else if(app_state->render_target == RenderTarget_hardware) {
-    
+    glBindFramebuffer(GL_FRAMEBUFFER, gl_framebuffer.fbo);
+    glViewport(0, 0, app_state->window_width, app_state->window_height);
+    glClearColor(1, 0, 1, 1);
+    glClearDepth(1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 }
 
@@ -124,7 +128,7 @@ main(int argc, char **argv)
   app_state.mouse_pos = (V2){.x = -1, .y = -1};
 
   if(wayland_init()) {
-    WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480, RenderTarget_software);
+    WaylandWindow *window = wayland_open_window(Str8Lit("hello wayland"), 640, 480, RenderTarget_hardware);
     if(window) {
       app_state.render_target = window->render_target;
       app_state.running = 1;
@@ -161,7 +165,8 @@ main(int argc, char **argv)
 	app_state.window_height = window->height;
 	app_state.window_stride = app_state.window_width * sizeof(U32);
 	U32 *pixels = wayland_get_render_pixels(window);
-	update_and_render(pixels, &app_state);
+	GlFramebuffer gl_framebuffer = wayland_get_framebuffer(window);
+	update_and_render(pixels, gl_framebuffer, &app_state);
 
 	if(!wayland_end_frame(window)) {
 	  Assert(!"FATAL: swap buffers failed");

@@ -46,7 +46,17 @@ typedef struct GlFramebuffer
   GLuint depth_texture;
   GLuint fbo;
 
-  S32 width, height;
+  S32 width;
+  S32 height;
+
+  EGLImage egl_image;
+  int num_planes;
+  int fourcc;
+  int fd;
+  EGLint stride;
+  EGLint offset;
+  U32 modifier_hi;
+  U32 modifier_lo;
 } GlFramebuffer;
 
 typedef enum RenderTarget
@@ -70,10 +80,9 @@ struct WaylandWindow
 
   U32 zwp_linux_buffer_params_v1_id;  
 
-
   WaylandTempId *buffer_id[2];
-  U32 gl_buffer_id;
   U32 backbuffer_index;
+  WaylandTempId *gl_buffer_id;  
 
   WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
   U32 last_frame_timestamp;
@@ -82,7 +91,7 @@ struct WaylandWindow
   void *shared_memory;
   U64 shared_memory_size;
 
-  GlFramebuffer gl_framebuffer;
+  GlFramebuffer gl_framebuffer[2];
 
   struct xkb_keymap *xkb_keymap;
   struct xkb_state *xkb_state;
@@ -211,7 +220,9 @@ proc B32 wayland_gl_init(void);
 proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
+proc B32 wayland_allocate_textures(WaylandWindow *window);
 proc B32 wayland_create_buffer(WaylandWindow *window);
+proc B32 wayland_create_shm_buffer(WaylandWindow *window);
 proc B32 wayland_create_gl_buffer(WaylandWindow *window);
 
 proc Buffer wayland_poll_events(Arena *arena);
@@ -230,6 +241,8 @@ proc B32 wayland_init(void);
 proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height, RenderTarget render_target);
 
 proc U32 *wayland_get_render_pixels(WaylandWindow *window);
+proc GlFramebuffer wayland_get_framebuffer(WaylandWindow *window);
+
 proc EventList wayland_get_events(WaylandWindow *window);
 proc B32 next_event(EventList *events, Event *event);
 

@@ -4,8 +4,6 @@
  * pull out common code in initialization event handling functions (or generate it)
  * (wip) improve event handling interface
  * log messages/errors somewhere besides the console
- * allow applications to use hardware rendering
- * explicit framebuffer and backbuffer
  */
 
 #include "wayland_generated.c"
@@ -659,36 +657,32 @@ wayland_create_shm_buffer(WaylandWindow *window)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
 
 proc B32
-wayland_create_gl_buffer(WaylandWindow *window)
+wayland_allocate_textures(WaylandWindow *window)
 {
   B32 result = 1;
+  
+  glEnable(GL_DEBUG_OUTPUT);
+  glDebugMessageCallback(gl_debug_message_callback, 0);
 
-  ArenaTemp scratch = arena_get_scratch(0, 0);
+  glEnable(GL_DEPTH_TEST);
 
-  U32 params_id = wayland_new_id();
-  if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
-    window->zwp_linux_buffer_params_v1_id = params_id;
+  S32 texture_width = 1920, texture_height =  1080;
 
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(gl_debug_message_callback, 0);
-
-    glEnable(GL_DEPTH_TEST);
-
+  for(U32 i = 0; i < ArrayCount(window->gl_framebuffer) && result; ++i) {
     GLuint color_texture, depth_texture;
     glGenTextures(1, &color_texture);
     glGenTextures(1, &depth_texture);
-
-    S32 buffer_width = 1920, buffer_height =  1080;
+  
     glBindTexture(GL_TEXTURE_2D, color_texture);
     GlTextureDefaultParams();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-		 buffer_width, buffer_height,
+		 texture_width, texture_height,
 		 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
     glBindTexture(GL_TEXTURE_2D, depth_texture);
     GlTextureDefaultParams();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
-		 buffer_width, buffer_height,
+		 texture_width, texture_height,
 		 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
 
     GLuint fbo;
@@ -697,15 +691,14 @@ wayland_create_gl_buffer(WaylandWindow *window)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
 
-    window->gl_framebuffer.color_texture = color_texture;
-    window->gl_framebuffer.depth_texture = depth_texture;
-    window->gl_framebuffer.fbo = fbo;
-    window->gl_framebuffer.width = buffer_width;
-    window->gl_framebuffer.height = buffer_height;
-
-    EGLImageKHR egl_image = eglCreateImageKHR(wayland_state.egl_display, wayland_state.egl_context,
-					      EGL_GL_TEXTURE_2D, PtrFromInt(color_texture), 0);
-    glFlush(); // NOTE: very important
+    window->gl_framebuffer[i].color_texture = color_texture;
+    window->gl_framebuffer[i].depth_texture = depth_texture;
+    window->gl_framebuffer[i].fbo = fbo;
+    window->gl_framebuffer[i].width = texture_width;
+    window->gl_framebuffer[i].height = texture_height;
+    
+    EGLImage egl_image = eglCreateImageKHR(wayland_state.egl_display, wayland_state.egl_context,
+					   EGL_GL_TEXTURE_2D, PtrFromInt(color_texture), 0);
 
     int num_planes, fourcc;
     EGLuint64KHR modifiers;
@@ -717,44 +710,52 @@ wayland_create_gl_buffer(WaylandWindow *window)
       if(eglExportDMABUFImageMESA(wayland_state.egl_display, egl_image, &fd, &stride, &offset)) {
 	U32 modifier_hi = modifiers >> 32;
 	U32 modifier_lo = modifiers & U32_MAX;
-	if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1_id,
-					  fd, 0, offset, stride, modifier_hi, modifier_lo)) {
 
-	  if(zwp_linux_buffer_params_v1_create(window->zwp_linux_buffer_params_v1_id,
-					       buffer_width, buffer_height, fourcc, 0)) {
-	    while(!window->gl_buffer_id) {
-	      Buffer message_buffer = wayland_poll_events(scratch.arena);
-	      while(message_buffer.size) {
-		WaylandMessageHeader *header = (WaylandMessageHeader*)message_buffer.mem;
-		U32 object_id = header->object_id;
-		U32 opcode = header->opcode;
-		U32 message_size = header->message_size;
+	window->gl_framebuffer[i].egl_image = egl_image;
+	window->gl_framebuffer[i].num_planes = num_planes;
+	window->gl_framebuffer[i].fourcc = fourcc;
+	window->gl_framebuffer[i].fd = fd;
+	window->gl_framebuffer[i].stride = stride;
+	window->gl_framebuffer[i].offset = offset;
+	window->gl_framebuffer[i].modifier_hi = modifier_hi;
+	window->gl_framebuffer[i].modifier_lo = modifier_lo;
+      } else {
+	result = 0;
+      }
+    } else {
+      result = 0;
+    }
+  }
+  
+  glFlush(); // NOTE: avoid some bugs on some drivers
 
-		U32 *body = (U32*)(header + 1);
-		if(object_id == window->zwp_linux_buffer_params_v1_id &&
-		   opcode == zwp_linux_buffer_params_v1_created_opcode) {
-		  window->gl_buffer_id = body[0];
-		}
-		else if(object_id == wayland_state.wl_display_id &&
-			opcode == wl_display_error_opcode) {
-		  U32 error_object_id = body[0];
-		  U32 error_code = body[1];
-		  U32 error_string_count = body[2];
-		  U8 *error_string = (U8*)(body + 3);
-		  fprintf(stderr, "ERROR: object %u, code %u: %.*s\n",
-			  error_object_id, error_code, (int)error_string_count, error_string);
-		}
-		else {
-		  fprintf(stderr, "unhandled message: object=%u, opcode=%u, length=%u\n",
-			  object_id, opcode, message_size);
-		}
+  return(result);
+}
 
-		message_buffer.mem += message_size;
-		message_buffer.size -= message_size;
-	      }
-	    }	      
-	  }
-	}
+proc B32
+wayland_create_gl_buffer(WaylandWindow *window)
+{
+  B32 result = 1;
+
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U32 params_id = wayland_new_id();
+  if(zwp_linux_dmabuf_v1_create_params(wayland_state.zwp_linux_dmabuf_v1_id, params_id)) {
+    window->zwp_linux_buffer_params_v1_id = params_id;        
+
+    GlFramebuffer gl_framebuffer = window->gl_framebuffer[window->backbuffer_index];
+    if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1_id,
+				      gl_framebuffer.fd,
+				      0,
+				      gl_framebuffer.offset,
+				      gl_framebuffer.stride,
+				      gl_framebuffer.modifier_hi,
+				      gl_framebuffer.modifier_lo)) {
+
+      WaylandTempId *buffer_id = wayland_temp_id();
+      if(zwp_linux_buffer_params_v1_create_immed(window->zwp_linux_buffer_params_v1_id, buffer_id->id,
+						 window->width, window->height, gl_framebuffer.fourcc, 0)) {
+	window->buffer_id[window->backbuffer_index] = buffer_id; 
       } else {
 	result = 0;
       }
@@ -763,7 +764,7 @@ wayland_create_gl_buffer(WaylandWindow *window)
     }
   } else {
     result = 0;
-  }
+  } 
 
   arena_release_scratch(scratch);
   return(result);
@@ -868,12 +869,12 @@ wayland_open_window(String8 title, S32 width, S32 height, RenderTarget render_ta
 	
       U64 shared_memory_size = 1960*1080*sizeof(U32)*2;
       if(wayland_allocate_shared_memory(window, shared_memory_size)) {
-	window->event_arena = arena_alloc();
+	if(wayland_allocate_textures(window)) {
+	  window->event_arena = arena_alloc();
 	    
-	window->width = width;
-	window->height = height;
-	window->render_target = render_target;
-	if(wayland_create_gl_buffer(window)) {
+	  window->width = width;
+	  window->height = height;
+	  window->render_target = render_target;
 	  if(wayland_end_frame(window)) {
 	    // NOTE: initialization successful
 	    SLLQueuePush(wayland_state.first_window, wayland_state.last_window, window);
@@ -883,7 +884,7 @@ wayland_open_window(String8 title, S32 width, S32 height, RenderTarget render_ta
 	    window = 0;
 	  }
 	} else {
-	  // NOTE: failure to create dmabuf
+	  // NOTE: gl texture creation failure
 	  arena_pop_to(wayland_state.arena, wayland_arena_pre_init_pos);
 	  window = 0;
 	}
@@ -911,6 +912,13 @@ proc U32*
 wayland_get_render_pixels(WaylandWindow *window)
 {
   U32 *result = (U32*)((U8*)window->shared_memory + window->backbuffer_index*window->shared_memory_size/2);
+  return(result);
+}
+
+proc GlFramebuffer
+wayland_get_framebuffer(WaylandWindow *window)
+{
+  GlFramebuffer result = window->gl_framebuffer[window->backbuffer_index];
   return(result);
 }
 
@@ -1134,7 +1142,9 @@ wayland_close_window(WaylandWindow *window)
   xkb_keymap_unref(window->xkb_keymap);
   xkb_state_unref(window->xkb_state);
 
-  glDeleteTextures(1, &window->gl_framebuffer.color_texture);
-  glDeleteTextures(1, &window->gl_framebuffer.depth_texture);
-  glDeleteFramebuffers(1, &window->gl_framebuffer.fbo);
+  for(U32 i = 0; i < ArrayCount(window->gl_framebuffer); ++i) {
+    glDeleteTextures(1, &window->gl_framebuffer[i].color_texture);
+    glDeleteTextures(1, &window->gl_framebuffer[i].depth_texture);
+    glDeleteFramebuffers(1, &window->gl_framebuffer[i].fbo);
+  }
 }
