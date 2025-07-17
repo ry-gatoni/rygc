@@ -5,3 +5,4 @@
 #include "intrinsics.h"
 #include "strings.h"
 #include "buffer.h"
+#include "math.h"

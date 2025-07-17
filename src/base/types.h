@@ -28,11 +28,6 @@ typedef double   R64;
 #define S32_MAX (0x7FFFFFFF)
 #define S64_MAX (0x7FFFFFFFFFFFFFFF)
 
-typedef struct V2
-{
-  R32 x, y;
-} V2;
-
 #define proc static
 #define local static
 #define global static
