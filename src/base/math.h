@@ -20,3 +20,6 @@ typedef union V4
 proc V2 v2(R32 x, R32 y);
 proc V3 v3(R32 x, R32 y, R32 z);
 proc V4 v4(R32 x, R32 y, R32 z, R32 w);
+
+#define PI32  (3.14159265359f)
+#define TAU32 (6.28318530718f)

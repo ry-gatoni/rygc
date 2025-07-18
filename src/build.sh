@@ -19,7 +19,8 @@ SRC=$PWD
 mkdir -p ../build
 pushd ../build > /dev/null
 
-clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
+#clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
+clang $CFLAGS $SRC/jack_test.c -ljack -o jack_test
 clang $CFLAGS -I/usr/include/drm $SRC/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
 
 popd > /dev/null # ./build -> ./src
