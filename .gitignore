@@ -1,3 +1,16 @@
 **/*~
 **/#*
+
 build
+
+src/third_party/freetype-2.13.3/*
+!src/third_party/freetype-2.13.3/LICENSE.TXT
+!src/third_party/freetype-2.13.3/builds/
+!src/third_party/freetype-2.13.3/builds/*
+!src/third_party/freetype-2.13.3/builds/**/*
+!src/third_party/freetype-2.13.3/src/
+!src/third_party/freetype-2.13.3/src/*
+!src/third_party/freetype-2.13.3/src/**/*
+!src/third_party/freetype-2.13.3/include/
+!src/third_party/freetype-2.13.3/include/*
+!src/third_party/freetype-2.13.3/include/**/*
