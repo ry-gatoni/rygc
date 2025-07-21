@@ -22,6 +22,7 @@ pushd ../build > /dev/null
 #clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
 clang $CFLAGS $SRC/jack_test.c -ljack -o jack_test
 clang $CFLAGS -I/usr/include/drm $SRC/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
+clang $CFLAGS -I$SRC/third_party/freetype-2.13.3/include -L. $SRC/freetype_test.c -lfreetype -o freetype_test
 
 popd > /dev/null # ./build -> ./src
 

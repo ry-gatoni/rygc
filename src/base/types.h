@@ -28,6 +28,11 @@ typedef double   R64;
 #define S32_MAX (0x7FFFFFFF)
 #define S64_MAX (0x7FFFFFFFFFFFFFFF)
 
+#define S8_MIN  (0x80)
+#define S16_MIN (0x8000)
+#define S32_MIN (0x80000000)
+#define S64_MIN (0x8000000000000000)
+
 #define proc static
 #define local static
 #define global static

@@ -21,5 +21,21 @@ proc V2 v2(R32 x, R32 y);
 proc V3 v3(R32 x, R32 y, R32 z);
 proc V4 v4(R32 x, R32 y, R32 z, R32 w);
 
+typedef struct RangeU32
+{
+  U32 min, max;
+} RangeU32;
+
+typedef struct RangeS32
+{
+  S32 min, max;
+} RangeS32;
+
+#define EachRange_Ex(var, type, range, inc) (type var = range.min; var < range.max; var += inc)
+#define EachRange(var, type, range) EachRange_Ex(var, type, range, 1)
+
+proc RangeU32 make_rng_u32_invalid(void);
+proc RangeS32 make_rng_s32_invalid(void);
+
 #define PI32  (3.14159265359f)
 #define TAU32 (6.28318530718f)

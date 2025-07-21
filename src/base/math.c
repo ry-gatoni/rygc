@@ -18,3 +18,17 @@ v4(R32 x, R32 y, R32 z, R32 w)
   V4 result = {.x = x, .y = y, .z = z, .w = w};
   return(result);
 }
+
+proc RangeU32
+make_rng_u32_invalid(void)
+{
+  RangeU32 result = {.min = U32_MAX, .max = 0};
+  return(result);
+}
+
+proc RangeS32
+make_rng_s32_invalid(void)
+{
+  RangeS32 result = {.min = S32_MAX, .max = S32_MIN};
+  return(result);
+}
