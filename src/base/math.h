@@ -37,5 +37,8 @@ typedef struct RangeS32
 proc RangeU32 make_rng_u32_invalid(void);
 proc RangeS32 make_rng_s32_invalid(void);
 
+proc U32 rng_u32_len(RangeU32 rng);
+proc S32 rng_s32_len(RangeS32 rng);
+
 #define PI32  (3.14159265359f)
 #define TAU32 (6.28318530718f)

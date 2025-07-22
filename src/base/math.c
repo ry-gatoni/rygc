@@ -32,3 +32,17 @@ make_rng_s32_invalid(void)
   RangeS32 result = {.min = S32_MAX, .max = S32_MIN};
   return(result);
 }
+
+proc U32
+rng_u32_len(RangeU32 rng)
+{
+  U32 result = rng.max - rng.min;
+  return(result);
+}
+
+proc S32
+rng_s32_len(RangeS32 rng)
+{
+  S32 result = rng.max - rng.min;
+  return(result);
+}
