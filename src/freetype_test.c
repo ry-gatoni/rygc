@@ -14,6 +14,12 @@
 #include "font_freetype.c"
 #include "wayland.c"
 
+typedef struct GlTexture
+{
+  U32 texture;
+  LoadedBitmap *bitmap;
+} GlTexture;
+
 int
 main(int argc, char **argv)
 {
@@ -25,16 +31,38 @@ main(int argc, char **argv)
   String8 font_file = os_read_entire_file(scratch.arena, font_file_path);  
   if(font_file.count) {
 
-    LooseFont loose_font = font_parse(scratch.arena, font_file);
+    U32 pt_size = 128;
+    LooseFont loose_font = font_parse(scratch.arena, font_file, pt_size);
 
     Arena *arena = arena_alloc();
     LoadedFont font = font_pack(arena, &loose_font);
     printf("packed font\n");
 
     if(wayland_init()) {
-      
-      WaylandWindow *window = wayland_open_window(Str8Lit("hello freetype"), 640, 480, RenderTarget_hardware);
+
+      String8 window_name = Str8Lit("hello freetype");
+      WaylandWindow *window = wayland_open_window(window_name, 640, 480, RenderTarget_hardware);
       if(window) {
+
+	glEnable(GL_TEXTURE_2D);
+	U32 gl_textures_count = window_name.count;
+	GlTexture *gl_textures = arena_push_array(scratch.arena, GlTexture, gl_textures_count);
+	for(U32 texture_idx = 0; texture_idx < gl_textures_count; ++texture_idx) {
+	  
+	  GlTexture *gl_texture = gl_textures + texture_idx;	  
+	  glGenTextures(1, &gl_texture->texture);
+
+	  U8 *c = window_name.string + texture_idx;
+	  LoadedBitmap *glyph = font_get_glyph_from_codepoint(&font, *c);
+	  gl_texture->bitmap = glyph;
+
+	  glBindTexture(GL_TEXTURE_2D, gl_texture->texture);
+	  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+		       gl_texture->bitmap->width, gl_texture->bitmap->height,
+		       0, GL_RGBA, GL_UNSIGNED_BYTE, gl_texture->bitmap->pixels);
+	  GlTextureDefaultParams();
+	  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	}
 
 	B32 running = 1;
 	while(running) {
@@ -62,7 +90,35 @@ main(int argc, char **argv)
 	  glClearDepth(1);
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	  // TODO: render a string!
+	  V2 bottom_left = v2(-0.5f, 0);
+	  for(U32 texture_idx = 0; texture_idx < gl_textures_count; ++texture_idx) {
+	    
+	    GlTexture *gl_texture = gl_textures + texture_idx;
+	    R32 glyph_width_gl = 0.5f*(gl_texture->bitmap->width/(R32)window_width);
+	    R32 glyph_height_gl = 0.5f*(gl_texture->bitmap->height/(R32)window_height);
+
+	    // TODO: glyph colors all weird
+	    glBindTexture(GL_TEXTURE_2D, gl_texture->texture);
+	    glBegin(GL_TRIANGLES);
+	    {
+	      glTexCoord2f(0, 0);
+	      glVertex2f(bottom_left.x, bottom_left.y);
+	      glTexCoord2f(1, 0);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
+	      glTexCoord2f(1, 1);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
+
+	      glTexCoord2f(0, 0);
+	      glVertex2f(bottom_left.x, bottom_left.y);
+	      glTexCoord2f(1, 1);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
+	      glTexCoord2f(0, 1);
+	      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
+	    }
+	    glEnd();
+
+	    bottom_left.x += glyph_width_gl + 0.02f;
+	  }
 
 	  if(!wayland_end_frame(window)) {
 	    Assert(!"FATAL: wayland end frame failed");

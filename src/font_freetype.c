@@ -1,5 +1,5 @@
 proc LooseFont
-font_parse(Arena *arena, String8 font_file_contents)
+font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
 {
   LooseFont result = {0};
 
@@ -39,7 +39,6 @@ font_parse(Arena *arena, String8 font_file_contents)
       result.glyph_idx_rng = glyph_idx_rng;
 	
       // NOTE: sizing and scaling
-      U32 font_size_pt = 16;
       U32 dpi = 81;
       FT_Error ft_set_char_size_result = FT_Set_Char_Size(ft_face, 0, font_size_pt*64, dpi, dpi);
 
@@ -61,6 +60,7 @@ font_parse(Arena *arena, String8 font_file_contents)
 	      FT_Error ft_render_glyph_result = FT_Render_Glyph(ft_glyph, FT_RENDER_MODE_NORMAL);
 	      if(ft_render_glyph_result == FT_Err_Ok) {
 
+		// TODO: only allocate pixels for glyphs that have nonzero size!
 		FT_Bitmap ft_bitmap = ft_glyph->bitmap;
 		LooseGlyph *glyph = arena_push_struct(arena, LooseGlyph);
 		glyph->width = ft_bitmap.width;

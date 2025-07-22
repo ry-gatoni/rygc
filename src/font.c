@@ -17,6 +17,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
       loose_glyph = loose_glyph->next, loose_cp_idx = loose_cp_idx->next, ++glyph_index) {
 
     // NOTE: glyph
+    // TODO: only allocate pixels for glyphs that have nonzero size!
     LoadedBitmap *packed_glyph = result.glyphs + glyph_index;
     packed_glyph->width = loose_glyph->width;
     packed_glyph->height = loose_glyph->height;
@@ -35,7 +36,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
 	U32 dest_pixel = ((src_pixel << 3*8) |
 			  (src_pixel << 2*8) |
 			  (src_pixel << 1*8) |
-			  (0xFF      << 0*8));
+			  (src_pixel << 0*8));
 	
 	*dest_pixels++ = dest_pixel;
 	++src_pixels;
@@ -46,6 +47,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
     }
 
     // NOTE: codepoint -> glyph index map
+    // TODO: better hash function!
     U32 cp_map_idx = loose_cp_idx->codepoint % result.codepoint_map_count;
     CodepointMapBucket *cp_map_bucket = result.codepoint_map + cp_map_idx;
     
@@ -56,5 +58,24 @@ font_pack(Arena *arena, LooseFont *loose_font)
     SLLQueuePush(cp_map_bucket->first, cp_map_bucket->last, cp_map_node);
   }
 
+  return(result);
+}
+
+proc LoadedBitmap*
+font_get_glyph_from_codepoint(LoadedFont *font, U32 codepoint)
+{
+  U32 glyph_index = 0;
+  U32 cp_map_idx = codepoint % font->codepoint_map_count;
+  CodepointMapBucket *cp_map_bucket = font->codepoint_map + cp_map_idx;
+  for(CodepointMapNode *n = cp_map_bucket->first; n; n = n->next) {
+
+    if(n->codepoint == codepoint) {
+
+      glyph_index = n->glyph_index;
+      break;
+    }
+  }
+
+  LoadedBitmap *result = font->glyphs + glyph_index;
   return(result);
 }

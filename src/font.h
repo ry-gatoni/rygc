@@ -76,3 +76,4 @@ typedef struct CodepointHashKey
 } CodepointHashKey;
 
 proc LoadedFont font_pack(Arena *arena, LooseFont *loose_font);
+proc LoadedBitmap* font_get_glyph_from_codepoint(LoadedFont *font, U32 codepoint);
