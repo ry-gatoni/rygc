@@ -6,7 +6,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   result.descender = loose_font->descender;
   result.line_height = loose_font->line_height;
   result.glyph_count = rng_u32_len(loose_font->glyph_idx_rng);
-  result.glyphs = arena_push_array(arena, LoadedBitmap, result.glyph_count);
+  result.glyphs = arena_push_array(arena, LoadedGlyph, result.glyph_count);
   result.codepoint_map_count = result.glyph_count*2;
   result.codepoint_map = arena_push_array(arena, CodepointMapBucket, result.codepoint_map_count);
 
@@ -18,19 +18,21 @@ font_pack(Arena *arena, LooseFont *loose_font)
 
     // NOTE: glyph
     // TODO: only allocate pixels for glyphs that have nonzero size!
-    LoadedBitmap *packed_glyph = result.glyphs + glyph_index;
-    packed_glyph->width = loose_glyph->width;
-    packed_glyph->height = loose_glyph->height;
-    packed_glyph->stride = packed_glyph->width*sizeof(U32);
-    packed_glyph->pixels = arena_push_array(arena, U32, packed_glyph->width*packed_glyph->height);
+    LoadedGlyph *packed_glyph = result.glyphs + glyph_index;
+    packed_glyph->advance = loose_glyph->advance;
+    packed_glyph->bitmap.width = loose_glyph->width;
+    packed_glyph->bitmap.height = loose_glyph->height;
+    packed_glyph->bitmap.stride = packed_glyph->bitmap.width*sizeof(U32);
+    packed_glyph->bitmap.align_pos = v2s32(loose_glyph->left_bearing, loose_glyph->top_bearing);
+    packed_glyph->bitmap.pixels = arena_push_array(arena, U32, packed_glyph->bitmap.width*packed_glyph->bitmap.height);
 
     // NOTE: copy pixels
-    U8 *dest_row = (U8*)packed_glyph->pixels, *src_row = loose_glyph->bitmap;
-    for(S32 j = 0; j < packed_glyph->height; ++j) {
+    U8 *dest_row = (U8*)packed_glyph->bitmap.pixels, *src_row = loose_glyph->bitmap;
+    for(S32 j = 0; j < packed_glyph->bitmap.height; ++j) {
 
       U8 *src_pixels = src_row;
       U32 *dest_pixels = (U32*)dest_row;
-      for(S32 i = 0; i < packed_glyph->width; ++i) {
+      for(S32 i = 0; i < packed_glyph->bitmap.width; ++i) {
 
 	U8 src_pixel = *src_pixels;
 	U32 dest_pixel = ((src_pixel << 3*8) |
@@ -42,7 +44,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
 	++src_pixels;
       }
 
-      dest_row += packed_glyph->stride;
+      dest_row += packed_glyph->bitmap.stride;
       src_row += loose_glyph->stride;
     }
 
@@ -61,7 +63,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   return(result);
 }
 
-proc LoadedBitmap*
+proc LoadedGlyph*
 font_get_glyph_from_codepoint(LoadedFont *font, U32 codepoint)
 {
   U32 glyph_index = 0;
@@ -76,6 +78,6 @@ font_get_glyph_from_codepoint(LoadedFont *font, U32 codepoint)
     }
   }
 
-  LoadedBitmap *result = font->glyphs + glyph_index;
+  LoadedGlyph *result = font->glyphs + glyph_index;
   return(result);
 }

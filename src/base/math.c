@@ -19,6 +19,69 @@ v4(R32 x, R32 y, R32 z, R32 w)
   return(result);
 }
 
+proc V2S32
+v2s32(S32 x, S32 y)
+{
+  V2S32 result = {.x = x, .y = y};
+  return(result);
+}
+
+proc V2
+v2_from_v2s32(V2S32 v)
+{
+  V2 result = {.x = v.x, .y = v.y};
+  return(result);
+}
+     
+proc V2
+v2_add(V2 v, V2 w)
+{
+  V2 result = {.x = v.x + w.x, .y = v.y + w.y};
+  return(result);
+}
+
+proc V2
+v2_sub(V2 v, V2 w)
+{
+  V2 result = {.x = v.x - w.x, .y = v.y - w.y};
+  return(result);
+}
+
+proc void
+v2_inc(V2 *v, V2 w)
+{
+  v->x += w.x;
+  v->y += w.y;
+}
+
+proc void
+v2_dec(V2 *v, V2 w)
+{
+  v->x -= w.x;
+  v->y -= w.x;
+}
+
+proc V2
+v2_lmul(R32 a, V2 v)
+{
+  V2 result = {.x = a*v.x, .y = a*v.y};
+  return(result);
+}
+
+proc V2
+v2_rmul(V2 v, R32 a)
+{
+  V2 result = {.x = a*v.x, .y = a*v.y};
+  return(result);
+}
+
+proc void
+v2_scale(V2 *v, R32 a)
+{
+  v->x *= a;
+  v->y *= a;
+}
+
 proc RangeU32
 make_rng_u32_invalid(void)
 {

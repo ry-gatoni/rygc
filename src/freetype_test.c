@@ -14,11 +14,17 @@
 #include "font_freetype.c"
 #include "wayland.c"
 
-typedef struct GlTexture
+proc void
+gl_texture_from_bitmap(LoadedBitmap *bitmap)
 {
-  U32 texture;
-  LoadedBitmap *bitmap;
-} GlTexture;
+  U32 texture = 0;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+	       bitmap->width, bitmap->height, 0,
+	       GL_RGBA, GL_UNSIGNED_BYTE, bitmap->pixels);
+  GlTextureDefaultParams();
+}
 
 int
 main(int argc, char **argv)
@@ -36,8 +42,7 @@ main(int argc, char **argv)
 
     Arena *arena = arena_alloc();
     LoadedFont font = font_pack(arena, &loose_font);
-    printf("packed font\n");
-
+    
     if(wayland_init()) {
 
       String8 window_name = Str8Lit("hello freetype");
@@ -45,24 +50,9 @@ main(int argc, char **argv)
       if(window) {
 
 	glEnable(GL_TEXTURE_2D);
-	U32 gl_textures_count = window_name.count;
-	GlTexture *gl_textures = arena_push_array(scratch.arena, GlTexture, gl_textures_count);
-	for(U32 texture_idx = 0; texture_idx < gl_textures_count; ++texture_idx) {
-	  
-	  GlTexture *gl_texture = gl_textures + texture_idx;	  
-	  glGenTextures(1, &gl_texture->texture);
-
-	  U8 *c = window_name.string + texture_idx;
-	  LoadedBitmap *glyph = font_get_glyph_from_codepoint(&font, *c);
-	  gl_texture->bitmap = glyph;
-
-	  glBindTexture(GL_TEXTURE_2D, gl_texture->texture);
-	  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-		       gl_texture->bitmap->width, gl_texture->bitmap->height,
-		       0, GL_RGBA, GL_UNSIGNED_BYTE, gl_texture->bitmap->pixels);
-	  GlTextureDefaultParams();
-	  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	}
+	
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	B32 running = 1;
 	while(running) {
@@ -84,40 +74,51 @@ main(int argc, char **argv)
 
 	  S32 window_width = window->width;
 	  S32 window_height = window->height;
+	  V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);
 	  glViewport(0, 0, window_width, window_height);
 	  
 	  glClearColor(0, 0, 0, 1);
 	  glClearDepth(1);
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	  V2 bottom_left = v2(-0.5f, 0);
-	  for(U32 texture_idx = 0; texture_idx < gl_textures_count; ++texture_idx) {
-	    
-	    GlTexture *gl_texture = gl_textures + texture_idx;
-	    R32 glyph_width_gl = 0.5f*(gl_texture->bitmap->width/(R32)window_width);
-	    R32 glyph_height_gl = 0.5f*(gl_texture->bitmap->height/(R32)window_height);
+	  // TODO: alignment looks good, but everything needs to not be upside down
 
-	    // TODO: glyph colors all weird
-	    glBindTexture(GL_TEXTURE_2D, gl_texture->texture);
+	  V2 pos = v2(-0.5f, 0);
+	  for(U32 char_idx = 0; char_idx < window_name.count; ++char_idx) {
+
+	    U8 c = window_name.string[char_idx];
+	    LoadedGlyph *glyph = font_get_glyph_from_codepoint(&font, c);
+	    gl_texture_from_bitmap(&glyph->bitmap);
+
+	    R32 glyph_width_gl  = glyph->bitmap.width  * ndc_scale.x;
+	    R32 glyph_height_gl = glyph->bitmap.height * ndc_scale.y; 
+
+	    V2 glyph_align_gl = v2(glyph->bitmap.align_pos.x * ndc_scale.x,
+				   glyph->bitmap.align_pos.y * ndc_scale.y);
+	    
+	    R32 glyph_advance_gl = glyph->advance * ndc_scale.x;
+
+	    V2 bottom_left = v2(pos.x + glyph_align_gl.x,
+				pos.y + glyph_align_gl.y - glyph_height_gl);
 	    glBegin(GL_TRIANGLES);
 	    {
 	      glTexCoord2f(0, 0);
+	      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
+	      glTexCoord2f(0, 1);
 	      glVertex2f(bottom_left.x, bottom_left.y);
-	      glTexCoord2f(1, 0);
-	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
 	      glTexCoord2f(1, 1);
-	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
 
 	      glTexCoord2f(0, 0);
-	      glVertex2f(bottom_left.x, bottom_left.y);
-	      glTexCoord2f(1, 1);
-	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
-	      glTexCoord2f(0, 1);
 	      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
+	      glTexCoord2f(1, 1);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
+	      glTexCoord2f(1, 0);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
 	    }
 	    glEnd();
 
-	    bottom_left.x += glyph_width_gl + 0.02f;
+	    pos.x += glyph_advance_gl;
 	  }
 
 	  if(!wayland_end_frame(window)) {

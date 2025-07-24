@@ -25,7 +25,6 @@ font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
 	  ft_glyph_idx != 0;
 	  ft_char_idx = FT_Get_Next_Char(ft_face, ft_char_idx, &ft_glyph_idx)) {
 	  
-	printf("(char index, glyph index): (%lu, %u)\n", ft_char_idx, ft_glyph_idx);
 	glyph_idx_rng.min = Min(glyph_idx_rng.min, ft_glyph_idx);
 	glyph_idx_rng.max = Max(glyph_idx_rng.max, ft_glyph_idx);
 
@@ -35,7 +34,6 @@ font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
 	SLLQueuePush(result.first_cp_index, result.last_cp_index, cp_idx);
       }
 
-      printf("glyph index (min, max): (%u, %u)\n", glyph_idx_rng.min, glyph_idx_rng.max);
       result.glyph_idx_rng = glyph_idx_rng;
 	
       // NOTE: sizing and scaling
@@ -61,11 +59,15 @@ font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
 	      if(ft_render_glyph_result == FT_Err_Ok) {
 
 		// TODO: only allocate pixels for glyphs that have nonzero size!
+		// TODO: extract hinting data
 		FT_Bitmap ft_bitmap = ft_glyph->bitmap;
 		LooseGlyph *glyph = arena_push_struct(arena, LooseGlyph);
 		glyph->width = ft_bitmap.width;
 		glyph->height = ft_bitmap.rows;
 		glyph->stride = glyph->width;
+		glyph->left_bearing = ft_glyph->bitmap_left;
+		glyph->top_bearing = ft_glyph->bitmap_top;
+		glyph->advance = ft_glyph->advance.x >> 6;
 		glyph->bitmap = arena_push_array(arena, U8, glyph->width*glyph->height);
 
 		U8 *dest_row = glyph->bitmap, *src_row = ft_bitmap.buffer;
