@@ -551,14 +551,19 @@ wayland_create_surface(WaylandWindow *window, String8 title)
 	  fprintf(stderr, "ERROR: xdg_toplevel_set_title failed\n");
 	}
 
-	if(wl_surface_commit(window->wl_surface_id)) {
-	  // TODO: better logging
-	  fprintf(stderr, "(init) surface committed\n");
+	// NOTE: flip y 
+	if(wl_surface_set_buffer_transform(window->wl_surface_id, 6)) {
+	  if(wl_surface_commit(window->wl_surface_id)) {
+	    // TODO: better logging
+	    fprintf(stderr, "(init) surface committed\n");
+	  } else {
+	    // NOTE: surface commit failed
+	    result = 0;
+	  }
 	} else {
-	  // NOTE: surface commit failed
+	  // NOTE: set buffer transform failed
 	  result = 0;
 	}
-
       } else {
 	// NOTE: get toplevel failed
 	result = 0;

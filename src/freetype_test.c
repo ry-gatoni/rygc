@@ -81,12 +81,54 @@ main(int argc, char **argv)
 	  glClearDepth(1);
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	  // TODO: alignment looks good, but everything needs to not be upside down
+	  // TODO: I think the actual font bitmaps are upside down, and they shouldn't be
 
-	  V2 pos = v2(-0.5f, 0);
+	  V2 start = v2(-0.5f, 0);
+	  V2 pos = start;
 	  for(U32 char_idx = 0; char_idx < window_name.count; ++char_idx) {
 
 	    U8 c = window_name.string[char_idx];
+	    LoadedGlyph *glyph = font_get_glyph_from_codepoint(&font, c);
+	    gl_texture_from_bitmap(&glyph->bitmap);
+
+	    R32 glyph_width_gl  = glyph->bitmap.width  * ndc_scale.x;
+	    R32 glyph_height_gl = glyph->bitmap.height * ndc_scale.y; 
+
+	    V2 glyph_align_gl = v2(glyph->bitmap.align_pos.x * ndc_scale.x,
+				   glyph->bitmap.align_pos.y * ndc_scale.y);
+	    
+	    R32 glyph_advance_gl = glyph->advance * ndc_scale.x;
+
+	    V2 bottom_left = v2(pos.x + glyph_align_gl.x,
+				pos.y + glyph_align_gl.y - glyph_height_gl);
+	    glBegin(GL_TRIANGLES);
+	    {
+	      glTexCoord2f(0, 0);
+	      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
+	      glTexCoord2f(0, 1);
+	      glVertex2f(bottom_left.x, bottom_left.y);
+	      glTexCoord2f(1, 1);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
+
+	      glTexCoord2f(0, 0);
+	      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
+	      glTexCoord2f(1, 1);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
+	      glTexCoord2f(1, 0);
+	      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
+	    }
+	    glEnd();
+
+	    pos.x += glyph_advance_gl;
+	  }
+
+	  start.y -= ndc_scale.y * font.line_height;
+
+	  String8 second_string = Str8Lit("Second String");
+	  pos = start;
+	  for(U32 char_idx = 0; char_idx < second_string.count; ++char_idx) {
+
+	    U8 c = second_string.string[char_idx];
 	    LoadedGlyph *glyph = font_get_glyph_from_codepoint(&font, c);
 	    gl_texture_from_bitmap(&glyph->bitmap);
 
