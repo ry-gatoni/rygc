@@ -24,30 +24,35 @@ font_pack(Arena *arena, LooseFont *loose_font)
     packed_glyph->bitmap.height = loose_glyph->height;
     packed_glyph->bitmap.stride = packed_glyph->bitmap.width*sizeof(U32);
     packed_glyph->bitmap.align_pos = v2s32(loose_glyph->left_bearing, loose_glyph->top_bearing);
-    packed_glyph->bitmap.pixels = arena_push_array(arena, U32, packed_glyph->bitmap.width*packed_glyph->bitmap.height);
+    packed_glyph->bitmap.pixels = 0;
 
-    // NOTE: copy pixels
-    U8 *dest_row = (U8*)packed_glyph->bitmap.pixels, *src_row = loose_glyph->bitmap;
-    for(S32 j = 0; j < packed_glyph->bitmap.height; ++j) {
+    if(loose_glyph->bitmap) {
+      packed_glyph->bitmap.pixels =
+	arena_push_array(arena, U32, packed_glyph->bitmap.width*packed_glyph->bitmap.height);
 
-      U8 *src_pixels = src_row;
-      U32 *dest_pixels = (U32*)dest_row;
-      for(S32 i = 0; i < packed_glyph->bitmap.width; ++i) {
+      // NOTE: copy pixels
+      U8 *dest_row = (U8*)packed_glyph->bitmap.pixels, *src_row = loose_glyph->bitmap;
+      for(S32 j = 0; j < packed_glyph->bitmap.height; ++j) {
 
-	U8 src_pixel = *src_pixels;
-	U32 dest_pixel = ((src_pixel << 3*8) |
-			  (src_pixel << 2*8) |
-			  (src_pixel << 1*8) |
-			  (src_pixel << 0*8));
+	U8 *src_pixels = src_row;
+	U32 *dest_pixels = (U32*)dest_row;
+	for(S32 i = 0; i < packed_glyph->bitmap.width; ++i) {
+
+	  U8 src_pixel = *src_pixels;
+	  U32 dest_pixel = ((src_pixel << 3*8) |
+			    (src_pixel << 2*8) |
+			    (src_pixel << 1*8) |
+			    (src_pixel << 0*8));
 	
-	*dest_pixels++ = dest_pixel;
-	++src_pixels;
+	  *dest_pixels++ = dest_pixel;
+	  ++src_pixels;
+	}
+
+	dest_row += packed_glyph->bitmap.stride;
+	src_row += loose_glyph->stride;
       }
-
-      dest_row += packed_glyph->bitmap.stride;
-      src_row += loose_glyph->stride;
     }
-
+    
     // NOTE: codepoint -> glyph index map
     // TODO: better hash function!
     U32 cp_map_idx = loose_cp_idx->codepoint % result.codepoint_map_count;

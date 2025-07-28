@@ -68,15 +68,21 @@ font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
 		glyph->left_bearing = ft_glyph->bitmap_left;
 		glyph->top_bearing = ft_glyph->bitmap_top;
 		glyph->advance = ft_glyph->advance.x >> 6;
-		glyph->bitmap = arena_push_array(arena, U8, glyph->width*glyph->height);
+		glyph->bitmap = 0;
 
-		U8 *dest_row = glyph->bitmap, *src_row = ft_bitmap.buffer;
-		for(U32 row_idx = 0; row_idx < ft_bitmap.rows; ++row_idx) {		  
-		  CopyArray(dest_row, src_row, U8, ft_bitmap.width);
-		  dest_row += glyph->stride;
-		  src_row += ft_bitmap.pitch;
+		if(glyph->width && glyph->height) {
+		  glyph->bitmap = arena_push_array(arena, U8, glyph->width*glyph->height);
+
+		  U8 *dest_row = glyph->bitmap + glyph->stride*(glyph->height-1);
+		  U8 *src_row = ft_bitmap.buffer;
+		  for(U32 row_idx = 0; row_idx < ft_bitmap.rows; ++row_idx) {		  
+		    CopyArray(dest_row, src_row, U8, ft_bitmap.width);
+
+		    dest_row -= glyph->stride;
+		    src_row += ft_bitmap.pitch;
+		  }
 		}
-
+		
 		SLLQueuePush(result.first_glyph, result.last_glyph, glyph);
 	      }
 	    }
