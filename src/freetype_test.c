@@ -1,8 +1,9 @@
 #include "base/base.h"
 #include "os/os.h"
 
-#include "font.h"
 #include "wayland.h"
+
+#include "font.h"
 
 #include "freetype/freetype.h"
 #include "font_freetype.h"
@@ -10,10 +11,12 @@
 #include "base/base.c"
 #include "os/os.c"
 
-#include "font.c"
-#include "font_freetype.c"
 #include "wayland.c"
 
+#include "font.c"
+#include "font_freetype.c"
+
+#if 0
 proc void
 gl_texture_from_bitmap(LoadedBitmap *bitmap)
 {
@@ -27,45 +30,72 @@ gl_texture_from_bitmap(LoadedBitmap *bitmap)
 	       GL_RGBA, GL_UNSIGNED_BYTE, bitmap->pixels);
   GlTextureDefaultParams();
 }
+#endif
+
+proc void
+render_texture(Rect2 rect, U32 texture_id)
+{
+  V2 p = rect.min;
+  V2 dim = v2_sub(rect.max, rect.min);
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+  glBegin(GL_TRIANGLES);
+  {
+    glTexCoord2f(0, 0);
+    glVertex2f(p.x, p.y);
+    glTexCoord2f(0, 1);
+    glVertex2f(p.x, p.y + dim.y);
+    glTexCoord2f(1, 1);
+    glVertex2f(p.x + dim.x, p.y + dim.y);
+
+    glTexCoord2f(0, 0);
+    glVertex2f(p.x, p.y);
+    glTexCoord2f(1, 1);
+    glVertex2f(p.x + dim.x, p.y + dim.y);
+    glTexCoord2f(1, 0);
+    glVertex2f(p.x + dim.x, p.y);
+  }
+  glEnd();
+}
 
 proc V2
-render_string(LoadedFont *font, String8 string, V2 pos, V2 ndc_scale)
+render_string(PackedFont *font, String8 string, V2 pos, V2 ndc_scale)
 {
   for(U32 char_idx = 0; char_idx < string.count; ++char_idx) {
 
     U8 c = string.string[char_idx];
-    LoadedGlyph *glyph = font_get_glyph_from_codepoint(font, c);
-    gl_texture_from_bitmap(&glyph->bitmap);
+    U32 glyph_index = font_glyph_index_from_codepoint(font, c);
+    PackedGlyph *glyph = font->glyphs + glyph_index;
 
-    R32 glyph_width_gl  = glyph->bitmap.width  * ndc_scale.x;
-    R32 glyph_height_gl = glyph->bitmap.height * ndc_scale.y; 
-
-    V2 glyph_align_gl = v2(glyph->bitmap.align_pos.x * ndc_scale.x,
-			   glyph->bitmap.align_pos.y * ndc_scale.y);
-	    
-    R32 glyph_advance_gl = glyph->advance * ndc_scale.x;
-
-    V2 bottom_left = v2(pos.x + glyph_align_gl.x,
-			pos.y + glyph_align_gl.y - glyph_height_gl);
+    V2 uv_min = glyph->uv.min;
+    V2 uv_max = glyph->uv.max;
+    V2 rect_min = v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min));
+    V2 rect_max = v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max));
+    glBindTexture(GL_TEXTURE_2D, font->atlas_texture_id);
     glBegin(GL_TRIANGLES);
     {
-      glTexCoord2f(0, 0);
-      glVertex2f(bottom_left.x, bottom_left.y);
-      glTexCoord2f(0, 1);
-      glVertex2f(bottom_left.x, bottom_left.y + glyph_height_gl);
-      glTexCoord2f(1, 1);
-      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
+      // NOTE: bottom left
+      glTexCoord2f(uv_min.x, uv_min.y);
+      glVertex2f(rect_min.x, rect_min.y);
+      // NOTE: top left
+      glTexCoord2f(uv_min.x, uv_max.y);
+      glVertex2f(rect_min.x, rect_max.y);
+      // NOTE: top right
+      glTexCoord2f(uv_max.x, uv_max.y);
+      glVertex2f(rect_max.x, rect_max.y);
 
-      glTexCoord2f(0, 0);
-      glVertex2f(bottom_left.x, bottom_left.y);
-      glTexCoord2f(1, 1);
-      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y + glyph_height_gl);
-      glTexCoord2f(1, 0);
-      glVertex2f(bottom_left.x + glyph_width_gl, bottom_left.y);
+      // NOTE: bottom left
+      glTexCoord2f(uv_min.x, uv_min.y);
+      glVertex2f(rect_min.x, rect_min.y);
+      // NOTE: top right
+      glTexCoord2f(uv_max.x, uv_max.y);
+      glVertex2f(rect_max.x, rect_max.y);
+      // NOTE: bottom right
+      glTexCoord2f(uv_max.x, uv_min.y);
+      glVertex2f(rect_max.x, rect_min.y);
     }
     glEnd();
 
-    pos.x += glyph_advance_gl;
+    pos.x += ndc_scale.x * glyph->advance;
   }
 
   return(pos);
@@ -83,10 +113,7 @@ main(int argc, char **argv)
   if(font_file.count) {
 
     U32 pt_size = 128;
-    LooseFont loose_font = font_parse(scratch.arena, font_file, pt_size);
-
-    Arena *arena = arena_alloc();
-    LoadedFont font = font_pack(arena, &loose_font);
+    LooseFont loose_font = font_parse(scratch.arena, font_file, pt_size);    
     
     if(wayland_init()) {
 
@@ -98,6 +125,9 @@ main(int argc, char **argv)
 	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	Arena *arena = arena_alloc();
+	PackedFont *font = font_pack(arena, &loose_font);
 
 	B32 running = 1;
 	while(running) {
@@ -126,15 +156,18 @@ main(int argc, char **argv)
 	  glClearDepth(1);
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	  /* Rect2 atlas_rect = make_rect2_center_dim(v2(0, 0), v2(2.f, 1.f)); */
+	  /* render_texture(atlas_rect, font->atlas_texture_id); */
+
 	  V2 start = v2(-0.5f, 0);
 	  V2 pos = start;
-	  pos = render_string(&font, window_name, pos, ndc_scale);	  
+	  pos = render_string(font, window_name, pos, ndc_scale);	  
 
-	  start.y -= ndc_scale.y * font.line_height;
+	  start.y -= ndc_scale.y * font->line_height;
 
 	  String8 second_string = Str8Lit("Second String");
 	  pos = start;
-	  pos = render_string(&font, second_string, pos, ndc_scale);
+	  pos = render_string(font, second_string, pos, ndc_scale);
 
 	  if(!wayland_end_frame(window)) {
 	    Assert(!"FATAL: wayland end frame failed");

@@ -1,3 +1,7 @@
+#define PI32  (3.14159265359f)
+#define TAU32 (6.28318530718f)
+
+// NOTE: vectors
 typedef union V2
 {
   struct {R32 x, y;};
@@ -37,7 +41,9 @@ proc void v2_dec(V2 *v, V2 w);
 proc V2 v2_lmul(R32 a, V2 v);
 proc V2 v2_rmul(V2 v, R32 a);
 proc void v2_scale(V2 *v, R32 a);
+proc V2 v2_hadamard(V2 v, V2 w);
 
+// NOTE: ranges & rects
 typedef struct RangeU32
 {
   U32 min, max;
@@ -48,6 +54,11 @@ typedef struct RangeS32
   S32 min, max;
 } RangeS32;
 
+typedef struct Rect2
+{
+  V2 min, max;
+} Rect2;
+
 #define EachRange_Ex(var, type, range, inc) (type var = range.min; var < range.max; var += inc)
 #define EachRange(var, type, range) EachRange_Ex(var, type, range, 1)
 
@@ -57,5 +68,7 @@ proc RangeS32 make_rng_s32_invalid(void);
 proc U32 rng_u32_len(RangeU32 rng);
 proc S32 rng_s32_len(RangeS32 rng);
 
-#define PI32  (3.14159265359f)
-#define TAU32 (6.28318530718f)
+proc Rect2 make_rect2(V2 min, V2 max);
+proc Rect2 make_rect2_min_dim(V2 min, V2 dim);
+proc Rect2 make_rect2_center_dim(V2 center, V2 dim);
+proc Rect2 make_rect2_center_halfdim(V2 center, V2 halfdim);

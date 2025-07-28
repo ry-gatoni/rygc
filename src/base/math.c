@@ -1,3 +1,4 @@
+// NOTE: vectors
 proc V2
 v2(R32 x, R32 y)
 {
@@ -82,6 +83,14 @@ v2_scale(V2 *v, R32 a)
   v->y *= a;
 }
 
+proc V2
+v2_hadamard(V2 v, V2 w)
+{
+  V2 result = {.x = v.x * w.x, .y = v.y *w .y};
+  return(result);
+}
+
+// NOTE: ranges
 proc RangeU32
 make_rng_u32_invalid(void)
 {
@@ -107,5 +116,34 @@ proc S32
 rng_s32_len(RangeS32 rng)
 {
   S32 result = rng.max - rng.min;
+  return(result);
+}
+
+// NOTE: rects
+proc Rect2
+make_rect2(V2 min, V2 max)
+{
+  Rect2 result = {.min = min, .max = max};
+  return(result);
+}
+
+proc Rect2
+make_rect2_min_dim(V2 min, V2 dim)
+{
+  Rect2 result = {.min = min, .max = v2_add(min, dim)};
+  return(result);
+}
+
+proc Rect2
+make_rect2_center_dim(V2 center, V2 dim)
+{
+  Rect2 result = make_rect2_center_halfdim(center, v2_rmul(dim, 0.5f));
+  return(result);
+}
+
+proc Rect2
+make_rect2_center_halfdim(V2 center, V2 halfdim)
+{
+  Rect2 result = {.min = v2_sub(center, halfdim), .max = v2_add(center, halfdim)};
   return(result);
 }

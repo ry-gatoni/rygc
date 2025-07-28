@@ -36,22 +36,6 @@ typedef struct LooseFont
   U32 line_height;
 } LooseFont;
 
-// NOTE: packed font structures
-typedef struct LoadedBitmap
-{
-  S32 width;
-  S32 height;
-  S32 stride;
-  V2S32 align_pos;
-  U32 *pixels;
-} LoadedBitmap;
-
-typedef struct LoadedGlyph
-{
-  LoadedBitmap bitmap;
-  U32 advance;
-} LoadedGlyph;
-
 typedef struct CodepointMapNode CodepointMapNode;
 struct CodepointMapNode
 {
@@ -66,18 +50,35 @@ typedef struct CodepointMapBucket
   CodepointMapNode *last;
 } CodepointMapBucket;
 
-typedef struct LoadedFont
+typedef struct PackedGlyph
+{
+  Rect2 rect;
+  Rect2 uv;
+  R32 advance;
+} PackedGlyph;
+
+typedef struct GlTexture
+{  
+  S32 width;
+  S32 height;
+} GlTexture;
+
+typedef struct PackedFont
 {
   S32 ascender;
   S32 descender;
   U32 line_height;
 
   U32 glyph_count;
-  LoadedGlyph *glyphs;
+  PackedGlyph *glyphs;
 
   U32 codepoint_map_count;
   CodepointMapBucket *codepoint_map;
-} LoadedFont;
+
+  S32 atlas_width;
+  S32 atlas_height;
+  U32 atlas_texture_id;
+} PackedFont;
 
 typedef struct CodepointHashKey
 {
@@ -85,5 +86,6 @@ typedef struct CodepointHashKey
   U64 hash;
 } CodepointHashKey;
 
-proc LoadedFont font_pack(Arena *arena, LooseFont *loose_font);
-proc LoadedGlyph* font_get_glyph_from_codepoint(LoadedFont *font, U32 codepoint);
+
+proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
+proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);
