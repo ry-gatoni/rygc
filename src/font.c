@@ -119,8 +119,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
 	       result->atlas_width, result->atlas_height, 0,
 	       GL_RED, GL_UNSIGNED_BYTE, 0);
-  GlTextureDefaultParams();
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  GlTextureDefaultParams();  
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;

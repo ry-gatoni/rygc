@@ -49,6 +49,8 @@
 #define IntFromPtr(p) (U64)((U8*)(p))
 #define PtrFromInt(n) (void*)((uintptr_t)(n))//(void *)((U8 *)0 + (n))
 
+#define OffsetOf(s, m) (IntFromPtr(&((s*)0)->m))
+
 // NOTE: linked-list utils
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))
 #define SLLStackPush(l, n) SLLStackPush_N(l, n, next)
