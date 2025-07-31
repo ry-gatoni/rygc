@@ -92,42 +92,42 @@ v2_hadamard(V2 v, V2 w)
 
 // NOTE: ranges
 proc RangeU32
-rng_u32(U32 min, U32 max)
+rangeu32(U32 min, U32 max)
 {
   RangeU32 result = {.min = min, .max = max};
   return(result);
 }
 
 proc RangeS32
-rng_s32(S32 min, S32 max)
+ranges32(S32 min, S32 max)
 {
   RangeS32 result = {.min = min, .max = max};
   return(result);
 }
 
 proc RangeU32
-rng_u32_invalid(void)
+rangeu32_invalid(void)
 {
   RangeU32 result = {.min = U32_MAX, .max = 0};
   return(result);
 }
 
 proc RangeS32
-rng_s32_invalid(void)
+ranges32_invalid(void)
 {
   RangeS32 result = {.min = S32_MAX, .max = S32_MIN};
   return(result);
 }
 
 proc U32
-rng_u32_len(RangeU32 rng)
+rangeu32_len(RangeU32 rng)
 {
   U32 result = rng.max - rng.min;
   return(result);
 }
 
 proc S32
-rng_s32_len(RangeS32 rng)
+ranges32_len(RangeS32 rng)
 {
   S32 result = rng.max - rng.min;
   return(result);

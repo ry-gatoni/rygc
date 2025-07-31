@@ -8,6 +8,8 @@
 
 #include "wayland.c"
 
+#include <math.h>
+
 // TODO: should there be two of these, for each endianness?
 proc U32
 color_u32_from_v4(V4 color)
@@ -26,19 +28,10 @@ global char vert_shader_src[] =
   "layout (location = 2) in vec4 v_c;\n"
   "out vec2 f_uv;\n"
   "out vec4 f_c;\n"
-  "vec4 unpack_uint_color(uint color) {\n"
-  "float r = float((color >> 24) & uint(0xFF)) / 255.0;\n"
-  "float g = float((color >> 16) & uint(0xFF)) / 255.0;\n"
-  "float b = float((color >>  8) & uint(0xFF)) / 255.0;\n"
-  "float a = float( color        & uint(0xFF)) / 255.0;\n"
-  "return vec4(b, b, b, 1);\n"
-  "}\n"
   "void main() {\n"
   "gl_Position = vec4(v_p, 1);\n"
   "f_uv = v_uv;\n"
-  /* "f_c = unpack_uint_color(v_c);\n" */
   "f_c = v_c;\n"
-  /* "f_c = vec4(float((v_c & uint(0xFF000000)) >> 24), float((v_c & uint(0xFF000000)) >> 24), float((v_c & uint(0xFF000000)) >> 24), 255) / 255.0;\n" */
   "}\n";
 
 global char frag_shader_src[] =
@@ -49,8 +42,7 @@ global char frag_shader_src[] =
   "out vec4 out_color;\n"
   "void main() {\n"
   "vec4 sampled = texture(atlas, f_uv);\n"
-  /* "out_color = vec4(1, 0, 1, 1) * vec4(sampled.r, sampled.r, sampled.r, 1);\n" */
-  "out_color = f_c;\n"
+  "out_color = f_c * vec4(sampled.r, sampled.r, sampled.r, 1);\n"
   "}\n";
 
 typedef struct GlShader
@@ -361,12 +353,60 @@ main(int argc, char **argv)
 
 	S32 window_width  = window->width;
 	S32 window_height = window->height;
+	V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);
 	glViewport(0, 0, window_width, window_height);
 	glClearColor(0, 0, 0, 1);
 	glClearDepth(1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	render_rect(commands, 0, rect2_center_dim(v2(0, 0), v2(1, 1)), 0, v4(1, 0, 1, 1));
+	// NOTE: draw grid
+	U32 major_freqs[] = {2, 20, 200, 2000, 20000};
+	U32 freq_line_count = ArrayCount(major_freqs);
+	R32 freq_line_major_advance = 2.f/(R32)(freq_line_count - 1);
+	
+	S32 major_amps[] = {-60, -54, -48, -42, -36, -30, -24, -18, -12, -6, 0};
+	U32 amp_line_count = ArrayCount(major_amps);
+	R32 amp_line_major_advance = 2.f/(R32)amp_line_count;
+	
+	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);	
+	//render_rect(commands, 0, rect2_center_dim(v2(0, 0), v2(2, 2)), 0, background_color);
+
+	U32 freq_line_thickness_px = 5;
+	U32 freq_line_minor_thickness_px = 2;
+	R32 freq_line_thickness = freq_line_thickness_px * ndc_scale.x;
+	R32 freq_line_minor_thickness = freq_line_minor_thickness_px * ndc_scale.x;
+	V2 freq_line_pos = v2(-1, 0);
+	V2 freq_line_dim = v2(freq_line_thickness, 2);
+	V2 freq_line_minor_dim = v2(freq_line_minor_thickness, 2);
+	V4 freq_line_color = v4(1, 1, 1, 1);
+	for(U32 freq_decade_idx = 0; freq_decade_idx < freq_line_count - 1; ++freq_decade_idx) {
+
+	  Rect2 freq_line_rect = rect2_center_dim(freq_line_pos, freq_line_dim);
+	  render_rect(commands, 0, freq_line_rect, 0, freq_line_color);
+
+	  R32 sep = ((R32)major_freqs[freq_decade_idx + 1] - (R32)major_freqs[freq_decade_idx])/10.f;
+	  for(U32 line_idx = 1; line_idx < 10; ++line_idx) {
+
+	    R32 offset = (log10f(((R32)major_freqs[freq_decade_idx] + sep*line_idx)/(R32)major_freqs[freq_decade_idx]))*freq_line_major_advance;
+	    V2 pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
+	    freq_line_rect = rect2_center_dim(pos, freq_line_minor_dim);
+	    render_rect(commands, 0, freq_line_rect, 0, freq_line_color);
+	  }
+
+	  freq_line_pos.x += freq_line_major_advance;
+	}
+
+	U32 amp_line_thickness_px = 3;
+	R32 amp_line_thickness = amp_line_thickness_px * ndc_scale.y;
+	V2 amp_line_pos = v2(0, -1);
+	V2 amp_line_dim = v2(2, amp_line_thickness);
+	V4 amp_line_color = v4(1, 1, 1, 1);
+	for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
+
+	  Rect2 amp_line_rect = rect2_center_dim(amp_line_pos, amp_line_dim);
+	  render_rect(commands, 0, amp_line_rect, 0, amp_line_color);
+	  amp_line_pos.y += amp_line_major_advance;
+	}
 
 	render_from_commands(commands);
 
