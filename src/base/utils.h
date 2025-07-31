@@ -74,3 +74,5 @@
 #define ZeroSize(dest, size) memset(dest, 0, size)
 #define ZeroStruct(dest, type) memset(dest, 0, sizeof(type))
 #define ZeroArray(dest, type, count) memset(dest, 0, (count)*sizeof(type))
+
+#define SetSize(dest, val, size) memset(dest, val, size);

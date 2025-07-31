@@ -62,13 +62,15 @@ typedef struct Rect2
 #define EachRange_Ex(var, type, range, inc) (type var = range.min; var < range.max; var += inc)
 #define EachRange(var, type, range) EachRange_Ex(var, type, range, 1)
 
-proc RangeU32 make_rng_u32_invalid(void);
-proc RangeS32 make_rng_s32_invalid(void);
+proc RangeU32 rng_u32(U32 min, U32 max);
+proc RangeS32 rng_s32(S32 min, S32 max);
+proc RangeU32 rng_u32_invalid(void);
+proc RangeS32 rng_s32_invalid(void);
 
 proc U32 rng_u32_len(RangeU32 rng);
 proc S32 rng_s32_len(RangeS32 rng);
 
-proc Rect2 make_rect2(V2 min, V2 max);
-proc Rect2 make_rect2_min_dim(V2 min, V2 dim);
-proc Rect2 make_rect2_center_dim(V2 center, V2 dim);
-proc Rect2 make_rect2_center_halfdim(V2 center, V2 halfdim);
+proc Rect2 rect2(V2 min, V2 max);
+proc Rect2 rect2_min_dim(V2 min, V2 dim);
+proc Rect2 rect2_center_dim(V2 center, V2 dim);
+proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);

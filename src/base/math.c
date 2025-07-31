@@ -92,14 +92,28 @@ v2_hadamard(V2 v, V2 w)
 
 // NOTE: ranges
 proc RangeU32
-make_rng_u32_invalid(void)
+rng_u32(U32 min, U32 max)
+{
+  RangeU32 result = {.min = min, .max = max};
+  return(result);
+}
+
+proc RangeS32
+rng_s32(S32 min, S32 max)
+{
+  RangeS32 result = {.min = min, .max = max};
+  return(result);
+}
+
+proc RangeU32
+rng_u32_invalid(void)
 {
   RangeU32 result = {.min = U32_MAX, .max = 0};
   return(result);
 }
 
 proc RangeS32
-make_rng_s32_invalid(void)
+rng_s32_invalid(void)
 {
   RangeS32 result = {.min = S32_MAX, .max = S32_MIN};
   return(result);
@@ -121,28 +135,28 @@ rng_s32_len(RangeS32 rng)
 
 // NOTE: rects
 proc Rect2
-make_rect2(V2 min, V2 max)
+rect2(V2 min, V2 max)
 {
   Rect2 result = {.min = min, .max = max};
   return(result);
 }
 
 proc Rect2
-make_rect2_min_dim(V2 min, V2 dim)
+rect2_min_dim(V2 min, V2 dim)
 {
   Rect2 result = {.min = min, .max = v2_add(min, dim)};
   return(result);
 }
 
 proc Rect2
-make_rect2_center_dim(V2 center, V2 dim)
+rect2_center_dim(V2 center, V2 dim)
 {
-  Rect2 result = make_rect2_center_halfdim(center, v2_rmul(dim, 0.5f));
+  Rect2 result = rect2_center_halfdim(center, v2_rmul(dim, 0.5f));
   return(result);
 }
 
 proc Rect2
-make_rect2_center_halfdim(V2 center, V2 halfdim)
+rect2_center_halfdim(V2 center, V2 halfdim)
 {
   Rect2 result = {.min = v2_sub(center, halfdim), .max = v2_add(center, halfdim)};
   return(result);

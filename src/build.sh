@@ -16,13 +16,20 @@ fi
 CFLAGS+=" -fvisibility=hidden"
 
 SRC=$PWD
+CFLAGS+=" -I$SRC"
+CFLAGS+=" -I$SRC/third_party/freetype-2.13.3/include"
+
 mkdir -p ../build
 pushd ../build > /dev/null
 
+BUILD=$PWD
+CFLAGS+=" -L$BUILD"
+
 #clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
-#clang $CFLAGS $SRC/jack_test.c -ljack -o jack_test
-#clang $CFLAGS $SRC/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
-clang $CFLAGS -I$SRC/third_party/freetype-2.13.3/include -L. $SRC/freetype_test.c -lfreetype -lxkbcommon -lEGL -lGL -o freetype_test
+#clang $CFLAGS $SRC/scratch/jack_test.c -ljack -o jack_test
+#clang $CFLAGS $SRC/scratch/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
+#clang $CFLAGS $SRC/scratch/freetype_test.c -lfreetype -lxkbcommon -lEGL -lGL -o freetype_test
+clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -o spectrogram
 
 popd > /dev/null # ./build -> ./src
 
