@@ -139,6 +139,12 @@ typedef struct R_Texture
   V2S32 dim;
 } R_Texture;
 
+typedef struct R_Font
+{
+  PackedFont *font;
+  R_Texture *atlas;
+} R_Font;
+
 typedef struct R_Batch R_Batch;
 struct R_Batch
 {
@@ -154,6 +160,8 @@ struct R_Batch
 typedef struct R_Commands
 {
   Arena *arena;
+
+  V2S32 window_dim;
 
   R_Batch *first_batch;
   R_Batch *last_batch;
@@ -173,8 +181,21 @@ typedef struct R_Commands
   GlShader shader_prog;
 } R_Commands;
 
+proc R_Font*
+render_alloc_font(Arena *arena, PackedFont *font)
+{
+  R_Texture *atlas = arena_push_struct(arena, R_Texture);
+  atlas->handle = font->atlas_texture_id;
+  atlas->dim = v2s32(font->atlas_width, font->atlas_height);
+      
+  R_Font *result = arena_push_struct(arena, R_Font);      
+  result->font = font;
+  result->atlas = atlas;
+  return(result);
+}
+
 proc R_Commands*
-render_begin_commands(Arena *arena)
+render_alloc_commands(Arena *arena)
 {    
   R_Commands *result = arena_push_struct_z(arena, R_Commands);
   result->arena = arena;
@@ -228,6 +249,12 @@ render_begin_commands(Arena *arena)
 
   arena_release_scratch(scratch);
   return(result);
+}
+
+proc void
+render_begin_frame(R_Commands *commands, S32 window_width, S32 window_height)
+{
+  commands->window_dim = v2s32(window_width, window_height);
 }
 
 proc void
@@ -297,17 +324,19 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 
 
 // TODO: this is too much data to pass to a function. Merge atlas into font, and ndc_scale into commands
 proc void
-render_string(R_Commands *commands, PackedFont *font, R_Texture *atlas,
-	      String8 string, V2 pos, V2 ndc_scale, V4 color)
+render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, V4 color)
 {
+  V2 ndc_scale = v2(2.f/(R32)commands->window_dim.x,
+		    2.f/(R32)commands->window_dim.y);
+
   for(U32 char_idx = 0; char_idx < string.count; ++char_idx) {
 
     U8 c = string.string[char_idx];
-    PackedGlyph *glyph = font_glyph_from_codepoint(font, c);
+    PackedGlyph *glyph = font_glyph_from_codepoint(font->font, c);
 
     Rect2 rect = rect2(v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min)),
 		       v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max)));
-    render_rect(commands, atlas, rect, glyph->uv, 0, color);
+    render_rect(commands, font->atlas, rect, glyph->uv, 0, color);
     
     pos.x += ndc_scale.x * glyph->advance;
   }
@@ -378,12 +407,10 @@ main(int argc, char **argv)
       glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
       Arena *arena = arena_alloc();
-      R_Commands *commands = render_begin_commands(arena);
+      R_Commands *commands = render_alloc_commands(arena);
       
-      PackedFont *font = font_pack(arena, &loose_font);
-      R_Texture *font_atlas = arena_push_struct(arena, R_Texture);
-      font_atlas->handle = font->atlas_texture_id;
-      font_atlas->dim = v2s32(font->atlas_width, font->atlas_height);
+      PackedFont *packed_font = font_pack(arena, &loose_font);
+      R_Font *font = render_alloc_font(arena, packed_font);
 
       B32 running = 1;
       while(running) {
@@ -404,11 +431,13 @@ main(int argc, char **argv)
 
 	S32 window_width  = window->width;
 	S32 window_height = window->height;
-	V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);
+	V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);	
 	glViewport(0, 0, window_width, window_height);
 	glClearColor(0, 0, 0, 1);
 	glClearDepth(1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	render_begin_frame(commands, window_width, window_height);
 
 	// NOTE: draw grid
 	U32 major_freqs[] = {2, 20, 200, 2000, 20000};
@@ -426,14 +455,22 @@ main(int argc, char **argv)
 	/* 	    0, v4(1, 1, 1, 1)); */
 	//render_rect(commands, 0, rect2_center_dim(v2(0, 0), v2(2, 2)), 0, background_color);
 
-	V2 freq_label_pos = v2(-0.98, -0.95f);
+	V2 freq_label_pos = v2(-0.99, -0.95f);
 	char *freq_labels[] = {"2", "20", "200", "2000", "20000"};
 	StaticAssert(ArrayCount(freq_labels) == ArrayCount(major_freqs), freq_check);
 	for(U32 freq_idx = 0; freq_idx < ArrayCount(freq_labels); ++freq_idx) {
 
-	  render_string(commands, font, font_atlas, Str8Cstr(freq_labels[freq_idx]),
-			freq_label_pos, ndc_scale, v4(1, 1, 1, 1));
+	  render_string(commands, font, Str8Cstr(freq_labels[freq_idx]), freq_label_pos, v4(1, 1, 1, 1));
 	  freq_label_pos.x += freq_line_major_advance;
+	}
+
+	V2 amp_label_pos = v2(-0.95, -0.99f);
+	char *amp_labels[] = {"-60", "-54", "-48", "-42", "-36", "-30", "-24", "-18", "-12", "-6", "0"};
+	StaticAssert(ArrayCount(amp_labels) == ArrayCount(major_amps), amp_check);
+	for(U32 amp_idx = 0; amp_idx < ArrayCount(amp_labels); ++amp_idx) {
+
+	  render_string(commands, font, Str8Cstr(amp_labels[amp_idx]), amp_label_pos, v4(1, 1, 1, 1));
+	  amp_label_pos.y += amp_line_major_advance;
 	}
 
 	U32 freq_line_thickness_px = 5;
