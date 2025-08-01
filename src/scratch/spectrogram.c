@@ -41,7 +41,7 @@ global char vert_shader_src[] =
   "void main() {\n"
   "gl_Position = vec4(v_p, 1);\n"
   "f_uv = v_uv;\n"
-  "f_c = v_c;\n"
+  "f_c = v_c;\n"  
   "}\n";
 
 global char frag_shader_src[] =
@@ -181,6 +181,13 @@ typedef struct R_Commands
   GlShader shader_prog;
 } R_Commands;
 
+typedef enum RenderLevel
+{
+  RenderLevel_top,
+  RenderLevel_background,
+  RenderLevel_count,
+} RenderLevel;
+
 proc R_Font*
 render_alloc_font(Arena *arena, PackedFont *font)
 {
@@ -258,8 +265,9 @@ render_begin_frame(R_Commands *commands, S32 window_width, S32 window_height)
 }
 
 proc void
-render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
+render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, RenderLevel render_level, V4 color)
 {
+  // NOTE: if a texture was not supplied, use the white texture
   if(!texture) {
     texture = commands->white_texture;
     uv = rect2(v2(0, 0), v2(1, 1));
@@ -276,12 +284,15 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 
     }
   }
 
+  // NOTE: if there is not already a batch with this texture, allocate a new one and add it to the list
   if(!batch) {
     if(commands->batch_freelist) {
+      // NOTE: pull a batch off of the freelist
       batch = commands->batch_freelist;
       batch->vertex_count = 0;
       SLLStackPop(commands->batch_freelist);
     }else {
+      // NOTE: push a new batch onto the arena
       batch = arena_push_struct_z(commands->arena, R_Batch);
       batch->vertex_cap = KB(32);
       batch->vertex_buffer = arena_push_array_z(commands->arena, R_Vertex, batch->vertex_cap);      
@@ -294,6 +305,7 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 
   // TODO: allocate a new batch if we go over capacity
   Assert(batch->vertex_count + 6 <= batch->vertex_cap);
 
+  R32 level = (R32)render_level/(R32)RenderLevel_count;
   U32 color_u32 = color_u32_from_v4(color);
   R_Vertex v00 = {0};
   v00.pos = v3(rect.min.x, rect.min.y, level);
@@ -322,7 +334,6 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 
   batch->vertex_count += 6;
 }
 
-// TODO: this is too much data to pass to a function. Merge atlas into font, and ndc_scale into commands
 proc void
 render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, V4 color)
 {
@@ -355,9 +366,8 @@ render_from_commands(R_Commands *commands)
   glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
 			PtrFromInt(OffsetOf(R_Vertex, color)));
 
-  for(R_Batch *batch = commands->first_batch;
-      batch;
-      batch = batch->next) {
+  // NOTE: render all batches
+  for(R_Batch *batch = commands->first_batch; batch; batch = batch->next) {
     
     glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
 
@@ -367,6 +377,7 @@ render_from_commands(R_Commands *commands)
     glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
   }
 
+  // NOTE: push all batches onto the freelist
   commands->last_batch->next = commands->batch_freelist;
   commands->batch_freelist = commands->first_batch;
   commands->first_batch = 0;
@@ -402,6 +413,8 @@ main(int argc, char **argv)
       
       glEnable(GL_BLEND);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+      glDepthFunc(GL_LESS);
 
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -453,7 +466,8 @@ main(int argc, char **argv)
 	/* 	    rect2_center_dim(v2(0, 0), v2(2, 1)), */
 	/* 	    rect2(v2(0, 0), v2(1, 1)), */
 	/* 	    0, v4(1, 1, 1, 1)); */
-	//render_rect(commands, 0, rect2_center_dim(v2(0, 0), v2(2, 2)), 0, background_color);
+	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
+	render_rect(commands, 0, screen_rect, rect2_invalid(), RenderLevel_background, background_color);
 
 	V2 freq_label_pos = v2(-0.99, -0.95f);
 	char *freq_labels[] = {"2", "20", "200", "2000", "20000"};
@@ -484,7 +498,7 @@ main(int argc, char **argv)
 	for(U32 freq_decade_idx = 0; freq_decade_idx < freq_line_count - 1; ++freq_decade_idx) {
 
 	  Rect2 freq_line_rect = rect2_center_dim(freq_line_pos, freq_line_dim);
-	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), 0, freq_line_color);
+	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_top, freq_line_color);
 
 	  R32 sep = ((R32)major_freqs[freq_decade_idx + 1] - (R32)major_freqs[freq_decade_idx])/10.f;
 	  for(U32 line_idx = 1; line_idx < 10; ++line_idx) {
@@ -492,7 +506,7 @@ main(int argc, char **argv)
 	    R32 offset = (log10f(((R32)major_freqs[freq_decade_idx] + sep*line_idx)/(R32)major_freqs[freq_decade_idx]))*freq_line_major_advance;
 	    V2 pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
 	    freq_line_rect = rect2_center_dim(pos, freq_line_minor_dim);
-	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), 0, freq_line_color);
+	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_top, freq_line_color);
 	  }
 
 	  freq_line_pos.x += freq_line_major_advance;
