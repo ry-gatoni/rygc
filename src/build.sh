@@ -3,7 +3,7 @@
 BUILD_DEBUG=1
 
 ## TODO: it would be nice to enable -Wconversion, but it produces far too many warnings to be useful
-CFLAGS="-Wall -Wextra -Wshadow -Wno-initializer-overrides -Wno-unused-function"
+CFLAGS="-Wall -Wextra -Wshadow -Wno-unused-function -Wno-initializer-overrides -Wno-unused-local-typedef"
 if [[ $BUILD_DEBUG == 1 ]]; then
     CFLAGS+=" -g -fsanitize=address"
 fi
@@ -29,7 +29,7 @@ CFLAGS+=" -L$BUILD"
 #clang $CFLAGS $SRC/scratch/jack_test.c -ljack -o jack_test
 #clang $CFLAGS $SRC/scratch/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
 #clang $CFLAGS $SRC/scratch/freetype_test.c -lfreetype -lxkbcommon -lEGL -lGL -o freetype_test
-clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -o spectrogram
+clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -lfreetype -o spectrogram
 
 popd > /dev/null # ./build -> ./src
 

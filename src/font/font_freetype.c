@@ -19,7 +19,7 @@ font_parse(Arena *arena, String8 font_file_contents, U32 font_size_pt)
     if(ft_open_face_result == FT_Err_Ok) {
 
       // NOTE: character mapping
-      RangeU32 glyph_idx_rng = make_rng_u32_invalid();
+      RangeU32 glyph_idx_rng = rangeu32_invalid();
       FT_UInt ft_glyph_idx;
       for(FT_ULong ft_char_idx = FT_Get_First_Char(ft_face, &ft_glyph_idx);
 	  ft_glyph_idx != 0;

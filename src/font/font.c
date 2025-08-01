@@ -1,3 +1,7 @@
+#if OS_LINUX
+#  include "font/font_freetype.c"
+#endif
+
 proc PackedFont*
 font_pack(Arena *arena, LooseFont *loose_font)
 {
@@ -5,7 +9,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   result->ascender = loose_font->ascender;
   result->descender = loose_font->descender;
   result->line_height = loose_font->line_height;
-  result->glyph_count = rng_u32_len(loose_font->glyph_idx_rng);
+  result->glyph_count = rangeu32_len(loose_font->glyph_idx_rng);
   result->glyphs = arena_push_array(arena, PackedGlyph, result->glyph_count);
   result->codepoint_map_count = 2*result->glyph_count;
   result->codepoint_map = arena_push_array(arena, CodepointMapBucket, result->codepoint_map_count);
@@ -165,4 +169,12 @@ font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint)
   }
 
   return(glyph_index);
+}
+
+proc PackedGlyph*
+font_glyph_from_codepoint(PackedFont *font, U32 codepoint)
+{
+  U32 glyph_index = font_glyph_index_from_codepoint(font, codepoint);
+  PackedGlyph *result = font->glyphs + glyph_index;
+  return(result);
 }

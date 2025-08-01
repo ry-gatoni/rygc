@@ -211,6 +211,7 @@ proc WaylandTempId* wayland_temp_id(void);
 proc void wayland_release_id(WaylandTempId *id);
 
 // NOTE: initialization helpers
+// TODO: mark these inline, and don't have them here
 proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(void);
 proc B32 wayland_registry_bind_globals(void);
@@ -235,6 +236,14 @@ proc void event_list_push(Arena *arena, EventList *list, Event event);
 
 proc void wayland_log_error_(char *fmt, ...);
 #define wayland_log_error(message, ...) wayland_log_error_("ERROR(%s, %u): "message, __FUNCTION__, __LINE__, __VA_ARGS__)
+
+// TODO: find a better place for this
+#define GlTextureDefaultParams() \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); \
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
+
 
 // NOTE: user-facing api
 proc B32 wayland_init(void);

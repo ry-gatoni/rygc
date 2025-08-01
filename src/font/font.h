@@ -1,4 +1,3 @@
-
 // NOTE: loose font structures
 typedef struct CodepointIndex CodepointIndex;
 struct CodepointIndex
@@ -89,3 +88,8 @@ typedef struct CodepointHashKey
 
 proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
 proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);
+proc PackedGlyph* font_glyph_from_codepoint(PackedFont *font, U32 codepoint);
+
+#if OS_LINUX
+#  include "font/font_freetype.h"
+#endif

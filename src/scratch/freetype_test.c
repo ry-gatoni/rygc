@@ -258,7 +258,7 @@ main(int argc, char **argv)
 
   ArenaTemp scratch = arena_get_scratch(0, 0);
   String8 font_file_path = Str8Lit("/usr/share/fonts/liberation-mono-fonts/LiberationMono-Regular.ttf");
-  String8 font_file = os_read_entire_file(scratch.arena, font_file_path);  
+  String8 font_file = os_read_entire_file(scratch.arena, font_file_path);
   if(font_file.count) {
 
     U32 pt_size = 128;

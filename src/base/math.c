@@ -142,6 +142,13 @@ rect2(V2 min, V2 max)
 }
 
 proc Rect2
+rect2_invalid(void)
+{
+  Rect2 result = {.min = v2(R32_MAX, R32_MAX), .max = v2(R32_MIN, R32_MIN)};
+  return(result);
+}
+
+proc Rect2
 rect2_min_dim(V2 min, V2 dim)
 {
   Rect2 result = {.min = min, .max = v2_add(min, dim)};

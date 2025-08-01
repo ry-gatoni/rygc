@@ -1,10 +1,20 @@
+/**
+ * TODO:
+ * sort rectangles by depth
+ * render grid axis labels
+ * compute and render the spectrogram of something
+ */
+
 #include "base/base.h"
 #include "os/os.h"
 
 #include "wayland.h"
 
+#include "font/font.h"
+
 #include "base/base.c"
 #include "os/os.c"
+#include "font/font.c"
 
 #include "wayland.c"
 
@@ -126,7 +136,7 @@ typedef struct R_Vertex
 typedef struct R_Texture
 {
   GLuint handle;
-  Rect2 uv;
+  V2S32 dim;
 } R_Texture;
 
 typedef struct R_Batch R_Batch;
@@ -172,7 +182,7 @@ render_begin_commands(Arena *arena)
   // NOTE: generate white texture
   result->white_texture = arena_push_struct(result->arena, R_Texture);  
   glGenTextures(1, &result->white_texture->handle);
-  result->white_texture->uv = rect2(v2(0, 0), v2(1, 1));
+  result->white_texture->dim = v2s32(16, 16);
   glBindTexture(GL_TEXTURE_2D, result->white_texture->handle);
   GlTextureDefaultParams();
   U8 white[256];
@@ -221,10 +231,12 @@ render_begin_commands(Arena *arena)
 }
 
 proc void
-render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, R32 level, V4 color)
+render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
 {
-  if(!texture)
-    { texture = commands->white_texture; }
+  if(!texture) {
+    texture = commands->white_texture;
+    uv = rect2(v2(0, 0), v2(1, 1));
+  }
 
   // NOTE: check if texture is already used in a batch
   R_Batch *batch = 0;
@@ -258,19 +270,19 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, R32 level, V4 
   U32 color_u32 = color_u32_from_v4(color);
   R_Vertex v00 = {0};
   v00.pos = v3(rect.min.x, rect.min.y, level);
-  v00.uv = texture->uv.min;
+  v00.uv = uv.min;
   v00.color = color_u32;
   R_Vertex v01 = {0};
   v01.pos = v3(rect.min.x, rect.max.y, level);
-  v01.uv = v2(texture->uv.min.x, texture->uv.max.y);
+  v01.uv = v2(uv.min.x, uv.max.y);
   v01.color = color_u32;
   R_Vertex v10 = {0};
   v10.pos = v3(rect.max.x, rect.min.y, level);
-  v10.uv = v2(texture->uv.max.x, texture->uv.min.y);
+  v10.uv = v2(uv.max.x, uv.min.y);
   v10.color = color_u32;
   R_Vertex v11 = {0};
   v11.pos = v3(rect.max.x, rect.max.y, level);
-  v11.uv = texture->uv.max;
+  v11.uv = uv.max;
   v11.color = color_u32;
 
   R_Vertex *verts = batch->vertex_buffer + batch->vertex_count;
@@ -281,6 +293,24 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, R32 level, V4 
   verts[4] = v11;
   verts[5] = v01;
   batch->vertex_count += 6;
+}
+
+// TODO: this is too much data to pass to a function. Merge atlas into font, and ndc_scale into commands
+proc void
+render_string(R_Commands *commands, PackedFont *font, R_Texture *atlas,
+	      String8 string, V2 pos, V2 ndc_scale, V4 color)
+{
+  for(U32 char_idx = 0; char_idx < string.count; ++char_idx) {
+
+    U8 c = string.string[char_idx];
+    PackedGlyph *glyph = font_glyph_from_codepoint(font, c);
+
+    Rect2 rect = rect2(v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min)),
+		       v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max)));
+    render_rect(commands, atlas, rect, glyph->uv, 0, color);
+    
+    pos.x += ndc_scale.x * glyph->advance;
+  }
 }
 
 proc void
@@ -296,9 +326,9 @@ render_from_commands(R_Commands *commands)
   glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
 			PtrFromInt(OffsetOf(R_Vertex, color)));
 
-  for(R_Batch *batch = commands->first_batch, *last_batch = 0;
+  for(R_Batch *batch = commands->first_batch;
       batch;
-      last_batch = batch, batch = batch->next, SLLStackPush(commands->batch_freelist, last_batch), SLLQueuePop(commands->first_batch, commands->last_batch)) {
+      batch = batch->next) {
     
     glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
 
@@ -307,6 +337,11 @@ render_from_commands(R_Commands *commands)
 
     glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
   }
+
+  commands->last_batch->next = commands->batch_freelist;
+  commands->batch_freelist = commands->first_batch;
+  commands->first_batch = 0;
+  commands->last_batch = 0;
   commands->batch_count = 0;
 }
 
@@ -317,6 +352,17 @@ main(int argc, char **argv)
   Unused(argv);
 
   int result = 0;
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  LooseFont loose_font = {0};  
+  
+  String8 font_file_path = Str8Lit("/usr/share/fonts/liberation-mono-fonts/LiberationMono-Regular.ttf");
+  String8 font_file = os_read_entire_file(scratch.arena, font_file_path);
+  if(font_file.count) {
+
+    U32 pt_size = 32;
+    loose_font = font_parse(scratch.arena, font_file, pt_size);
+  }
 
   if(wayland_init()) {
 
@@ -333,6 +379,11 @@ main(int argc, char **argv)
 
       Arena *arena = arena_alloc();
       R_Commands *commands = render_begin_commands(arena);
+      
+      PackedFont *font = font_pack(arena, &loose_font);
+      R_Texture *font_atlas = arena_push_struct(arena, R_Texture);
+      font_atlas->handle = font->atlas_texture_id;
+      font_atlas->dim = v2s32(font->atlas_width, font->atlas_height);
 
       B32 running = 1;
       while(running) {
@@ -368,8 +419,22 @@ main(int argc, char **argv)
 	U32 amp_line_count = ArrayCount(major_amps);
 	R32 amp_line_major_advance = 2.f/(R32)amp_line_count;
 	
-	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);	
+	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
+	/* render_rect(commands, font_atlas, */
+	/* 	    rect2_center_dim(v2(0, 0), v2(2, 1)), */
+	/* 	    rect2(v2(0, 0), v2(1, 1)), */
+	/* 	    0, v4(1, 1, 1, 1)); */
 	//render_rect(commands, 0, rect2_center_dim(v2(0, 0), v2(2, 2)), 0, background_color);
+
+	V2 freq_label_pos = v2(-0.98, -0.95f);
+	char *freq_labels[] = {"2", "20", "200", "2000", "20000"};
+	StaticAssert(ArrayCount(freq_labels) == ArrayCount(major_freqs), freq_check);
+	for(U32 freq_idx = 0; freq_idx < ArrayCount(freq_labels); ++freq_idx) {
+
+	  render_string(commands, font, font_atlas, Str8Cstr(freq_labels[freq_idx]),
+			freq_label_pos, ndc_scale, v4(1, 1, 1, 1));
+	  freq_label_pos.x += freq_line_major_advance;
+	}
 
 	U32 freq_line_thickness_px = 5;
 	U32 freq_line_minor_thickness_px = 2;
@@ -382,7 +447,7 @@ main(int argc, char **argv)
 	for(U32 freq_decade_idx = 0; freq_decade_idx < freq_line_count - 1; ++freq_decade_idx) {
 
 	  Rect2 freq_line_rect = rect2_center_dim(freq_line_pos, freq_line_dim);
-	  render_rect(commands, 0, freq_line_rect, 0, freq_line_color);
+	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), 0, freq_line_color);
 
 	  R32 sep = ((R32)major_freqs[freq_decade_idx + 1] - (R32)major_freqs[freq_decade_idx])/10.f;
 	  for(U32 line_idx = 1; line_idx < 10; ++line_idx) {
@@ -390,13 +455,13 @@ main(int argc, char **argv)
 	    R32 offset = (log10f(((R32)major_freqs[freq_decade_idx] + sep*line_idx)/(R32)major_freqs[freq_decade_idx]))*freq_line_major_advance;
 	    V2 pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
 	    freq_line_rect = rect2_center_dim(pos, freq_line_minor_dim);
-	    render_rect(commands, 0, freq_line_rect, 0, freq_line_color);
+	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), 0, freq_line_color);
 	  }
 
 	  freq_line_pos.x += freq_line_major_advance;
 	}
 
-	U32 amp_line_thickness_px = 3;
+	U32 amp_line_thickness_px = 5;
 	R32 amp_line_thickness = amp_line_thickness_px * ndc_scale.y;
 	V2 amp_line_pos = v2(0, -1);
 	V2 amp_line_dim = v2(2, amp_line_thickness);
@@ -404,7 +469,7 @@ main(int argc, char **argv)
 	for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
 	  Rect2 amp_line_rect = rect2_center_dim(amp_line_pos, amp_line_dim);
-	  render_rect(commands, 0, amp_line_rect, 0, amp_line_color);
+	  render_rect(commands, 0, amp_line_rect, rect2_invalid(), 0, amp_line_color);
 	  amp_line_pos.y += amp_line_major_advance;
 	}
 
@@ -419,5 +484,6 @@ main(int argc, char **argv)
     }
   }
 
+  arena_release_scratch(scratch);
   return(result);
 }

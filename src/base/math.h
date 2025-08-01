@@ -71,6 +71,7 @@ proc U32 rangeu32_len(RangeU32 rng);
 proc S32 ranges32_len(RangeS32 rng);
 
 proc Rect2 rect2(V2 min, V2 max);
+proc Rect2 rect2_invalid(void);
 proc Rect2 rect2_min_dim(V2 min, V2 dim);
 proc Rect2 rect2_center_dim(V2 center, V2 dim);
 proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);

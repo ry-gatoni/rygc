@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <float.h>
 
 typedef uint8_t  U8;
 typedef uint16_t U16;
@@ -32,6 +33,9 @@ typedef double   R64;
 #define S16_MIN (0x8000)
 #define S32_MIN (0x80000000)
 #define S64_MIN (0x8000000000000000)
+
+#define R32_MAX (FLT_MAX)
+#define R32_MIN (FLT_MIN)
 
 #define proc static
 #define local static
