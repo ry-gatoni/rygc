@@ -1,5 +1,12 @@
+#include <math.h> // TODO: remove
+
 #define PI32  (3.14159265359f)
 #define TAU32 (6.28318530718f)
+
+proc B32 is_pow_2(U32 num);
+proc U32 bit_reverse_u32(U32 num);
+proc U64 bit_reverse_u64(U64 num);
+proc U32 rygc_log2(U32 num);
 
 // NOTE: vectors
 typedef union V2

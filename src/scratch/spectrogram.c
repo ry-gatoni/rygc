@@ -1,7 +1,6 @@
 /**
  * TODO:
- * sort rectangles by depth
- * render grid axis labels
+ * test fft implementation is working properly
  * compute and render the spectrogram of something
  */
 
@@ -11,10 +10,12 @@
 #include "wayland.h"
 
 #include "font/font.h"
+#include "fourier/fourier.h"
 
 #include "base/base.c"
 #include "os/os.c"
 #include "font/font.c"
+#include "fourier/fourier.c"
 
 #include "wayland.c"
 
@@ -424,6 +425,36 @@ main(int argc, char **argv)
       
       PackedFont *packed_font = font_pack(arena, &loose_font);
       R_Font *font = render_alloc_font(arena, packed_font);
+
+      ArenaTemp test_arena = arena_begin_temp(arena);
+      FloatBuffer test_signal = {0};
+      test_signal.count = 1024;
+      test_signal.mem = arena_push_array_z(test_arena.arena, R32, test_signal.count);
+
+      struct {
+	R32 freq, amp;
+      } fa[] = {
+	{ 32.f, 8.f},
+	{105.f, 5.f},
+	{330.f, 3.f},
+      };      
+      for(U32 i = 0; i < test_signal.count; ++i) {
+
+	R32 sample = 0;
+	for(U32 j = 0; j < ArrayCount(fa); ++j) {
+
+	  R32 freq = fa[j].freq;
+	  R32 amp = fa[j].amp;
+	  sample += amp*sin(2.f*PI32*freq*(R32)i/(R32)test_signal.count);
+	}
+	test_signal.mem[i] = sample;
+      }
+
+      ComplexBuffer test_fft_result = fft_re(test_arena.arena, test_signal);
+      FloatBuffer test_result = ifft_re(test_arena.arena, test_fft_result);
+      Unused(test_result);
+
+      arena_end_temp(test_arena);
 
       B32 running = 1;
       while(running) {
