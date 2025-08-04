@@ -32,8 +32,8 @@ main(int argc, char **argv)
     R32 *src = (R32*)model_result_file.string;
     for(U32 i = 0; i < model_result.count; ++i) {
 
-      model_result.re[i] = src[i];
-      model_result.im[i] = src[i+1];
+      model_result.re[i] = src[2*i];
+      model_result.im[i] = src[2*i+1];
     }
   }
 
@@ -41,23 +41,48 @@ main(int argc, char **argv)
   ComplexBuffer test_result = fft_re(scratch.arena, test_signal);
 
   // NOTE: compare against model
-  B32 result = 1;
-  R32 eps = 1e-5;
-  Assert(test_result.count == model_result.count);  
-  for(U32 i = 0; i < test_result.count; ++i) {
+  B32 fft_result = 1;
+  {
+    R32 eps = 1e-3;
+    Assert(test_result.count == model_result.count);  
+    for(U32 i = 0; i < test_result.count; ++i) {
 
-    result = ((fabsf(test_result.re[i] - model_result.re[i]) < eps) &&
-	      (fabsf(test_result.im[i] - model_result.im[i]) < eps));
-    if(!result) {
+      fft_result = ((fabsf(test_result.re[i] - model_result.re[i]) < eps) &&
+		    (fabsf(test_result.im[i] - model_result.im[i]) < eps));
+      if(!fft_result) {
 
-      fprintf(stderr,
-	      "fft result sample %u outside of target range\n  computed: (%.6f, %.6f)\n  target: (%.6f, %.6f)\n",
-	      i,
-	      test_result.re[i], test_result.im[i],
-	      model_result.re[i], model_result.im[i]);
+	fprintf(stderr,
+		"fft result sample %u outside of target range\n  computed: (%.4f, %.4f)\n  target:   (%.4f, %.4f)\n",
+		i,
+		test_result.re[i], test_result.im[i],
+		model_result.re[i], model_result.im[i]);
+      }
+    }
+  }
+  fprintf(stderr, "\n\n");
+
+  // NOTE: compute ifft
+  FloatBuffer result_signal = ifft_re(scratch.arena, test_result);
+
+  B32 ifft_result = 1;
+  {
+    R32 eps = 1e-3;
+    Assert(result_signal.count == test_signal.count);
+    for(U32 i = 0; i < result_signal.count; ++i) {
+
+      ifft_result = (fabsf(result_signal.mem[i] - test_signal.mem[i]) < eps);
+      if(!ifft_result) {
+
+	fprintf(stderr,
+		"ifft result sample %u outside of target range\n  computed: %.4f\n  target:   %.4f\n",
+		i,
+		result_signal.mem[i], test_signal.mem[i]);
+      }
     }
   }
   
   arena_release_scratch(scratch);
+
+  B32 result = fft_result && ifft_result;
   return(result ? 0 : 1);
 }

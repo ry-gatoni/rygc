@@ -30,32 +30,34 @@ fft_re(Arena *arena, FloatBuffer in)
 	
 	R32 w_re = 1.f;
 	R32 w_im = 0.f;
-	R32 *at_re_0 = re + k;
-	R32 *at_re_1 = re + k + m/2;
-	R32 *at_im_0 = im + k;
-	R32 *at_im_1 = im + k + m/2;
+	R32 *at0_re = re + k;
+	R32 *at0_im = im + k;
+	R32 *at1_re = re + k + m/2;	
+	R32 *at1_im = im + k + m/2;
 	for(U32 j = 0; j < m/2; ++j) {
 
-	  R32 src_re_0 = *at_re_0;
-	  R32 src_re_1 = *at_re_1;
-	  R32 src_im_0 = *at_im_0;
-	  R32 src_im_1 = *at_im_1;
+	  R32 in0_re = *at0_re;
+	  R32 in0_im = *at0_im;
+	  R32 in1_re = *at1_re;	  
+	  R32 in1_im = *at1_im;
 
-	  R32 t_re = w_re * src_re_1 - w_im * src_im_1;
-	  R32 t_im = w_re * src_im_1 + w_im * src_re_1;
+	  R32 t_re = w_re * in1_re - w_im * in1_im;
+	  R32 t_im = w_re * in1_im + w_im * in1_re;
 
-	  R32 dest_re_0 = src_re_0 + t_re;
-	  R32 dest_im_0 = src_im_0 + t_im;
-	  R32 dest_re_1 = src_re_0 - t_re;
-	  R32 dest_im_1 = src_im_0 - t_im;
+	  R32 out0_re = in0_re + t_re;
+	  R32 out0_im = in0_im + t_im;
+	  R32 out1_re = in0_re - t_re;
+	  R32 out1_im = in0_im - t_im;
 
-	  *at_re_0++ = dest_re_0;
-	  *at_re_1++ = dest_re_1;
-	  *at_im_0++ = dest_im_0;
-	  *at_im_1++ = dest_im_1;
+	  *at0_re++ = out0_re;
+	  *at0_im++ = out0_im;
+	  *at1_re++ = out1_re;
+	  *at1_im++ = out1_im;
 
-	  w_re = w_re * wm_re - w_im * wm_im;
-	  w_im = w_re * wm_im - w_im * wm_re;
+	  R32 w_old_re = w_re;
+	  R32 w_old_im = w_im;
+	  w_re = w_old_re * wm_re - w_old_im * wm_im;
+	  w_im = w_old_re * wm_im + w_old_im * wm_re;
 	}
       }
     }
@@ -83,7 +85,7 @@ ifft_re(Arena *arena, ComplexBuffer in)
     U64 count_log2 = log2(count);
     R32 inv_count = 1.f/(R32)count;
     R32 *src_re = in.re;
-    R32 *src_im = in.im;    
+    R32 *src_im = in.im;
     for(U32 i = 0; i < count; ++i) {
 
       U32 rev_i = bit_reverse_u32(i) >> (sizeof(U32)*8 - count_log2);
@@ -103,37 +105,39 @@ ifft_re(Arena *arena, ComplexBuffer in)
 	
 	R32 w_re = 1.f;
 	R32 w_im = 0.f;
-	R32 *at_re_0 = re + k;
-	R32 *at_re_1 = re + k + m/2;
-	R32 *at_im_0 = im + k;
-	R32 *at_im_1 = im + k + m/2;
+	R32 *at0_re = re + k;
+	R32 *at0_im = im + k;
+	R32 *at1_re = re + k + m/2;	
+	R32 *at1_im = im + k + m/2;
 	for(U32 j = 0; j < m/2; ++j) {
 
-	  R32 src_re_0 = *at_re_0;
-	  R32 src_re_1 = *at_re_1;
-	  R32 src_im_0 = *at_im_0;
-	  R32 src_im_1 = *at_im_1;
+	  R32 in0_re = *at0_re;
+	  R32 in0_im = *at0_im;
+	  R32 in1_re = *at1_re;	  
+	  R32 in1_im = *at1_im;
 
-	  R32 t_re = w_re * src_re_1 - w_im * src_im_1;
-	  R32 t_im = w_re * src_im_1 + w_im * src_re_1;
+	  R32 t_re = w_re * in1_re - w_im * in1_im;
+	  R32 t_im = w_re * in1_im + w_im * in1_re;
 
-	  R32 dest_re_0 = src_re_0 + t_re;
-	  R32 dest_im_0 = src_im_0 + t_im;
-	  R32 dest_re_1 = src_re_0 - t_re;
-	  R32 dest_im_1 = src_im_0 - t_im;
+	  R32 out0_re = in0_re + t_re;
+	  R32 out0_im = in0_im + t_im;
+	  R32 out1_re = in0_re - t_re;
+	  R32 out1_im = in0_im - t_im;
 
-	  *at_re_0++ = dest_re_0;
-	  *at_re_1++ = dest_re_1;
-	  *at_im_0++ = dest_im_0;
-	  *at_im_1++ = dest_im_1;
+	  *at0_re++ = out0_re;
+	  *at0_im++ = out0_im;
+	  *at1_re++ = out1_re;
+	  *at1_im++ = out1_im;
 
-	  w_re = w_re * wm_re - w_im * wm_im;
-	  w_im = w_re * wm_im - w_im * wm_re;
+	  R32 w_old_re = w_re;
+	  R32 w_old_im = w_im;
+	  w_re = w_old_re * wm_re - w_old_im * wm_im;
+	  w_im = w_old_re * wm_im + w_old_im * wm_re;
 	}
       }
     }
   }
-
+  
   FloatBuffer result = {0};
   result.count = count;
   result.mem = re;

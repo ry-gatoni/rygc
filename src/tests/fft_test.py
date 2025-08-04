@@ -1,6 +1,6 @@
 import numpy as np
 
-freq_amp = [(10.0, 8.0), (205.0, 5.0), (357.6, 19.7)]
+freq_amp = [(8.0, 8.0), (131.5, 5.0), (357.7, 3.0)]
 test_signal_length = 1024
 test_signal = np.zeros(test_signal_length, dtype=np.float32)
 for i in range(test_signal_length):
@@ -18,5 +18,3 @@ with open("../../data/test/fft_test_signal.float", 'wb') as f:
 
 with open("../../data/test/fft_test_result.float", 'wb') as f:
     test_result.tofile(f)
-    
-    
