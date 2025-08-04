@@ -19,8 +19,6 @@
 
 #include "wayland.c"
 
-#include <math.h>
-
 // TODO: should there be two of these, for each endianness?
 proc U32
 color_u32_from_v4(V4 color)
