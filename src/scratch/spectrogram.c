@@ -1,10 +1,9 @@
 /**
  * TODO:
- * compute and render the spectrum of something
+ * render the spectrum with the proper scale and range
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
- * create a general interface for the audio platorm layer
  */
 
 #include "base/base.h"
@@ -24,6 +23,9 @@
 
 #include "wayland.c"
 
+//
+// audio
+//
 typedef struct SineOscState
 {
   R32 phasor;
@@ -32,31 +34,33 @@ typedef struct SineOscState
   R32 volume;
 } SineOscState;
 
-typedef struct AudioWindowBuffer
+typedef struct AudioBuffer
 {
   U64 sample_count;
   R32 *samples[2];
-} AudioWindowBuffer;
+} AudioBuffer;
 
-typedef struct AudioWindowBufferNode AudioWindowBufferNode;
-struct AudioWindowBufferNode
+typedef struct AudioBufferNode AudioBufferNode;
+struct AudioBufferNode
 {
-  AudioWindowBufferNode *next;
-  AudioWindowBuffer buf;
+  AudioBufferNode *next;
+  AudioBuffer buf;
 };
 
-typedef struct AudioWindowBufferList
+typedef struct AudioBufferList
 {
   Arena *arena;
-  
-  AudioWindowBufferNode *first;
-  AudioWindowBufferNode *last;
+
+  U32 lock;
+
+  AudioBufferNode *first;
+  AudioBufferNode *last;
   U64 count;
 
-  AudioWindowBufferNode *freelist;
-} AudioWindowBufferList;
+  AudioBufferNode *freelist;
+} AudioBufferList;
 
-global AudioWindowBufferList window_buffer_list = {};
+global AudioBufferList audio_buffer_list = {0};
 
 void
 audio_process(Audio_ProcessData *data)
@@ -120,12 +124,38 @@ audio_process(Audio_ProcessData *data)
     CopyArray(data->output[0], mix_buffer, R32, sample_count);
     CopyArray(data->output[1], mix_buffer, R32, sample_count);
 
-    // TODO: queue window buffer
+    // TODO: queue audio buffer
+    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
+    {
+      AudioBufferNode *node = 0;
+      if(audio_buffer_list.freelist) {
+
+	node = audio_buffer_list.freelist;
+	Assert(node->buf.sample_count == sample_count);
+	SLLStackPop(audio_buffer_list.freelist);
+      }else {
+
+	node = arena_push_struct(audio_buffer_list.arena, AudioBufferNode);
+	node->buf.sample_count = sample_count;
+	node->buf.samples[0] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
+	node->buf.samples[1] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
+      }
+
+      CopyArray(node->buf.samples[0], mix_buffer, R32, sample_count);
+      CopyArray(node->buf.samples[1], mix_buffer, R32, sample_count);
+
+      SLLQueuePush(audio_buffer_list.first, audio_buffer_list.last, node);
+      ++audio_buffer_list.count;
+    }
+    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
   }
   
   arena_release_scratch(scratch);
 }
 
+//
+// rendering
+//
 // TODO: should there be two of these, for each endianness?
 proc U32
 color_u32_from_v4(V4 color)
@@ -491,6 +521,9 @@ render_from_commands(R_Commands *commands)
   commands->batch_count = 0;
 }
 
+//
+// entry point
+//
 int
 main(int argc, char **argv)
 {
@@ -521,6 +554,8 @@ main(int argc, char **argv)
       sine_osc_state.pitch_bend = 1.f;
       sine_osc_state.volume = 0.1f;
       if(audio_init(Str8Lit("spectrogram audio"))) {
+
+	audio_buffer_list.arena = arena_alloc();
 	audio_set_user_data(&sine_osc_state);
       }
 
@@ -571,6 +606,7 @@ main(int argc, char **argv)
       arena_end_temp(test_arena);
 
       B32 running = 1;
+      Arena *frame_arena = arena_alloc();
       while(running) {
 	
 	Event event = {0};
@@ -614,6 +650,7 @@ main(int argc, char **argv)
 	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
 	render_rect(commands, 0, screen_rect, rect2_invalid(), RenderLevel_background, background_color);
 
+	// NOTE: drawing the grid
 	V2 freq_label_pos = v2(-0.99, -0.95f);
 	char *freq_labels[] = {"2", "20", "200", "2000", "20000"};
 	StaticAssert(ArrayCount(freq_labels) == ArrayCount(major_freqs), freq_check);
@@ -669,11 +706,89 @@ main(int argc, char **argv)
 	  amp_line_pos.y += amp_line_major_advance;
 	}
 
+	// NOTE: drawing the spectrum
+	{
+	  AudioBufferNode *first_node = 0;
+	  AudioBufferNode *last_node = 0;
+	  U32 buffer_count = 0;
+	  while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
+	  {
+	    first_node = audio_buffer_list.first;
+	    last_node = audio_buffer_list.last;
+	    buffer_count = audio_buffer_list.count;
+	    audio_buffer_list.first = 0;
+	    audio_buffer_list.last = 0;
+	    audio_buffer_list.count = 0;
+	  }
+	  while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
+
+	  fprintf(stderr, "dequeued %u buffers\n", buffer_count);
+
+	  // NOTE: draw	  
+	  for(AudioBufferNode *node = first_node; node; node = node->next) {
+
+	    AudioBuffer *buf = &node->buf;
+	    
+	    FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);	    
+	    
+#if 1
+	    // TODO: work out ranges/scaling
+	    U32 bin_count = spectrum_buf.count/2;
+	    R32 width = 2.f/(R32)bin_count;
+	    R32 pos_x = -1.f;
+	    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
+
+	      R32 bin_re = spectrum_buf.re[bin_idx];
+	      R32 bin_im = spectrum_buf.im[bin_idx];
+	      R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
+	      R32 bin_mag_sq_norm = bin_mag_sq/(R32)(spectrum_buf.count);
+
+	      Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_mag_sq_norm));
+	      render_rect(commands, 0, bin_rect, rect2_invalid(), 0, v4(0, 0.5f, 0.5f, 1));
+
+	      pos_x += width;
+	    }
+#else
+	    R32 width = 2.f/(R32)buf->sample_count;
+	    R32 pos_x = -1.f;
+	    R32 last_sample_avg = 0.f;
+	    for(U32 sample_idx = 0; sample_idx < buf->sample_count; ++sample_idx) {
+
+	      R32 sample_l = buf->samples[0][sample_idx];
+	      R32 sample_r = buf->samples[1][sample_idx];
+
+	      R32 sample_avg = (sample_l + sample_r) * 0.5f;	      
+
+	      R32 base_y = Min(sample_avg, last_sample_avg);
+	      R32 height = fabsf(sample_avg - last_sample_avg);
+	      Rect2 sample_rect = rect2_min_dim(v2(pos_x, base_y), v2(width, height));
+
+	      render_rect(commands, 0, sample_rect, rect2_invalid(), 0, v4(0, 1, 0, 1));
+
+	      last_sample_avg = sample_avg;
+	      pos_x += width;
+	    }
+#endif
+	  }
+
+	  if(last_node) {
+	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
+	    {
+	      last_node->next = audio_buffer_list.freelist;
+	      audio_buffer_list.freelist = last_node;	  
+	    }
+	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
+	  }
+	}
+
 	render_from_commands(commands);
 
 	if(!wayland_end_frame(window)) {
 	  Assert(!"FATAL: wayland end frame failed");
 	}
+
+	arena_clear(frame_arena);
       }
 
       audio_uninit();
