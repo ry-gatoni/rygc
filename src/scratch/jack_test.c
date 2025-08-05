@@ -212,7 +212,7 @@ jack_process(jack_nframes_t nframes, void *arg)
 	  U32 pitch_bend_max_neg = (1 << 13);
 	  S16 pitch_bend_int = ((midi_msg->body.string[2] & 0x7F) << 7 |
 				(midi_msg->body.string[1] & 0x7F)) - pitch_bend_max_neg;
-	  pitch_bend = powf(2.f, (R32)(pitch_bend_int)/(R32)(pitch_bend_max_neg));
+	  pitch_bend = powf(2.f, (R32)(pitch_bend_int)/(R32)(pitch_bend_max_neg));\
 	} break;
 	  
 	default: {} break;

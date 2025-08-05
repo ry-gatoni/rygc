@@ -1,7 +1,10 @@
 /**
  * TODO:
- * test fft implementation is working properly
- * compute and render the spectrogram of something
+ * compute and render the spectrum of something
+ * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
+ * pull out the renering code into a generalized renderer
+ * pull out the opengl code for use across programs/modules
+ * create a general interface for the audio platorm layer
  */
 
 #include "base/base.h"
@@ -10,14 +13,119 @@
 #include "wayland.h"
 
 #include "font/font.h"
+#include "audio/audio.h"
 #include "fourier/fourier.h"
 
 #include "base/base.c"
 #include "os/os.c"
 #include "font/font.c"
+#include "audio/audio.c"
 #include "fourier/fourier.c"
 
 #include "wayland.c"
+
+typedef struct SineOscState
+{
+  R32 phasor;
+  R32 base_freq;
+  R32 pitch_bend;
+  R32 volume;
+} SineOscState;
+
+typedef struct AudioWindowBuffer
+{
+  U64 sample_count;
+  R32 *samples[2];
+} AudioWindowBuffer;
+
+typedef struct AudioWindowBufferNode AudioWindowBufferNode;
+struct AudioWindowBufferNode
+{
+  AudioWindowBufferNode *next;
+  AudioWindowBuffer buf;
+};
+
+typedef struct AudioWindowBufferList
+{
+  Arena *arena;
+  
+  AudioWindowBufferNode *first;
+  AudioWindowBufferNode *last;
+  U64 count;
+
+  AudioWindowBufferNode *freelist;
+} AudioWindowBufferList;
+
+global AudioWindowBufferList window_buffer_list = {};
+
+void
+audio_process(Audio_ProcessData *data)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  SineOscState *sine_state = data->user_data;
+  U32 sample_count = data->sample_count;
+
+  if(sine_state) {
+    // NOTE: react to midi messages
+    R32 base_freq = sine_state->base_freq;
+    R32 pitch_bend = sine_state->pitch_bend;
+    R32 *freq_buffer = arena_push_array(scratch.arena, R32, sample_count);
+    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx) {
+
+      Audio_MidiMessage *midi_msg = audio_next_midi_message(data);
+      if(midi_msg) {
+	if(midi_msg->sample_idx >= sample_idx) {
+
+	  // TODO: replace constants with names, so that users don't have to know details of the protocol
+	  switch(midi_msg->opcode & 0xF0) {
+	  
+	  case 0x90: {
+	    U32 midi_note = audio_midi_get_note_number(midi_msg);
+	    base_freq = audio_hertz_from_midi_note(midi_note);
+	  } break;
+	  
+	  case 0xE0: {
+	    pitch_bend = audio_midi_get_pitch_bend(midi_msg);
+	  } break;
+	  
+	  default: {} break;
+	  }
+
+	  audio_dequeue_midi_message(data);
+	}
+      }
+
+      // TODO: smooth out pitch bend changes
+      freq_buffer[sample_idx] = base_freq * pitch_bend;
+    }
+
+    sine_state->base_freq = base_freq;
+    sine_state->pitch_bend = pitch_bend;
+  
+    // NOTE: compute audio samples
+    R32 *mix_buffer = arena_push_array_z(scratch.arena, R32, sample_count);
+    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx) {
+
+      R32 step = TAU32 * freq_buffer[sample_idx] * data->sample_period;
+      sine_state->phasor += step;
+      if(sine_state->phasor > TAU32) {
+	sine_state->phasor -= TAU32;
+      }
+
+      R32 sine_sample = sine_state->volume * sinf(sine_state->phasor);
+      mix_buffer[sample_idx] += sine_sample;
+    }
+
+    // NOTE: output samples
+    CopyArray(data->output[0], mix_buffer, R32, sample_count);
+    CopyArray(data->output[1], mix_buffer, R32, sample_count);
+
+    // TODO: queue window buffer
+  }
+  
+  arena_release_scratch(scratch);
+}
 
 // TODO: should there be two of these, for each endianness?
 proc U32
@@ -407,6 +515,15 @@ main(int argc, char **argv)
 
     WaylandWindow *window = wayland_open_window(Str8Lit("spectrogram"), 640, 480, RenderTarget_hardware);
     if(window) {
+
+      SineOscState sine_osc_state = {0};
+      sine_osc_state.phasor = 0;
+      sine_osc_state.base_freq = 440.f;
+      sine_osc_state.pitch_bend = 1.f;
+      sine_osc_state.volume = 0.1f;
+      if(audio_init(Str8Lit("spectrogram audio"))) {
+	audio_set_user_data(&sine_osc_state);
+      }
 
       glEnable(GL_TEXTURE_2D);
       

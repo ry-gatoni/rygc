@@ -29,8 +29,8 @@ CFLAGS+=" -L$BUILD"
 #clang $CFLAGS $SRC/scratch/jack_test.c -ljack -o jack_test
 #clang $CFLAGS $SRC/scratch/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
 #clang $CFLAGS $SRC/scratch/freetype_test.c -lfreetype -lxkbcommon -lEGL -lGL -o freetype_test
-clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -lfreetype -o spectrogram
-clang $CFLAGS $SRC/tests/fft_test.c -o fft_test
+clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -lfreetype -ljack -o spectrogram
+#clang $CFLAGS $SRC/tests/fft_test.c -o fft_test
 
 popd > /dev/null # ./build -> ./src
 
