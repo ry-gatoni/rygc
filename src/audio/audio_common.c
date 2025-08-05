@@ -33,6 +33,6 @@ audio_midi_get_pitch_bend(Audio_MidiMessage *msg)
 proc R32
 audio_hertz_from_midi_note(U32 note)
 {
-  R32 result = 440.f*powf(2.f, (R32)(note - 69)/12.f);  
+  R32 result = 440.f*powf(2.f, (R32)((S32)note - 69)/12.f);  
   return(result);
 }

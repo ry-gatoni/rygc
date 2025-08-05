@@ -77,15 +77,14 @@ audio_process(Audio_ProcessData *data)
       if(midi_msg) {
 	if(midi_msg->sample_idx >= sample_idx) {
 
-	  // TODO: replace constants with names, so that users don't have to know details of the protocol
-	  switch(midi_msg->opcode & 0xF0) {
+	  switch(midi_msg->opcode) {
 	  
-	  case 0x90: {
+	  case MidiOpcode_note_on: {
 	    U32 midi_note = audio_midi_get_note_number(midi_msg);
 	    base_freq = audio_hertz_from_midi_note(midi_note);
 	  } break;
 	  
-	  case 0xE0: {
+	  case MidiOpcode_pitch_bend: {
 	    pitch_bend = audio_midi_get_pitch_bend(midi_msg);
 	  } break;
 	  
@@ -676,7 +675,8 @@ main(int argc, char **argv)
 	  Assert(!"FATAL: wayland end frame failed");
 	}
       }
-      
+
+      audio_uninit();
       wayland_close_window(window);
     }
   }

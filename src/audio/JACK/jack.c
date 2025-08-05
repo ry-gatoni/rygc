@@ -117,7 +117,7 @@ jack_process(jack_nframes_t nframes, void *arg)
     // TODO: keep track of total size of all messages?
   }
 
-  U32 sample_period = 1.f/(R32)jack_state.sample_rate;
+  R32 sample_period = 1.f/(R32)jack_state.sample_rate;
   U32 sample_count = nframes;
   R32 *input_l = in;
   R32 *input_r = in;
@@ -148,6 +148,14 @@ audio_init(String8 client_name)
 {
   B32 result = jack_init(client_name);
   return(result);
+}
+
+proc void
+audio_uninit(void)
+{
+  if(jack_state.client) {
+    jack_deactivate(jack_state.client);
+  }
 }
 
 proc void
