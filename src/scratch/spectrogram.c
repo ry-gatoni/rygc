@@ -1,9 +1,12 @@
 /**
  * TODO:
- * render the spectrum with the proper scale and range
+ * make the rendered spectrum not blink
+ * give the rendered spectrum sharper peaks
+ * compare the rendered spectrum against a known implementation
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
+ * give glyphs transparent backgrounds
  */
 
 #include "base/base.h"
@@ -320,6 +323,9 @@ typedef struct R_Commands
 typedef enum RenderLevel
 {
   RenderLevel_top,
+  RenderLevel_label,
+  RenderLevel_grid,
+  RenderLevel_signal,
   RenderLevel_background,
   RenderLevel_count,
 } RenderLevel;
@@ -483,7 +489,7 @@ render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, V4 col
 
     Rect2 rect = rect2(v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min)),
 		       v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max)));
-    render_rect(commands, font->atlas, rect, glyph->uv, 0, color);
+    render_rect(commands, font->atlas, rect, glyph->uv, RenderLevel_label, color);
     
     pos.x += ndc_scale.x * glyph->advance;
   }
@@ -680,7 +686,7 @@ main(int argc, char **argv)
 	for(U32 freq_decade_idx = 0; freq_decade_idx < freq_line_count - 1; ++freq_decade_idx) {
 
 	  Rect2 freq_line_rect = rect2_center_dim(freq_line_pos, freq_line_dim);
-	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_top, freq_line_color);
+	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_grid, freq_line_color);
 
 	  R32 sep = ((R32)major_freqs[freq_decade_idx + 1] - (R32)major_freqs[freq_decade_idx])/10.f;
 	  for(U32 line_idx = 1; line_idx < 10; ++line_idx) {
@@ -688,7 +694,7 @@ main(int argc, char **argv)
 	    R32 offset = (log10f(((R32)major_freqs[freq_decade_idx] + sep*line_idx)/(R32)major_freqs[freq_decade_idx]))*freq_line_major_advance;
 	    V2 pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
 	    freq_line_rect = rect2_center_dim(pos, freq_line_minor_dim);
-	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_top, freq_line_color);
+	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_grid, freq_line_color);
 	  }
 
 	  freq_line_pos.x += freq_line_major_advance;
@@ -702,7 +708,7 @@ main(int argc, char **argv)
 	for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
 	  Rect2 amp_line_rect = rect2_center_dim(amp_line_pos, amp_line_dim);
-	  render_rect(commands, 0, amp_line_rect, rect2_invalid(), 0, amp_line_color);
+	  render_rect(commands, 0, amp_line_rect, rect2_invalid(), RenderLevel_grid, amp_line_color);
 	  amp_line_pos.y += amp_line_major_advance;
 	}
 
@@ -729,8 +735,15 @@ main(int argc, char **argv)
 
 	    AudioBuffer *buf = &node->buf;
 
-	    // TODO: window input
+	    // NOTE: window_input
+	    // TODO: maybe don't overwrite the buffer?
 	    FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+	    for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
+
+	      R32 window_val = cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f;
+	      sample_buf.mem[sample_idx] *= window_val;
+	    }
+
 	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);	    
 	    
 #if 1
@@ -770,7 +783,7 @@ main(int argc, char **argv)
 	      R32 bin_height_ndc = 2.f * bin_height - 1.f;
 
 	      Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
-	      render_rect(commands, 0, bin_rect, rect2_invalid(), 0, v4(0, 0.5f, 0.5f, 1));
+	      render_rect(commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
 		
 	      exp += step;
 	      pos_x += width;
