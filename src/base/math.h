@@ -3,10 +3,12 @@
 #define PI32  (3.14159265359f)
 #define TAU32 (6.28318530718f)
 
+// NOTE: scalar
 proc B32 is_pow_2(U32 num);
 proc U32 bit_reverse_u32(U32 num);
 proc U64 bit_reverse_u64(U64 num);
 proc U32 rygc_log2(U32 num);
+proc R32 lerp(R32 a, R32 b, R32 t);
 
 // NOTE: vectors
 typedef union V2
@@ -61,6 +63,11 @@ typedef struct RangeS32
   S32 min, max;
 } RangeS32;
 
+typedef struct RangeR32
+{
+  R32 min, max;
+} RangeR32;
+
 typedef struct Rect2
 {
   V2 min, max;
@@ -71,11 +78,17 @@ typedef struct Rect2
 
 proc RangeU32 rangeu32(U32 min, U32 max);
 proc RangeS32 ranges32(S32 min, S32 max);
+proc RangeR32 ranger32(R32 min, R32 max);
+
 proc RangeU32 rangeu32_invalid(void);
 proc RangeS32 ranges32_invalid(void);
+proc RangeR32 ranger32_invalid(void);
 
 proc U32 rangeu32_len(RangeU32 rng);
 proc S32 ranges32_len(RangeS32 rng);
+proc R32 ranger32_len(RangeR32 rng);
+
+proc R32 ranger32_map_01(R32 val, RangeR32 rng);
 
 proc Rect2 rect2(V2 min, V2 max);
 proc Rect2 rect2_invalid(void);

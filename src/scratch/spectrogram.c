@@ -728,15 +728,54 @@ main(int argc, char **argv)
 	  for(AudioBufferNode *node = first_node; node; node = node->next) {
 
 	    AudioBuffer *buf = &node->buf;
-	    
+
+	    // TODO: window input
 	    FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
 	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);	    
 	    
 #if 1
 	    // TODO: work out ranges/scaling
 	    U32 bin_count = spectrum_buf.count/2;
-	    R32 width = 2.f/(R32)bin_count;
+	    R32 width = 2.f/(R32)bin_count;	    
 	    R32 pos_x = -1.f;
+#  if 1
+	    RangeR32 freq_rng = ranger32(2.f, 20000.f);
+	    RangeR32 db_rng = ranger32(-60.f, 0.f);
+	    R32 step = (log10f(freq_rng.max) - log10f(freq_rng.min))/(R32)bin_count;
+	    R32 exp = log10f(freq_rng.min);
+	    for(U32 i = 0; i < bin_count; ++i) {
+
+	      R32 freq = powf(10.f, exp);
+
+	      //R32 freq_screen_pos = 2.f * ranger32_map_01(freq, freq_rng) - 1.f;
+	      //R32 freq_width = (freq - last_freq)/(freq_rng.max - freq_rng.min);
+
+	      R32 freq_bin_pos = (freq*(R32)spectrum_buf.count)/48000.f; // TODO: use actual sample rate
+	      U32 freq_bin_idx = (U32)freq_bin_pos;
+	      R32 freq_bin_frac = freq_bin_pos - (R32)freq_bin_idx;
+	      
+	      R32 bin_re_0 = spectrum_buf.re[freq_bin_idx];
+	      R32 bin_re_1 = spectrum_buf.re[freq_bin_idx + 1];
+	      R32 bin_re = lerp(bin_re_0, bin_re_1, freq_bin_frac);
+	      
+	      R32 bin_im_0 = spectrum_buf.im[freq_bin_idx];
+	      R32 bin_im_1 = spectrum_buf.im[freq_bin_idx + 1];
+	      R32 bin_im = lerp(bin_im_0, bin_im_1, freq_bin_frac);
+
+	      R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
+	      //R32 bin_mag = sqrtf(bin_mag_sq);
+	      //R32 bin_mag_norm = bin_mag/(R32)bin_count;
+	      R32 bin_mag_db = (log10f(bin_mag_sq) - log10f((R32)bin_count)) * 10.f;
+	      R32 bin_height = ranger32_map_01(bin_mag_db, db_rng);
+	      R32 bin_height_ndc = 2.f * bin_height - 1.f;
+
+	      Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
+	      render_rect(commands, 0, bin_rect, rect2_invalid(), 0, v4(0, 0.5f, 0.5f, 1));
+		
+	      exp += step;
+	      pos_x += width;
+	    }
+#  else
 	    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
 
 	      R32 bin_re = spectrum_buf.re[bin_idx];
@@ -749,6 +788,7 @@ main(int argc, char **argv)
 
 	      pos_x += width;
 	    }
+#  endif
 #else
 	    R32 width = 2.f/(R32)buf->sample_count;
 	    R32 pos_x = -1.f;

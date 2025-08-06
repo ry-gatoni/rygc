@@ -57,6 +57,13 @@ rygc_log2(U32 num)
   return(result);
 }
 
+proc R32
+lerp(R32 val0, R32 val1, R32 t)
+{
+  R32 result = (1 - t)*val0 + t*val1;
+  return(result);
+}
+
 // NOTE: vectors
 proc V2
 v2(R32 x, R32 y)
@@ -164,6 +171,13 @@ ranges32(S32 min, S32 max)
   return(result);
 }
 
+proc RangeR32
+ranger32(R32 min, R32 max)
+{
+  RangeR32 result = {.min = min, .max = max};
+  return(result);
+}
+
 proc RangeU32
 rangeu32_invalid(void)
 {
@@ -178,6 +192,13 @@ ranges32_invalid(void)
   return(result);
 }
 
+proc RangeR32
+ranger32_invalid(void)
+{
+  RangeR32 result = {.min = R32_MAX, .min = R32_MIN};
+  return(result);
+}
+
 proc U32
 rangeu32_len(RangeU32 rng)
 {
@@ -189,6 +210,20 @@ proc S32
 ranges32_len(RangeS32 rng)
 {
   S32 result = rng.max - rng.min;
+  return(result);
+}
+
+proc R32
+ranger32_len(RangeR32 rng)
+{
+  R32 result = rng.max - rng.min;
+  return(result);
+}
+
+proc R32
+ranger32_map_01(R32 val, RangeR32 rng)
+{
+  R32 result = (val - rng.min)/(rng.max - rng.min);
   return(result);
 }
 
