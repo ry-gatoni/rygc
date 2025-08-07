@@ -1,12 +1,13 @@
 /**
  * TODO:
  * make the rendered spectrum not blink
- * give the rendered spectrum sharper peaks
+ * the rendered spectrum should have sharper peaks, figure out why it doesn't
  * compare the rendered spectrum against a known implementation
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
  * give glyphs transparent backgrounds
+ * get the sample rate from the audio backend
  */
 
 #include "base/base.h"
@@ -538,6 +539,8 @@ typedef struct SpectrogramState
   RangeR32 freq_rng;
   RangeR32 db_rng;
 
+  U32 sample_rate;
+
   FloatBuffer spectrum_cache;
 } SpectrogramState;
 
@@ -559,6 +562,8 @@ spectrogram_state_alloc(Arena *arena)
   result->db_rng.min = -60.f;
   result->db_rng.max = 0.f;
 
+  result->sample_rate = 48000;
+
   U32 spectrum_cache_count = 1024;
   result->spectrum_cache.count = spectrum_cache_count;
   result->spectrum_cache.mem = arena_push_array(arena, R32, spectrum_cache_count);
@@ -566,6 +571,7 @@ spectrogram_state_alloc(Arena *arena)
   return(result);
 }
 
+// TODO: make the commands and font globally accessible, or accessible off the spectrogram state
 proc void
 draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
 {
@@ -635,9 +641,41 @@ draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_
 }
 
 proc void
-draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spectrum)
+draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
 {
-  
+  U32 bin_count = spec_buf.count/2;
+  R32 width = 2.f/(R32)bin_count;	    
+  R32 pos_x = -1.f;
+
+  R32 step = log10f(spec_state->freq_rng.max/spec_state->freq_rng.min)/(R32)bin_count;
+  R32 exp = log10f(spec_state->freq_rng.min);
+  for(U32 i = 0; i < bin_count; ++i) {
+
+    R32 freq = powf(10.f, exp);
+
+    R32 freq_bin_pos = (freq*(R32)spec_buf.count)/(R32)spec_state->sample_rate;
+    U32 freq_bin_idx = (U32)freq_bin_pos;
+    R32 freq_bin_frac = freq_bin_pos - (R32)freq_bin_idx;
+	      
+    R32 bin_re_0 = spec_buf.re[freq_bin_idx];
+    R32 bin_re_1 = spec_buf.re[freq_bin_idx + 1];
+    R32 bin_re = lerp(bin_re_0, bin_re_1, freq_bin_frac);
+	      
+    R32 bin_im_0 = spec_buf.im[freq_bin_idx];
+    R32 bin_im_1 = spec_buf.im[freq_bin_idx + 1];
+    R32 bin_im = lerp(bin_im_0, bin_im_1, freq_bin_frac);
+
+    R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
+    R32 bin_mag_db = (log10f(bin_mag_sq) - log10f((R32)bin_count)) * 10.f;
+    R32 bin_height = ranger32_map_01(bin_mag_db, spec_state->db_rng);
+    R32 bin_height_ndc = 2.f * bin_height - 1.f;
+
+    Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
+    render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
+
+    exp += step;
+    pos_x += width;
+  }
 }
 
 //
@@ -670,16 +708,11 @@ main(int argc, char **argv)
       Arena *state_arena = arena_alloc();
       SpectrogramState *spec_state = spectrogram_state_alloc(state_arena);
 
-      /* SineOscState sine_osc_state = {0}; */
-      /* sine_osc_state.phasor = 0; */
-      /* sine_osc_state.base_freq = 440.f; */
-      /* sine_osc_state.pitch_bend = 1.f; */
-      /* sine_osc_state.volume = 0.1f; */
       if(audio_init(Str8Lit("spectrogram audio"))) {
 
 	audio_buffer_list.arena = arena_alloc();
-	//audio_set_user_data(&sine_osc_state);
 	audio_set_user_data(spec_state->sine_osc_state);
+	// TOOD: get sample rate from audio backend
       }
 
       glEnable(GL_TEXTURE_2D);
@@ -796,14 +829,16 @@ main(int argc, char **argv)
 	      sample_buf.mem[sample_idx] *= window_val;
 	    }
 
-	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);	    
-	    
+	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
 #if 1
+	    draw_spectrum(spec_state, spectrum_buf, commands);
+#else
+#  if 1
 	    // TODO: work out ranges/scaling
 	    U32 bin_count = spectrum_buf.count/2;
 	    R32 width = 2.f/(R32)bin_count;	    
 	    R32 pos_x = -1.f;
-#  if 1
+#    if 1
 	    RangeR32 freq_rng = ranger32(2.f, 20000.f);
 	    RangeR32 db_rng = ranger32(-60.f, 0.f);
 	    R32 step = (log10f(freq_rng.max) - log10f(freq_rng.min))/(R32)bin_count;
@@ -840,7 +875,7 @@ main(int argc, char **argv)
 	      exp += step;
 	      pos_x += width;
 	    }
-#  else
+#    else
 	    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
 
 	      R32 bin_re = spectrum_buf.re[bin_idx];
@@ -853,8 +888,8 @@ main(int argc, char **argv)
 
 	      pos_x += width;
 	    }
-#  endif
-#else
+#    endif
+#  else
 	    R32 width = 2.f/(R32)buf->sample_count;
 	    R32 pos_x = -1.f;
 	    R32 last_sample_avg = 0.f;
@@ -874,6 +909,7 @@ main(int argc, char **argv)
 	      last_sample_avg = sample_avg;
 	      pos_x += width;
 	    }
+#  endif
 #endif
 	  }
 
