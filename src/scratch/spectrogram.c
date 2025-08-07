@@ -301,6 +301,7 @@ typedef struct R_Commands
   Arena *arena;
 
   V2S32 window_dim;
+  V2 ndc_scale;
 
   R_Batch *first_batch;
   R_Batch *last_batch;
@@ -404,6 +405,7 @@ proc void
 render_begin_frame(R_Commands *commands, S32 window_width, S32 window_height)
 {
   commands->window_dim = v2s32(window_width, window_height);
+  commands->ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);
 }
 
 proc void
@@ -527,6 +529,117 @@ render_from_commands(R_Commands *commands)
   commands->batch_count = 0;
 }
 
+typedef struct SpectrogramState
+{
+  Arena *arena;
+  
+  SineOscState *sine_osc_state;
+
+  RangeR32 freq_rng;
+  RangeR32 db_rng;
+
+  FloatBuffer spectrum_cache;
+} SpectrogramState;
+
+proc SpectrogramState*
+spectrogram_state_alloc(Arena *arena)
+{
+  SpectrogramState *result = arena_push_struct(arena, SpectrogramState);
+  result->arena = arena;
+  
+  result->sine_osc_state = arena_push_struct(arena, SineOscState);
+  result->sine_osc_state->phasor = 0.f;
+  result->sine_osc_state->base_freq = 440.f;
+  result->sine_osc_state->pitch_bend = 1.f;
+  result->sine_osc_state->volume = 0.1f;
+
+  result->freq_rng.min = 2.f;
+  result->freq_rng.max = 20000.f;
+
+  result->db_rng.min = -60.f;
+  result->db_rng.max = 0.f;
+
+  U32 spectrum_cache_count = 1024;
+  result->spectrum_cache.count = spectrum_cache_count;
+  result->spectrum_cache.mem = arena_push_array(arena, R32, spectrum_cache_count);
+
+  return(result);
+}
+
+proc void
+draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+  
+  U32 freq_line_count = (U32)log10f(spec_state->freq_rng.max/spec_state->freq_rng.min) + 1;
+  U32 db_line_count = (U32)((spec_state->db_rng.max - spec_state->db_rng.min)/6.f) + 1;
+
+  R32 freq_line_major_advance = 2.f/(R32)(freq_line_count - 1);
+  R32 db_line_major_advance = 2.f/(R32)(db_line_count - 1);
+
+  U32 current_freq = (U32)spec_state->freq_rng.min;
+  V2 freq_label_pos = v2(-0.99, -0.95f);
+  U32 freq_line_thickness_px = 5;
+  U32 freq_line_minor_thickness_px = 2;
+  R32 freq_line_thickness = (R32)freq_line_thickness_px * render_commands->ndc_scale.x;
+  R32 freq_line_minor_thickness = (R32)freq_line_minor_thickness_px * render_commands->ndc_scale.x;
+  V2 freq_line_pos = v2(-1, 0);
+  V2 freq_line_dim = v2(freq_line_thickness, 2.f);
+  V2 freq_line_minor_dim = v2(freq_line_minor_thickness, 2.f);
+  for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
+
+    Rect2 freq_line = rect2_center_dim(freq_line_pos, freq_line_dim);
+    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel_grid, v4(1, 1, 1, 1));
+
+    if(freq_line_idx < freq_line_count - 1) {
+
+      U32 next_freq = current_freq*10;
+      R32 sep = ((R32)next_freq - (R32)current_freq) * 0.1f;
+      for(U32 minor_line_idx = 1; minor_line_idx < 10; ++minor_line_idx) {
+
+	R32 offset = freq_line_major_advance*log10f(((R32)current_freq + sep*(R32)minor_line_idx)/(R32)current_freq);
+	V2 minor_line_pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
+	Rect2 minor_line = rect2_center_dim(minor_line_pos, freq_line_minor_dim);
+	render_rect(render_commands, 0, minor_line, rect2_invalid(), RenderLevel_grid, v4(1, 1, 1, 1));
+      }
+    }
+    
+    String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
+    render_string(render_commands, font, freq_label, freq_label_pos, v4(1, 1, 1, 1));
+
+    current_freq *= 10;
+    freq_line_pos.x += freq_line_major_advance;
+    freq_label_pos.x += freq_line_major_advance;
+  }
+
+  S32 current_db = (S32)spec_state->db_rng.min;
+  V2 db_label_pos = v2(-0.95f, -0.99);
+  U32 db_line_thickness_px = 5;
+  R32 db_line_thickness = (R32)db_line_thickness_px * render_commands->ndc_scale.y;
+  V2 db_line_pos = v2(0, -1);
+  V2 db_line_dim = v2(2.f, db_line_thickness); 
+  for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx) {
+
+    Rect2 db_line = rect2_center_dim(db_line_pos, db_line_dim);
+    render_rect(render_commands, 0, db_line, rect2_invalid(), RenderLevel_grid, v4(1, 1, 1, 1));
+
+    String8 db_label = str8_push_f(scratch.arena, "%d", current_db);
+    render_string(render_commands, font, db_label, db_label_pos, v4(1, 1, 1, 1));
+
+    current_db += 6;
+    db_line_pos.y += db_line_major_advance;
+    db_label_pos.y += db_line_major_advance;    
+  }
+
+  arena_release_scratch(scratch);
+}
+
+proc void
+draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spectrum)
+{
+  
+}
+
 //
 // entry point
 //
@@ -554,15 +667,19 @@ main(int argc, char **argv)
     WaylandWindow *window = wayland_open_window(Str8Lit("spectrogram"), 640, 480, RenderTarget_hardware);
     if(window) {
 
-      SineOscState sine_osc_state = {0};
-      sine_osc_state.phasor = 0;
-      sine_osc_state.base_freq = 440.f;
-      sine_osc_state.pitch_bend = 1.f;
-      sine_osc_state.volume = 0.1f;
+      Arena *state_arena = arena_alloc();
+      SpectrogramState *spec_state = spectrogram_state_alloc(state_arena);
+
+      /* SineOscState sine_osc_state = {0}; */
+      /* sine_osc_state.phasor = 0; */
+      /* sine_osc_state.base_freq = 440.f; */
+      /* sine_osc_state.pitch_bend = 1.f; */
+      /* sine_osc_state.volume = 0.1f; */
       if(audio_init(Str8Lit("spectrogram audio"))) {
 
 	audio_buffer_list.arena = arena_alloc();
-	audio_set_user_data(&sine_osc_state);
+	//audio_set_user_data(&sine_osc_state);
+	audio_set_user_data(spec_state->sine_osc_state);
       }
 
       glEnable(GL_TEXTURE_2D);
@@ -575,12 +692,13 @@ main(int argc, char **argv)
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-      Arena *arena = arena_alloc();
-      R_Commands *commands = render_alloc_commands(arena);
+      Arena *render_arena = arena_alloc();
+      R_Commands *commands = render_alloc_commands(render_arena);
       
-      PackedFont *packed_font = font_pack(arena, &loose_font);
-      R_Font *font = render_alloc_font(arena, packed_font);
+      PackedFont *packed_font = font_pack(render_arena, &loose_font);
+      R_Font *font = render_alloc_font(render_arena, packed_font);
 
+#if 0
       ArenaTemp test_arena = arena_begin_temp(arena);
       FloatBuffer test_signal = {0};
       test_signal.count = 1024;
@@ -610,6 +728,7 @@ main(int argc, char **argv)
       Unused(test_result);
 
       arena_end_temp(test_arena);
+#endif
 
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
@@ -631,86 +750,19 @@ main(int argc, char **argv)
 
 	S32 window_width  = window->width;
 	S32 window_height = window->height;
-	V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);	
+	//V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);	
 	glViewport(0, 0, window_width, window_height);
 	glClearColor(0, 0, 0, 1);
 	glClearDepth(1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	render_begin_frame(commands, window_width, window_height);
-
-	// NOTE: draw grid
-	U32 major_freqs[] = {2, 20, 200, 2000, 20000};
-	U32 freq_line_count = ArrayCount(major_freqs);
-	R32 freq_line_major_advance = 2.f/(R32)(freq_line_count - 1);
-	
-	S32 major_amps[] = {-60, -54, -48, -42, -36, -30, -24, -18, -12, -6, 0};
-	U32 amp_line_count = ArrayCount(major_amps);
-	R32 amp_line_major_advance = 2.f/(R32)amp_line_count;
-	
+		
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
-	/* render_rect(commands, font_atlas, */
-	/* 	    rect2_center_dim(v2(0, 0), v2(2, 1)), */
-	/* 	    rect2(v2(0, 0), v2(1, 1)), */
-	/* 	    0, v4(1, 1, 1, 1)); */
 	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
 	render_rect(commands, 0, screen_rect, rect2_invalid(), RenderLevel_background, background_color);
 
-	// NOTE: drawing the grid
-	V2 freq_label_pos = v2(-0.99, -0.95f);
-	char *freq_labels[] = {"2", "20", "200", "2000", "20000"};
-	StaticAssert(ArrayCount(freq_labels) == ArrayCount(major_freqs), freq_check);
-	for(U32 freq_idx = 0; freq_idx < ArrayCount(freq_labels); ++freq_idx) {
-
-	  render_string(commands, font, Str8Cstr(freq_labels[freq_idx]), freq_label_pos, v4(1, 1, 1, 1));
-	  freq_label_pos.x += freq_line_major_advance;
-	}
-
-	V2 amp_label_pos = v2(-0.95, -0.99f);
-	char *amp_labels[] = {"-60", "-54", "-48", "-42", "-36", "-30", "-24", "-18", "-12", "-6", "0"};
-	StaticAssert(ArrayCount(amp_labels) == ArrayCount(major_amps), amp_check);
-	for(U32 amp_idx = 0; amp_idx < ArrayCount(amp_labels); ++amp_idx) {
-
-	  render_string(commands, font, Str8Cstr(amp_labels[amp_idx]), amp_label_pos, v4(1, 1, 1, 1));
-	  amp_label_pos.y += amp_line_major_advance;
-	}
-
-	U32 freq_line_thickness_px = 5;
-	U32 freq_line_minor_thickness_px = 2;
-	R32 freq_line_thickness = freq_line_thickness_px * ndc_scale.x;
-	R32 freq_line_minor_thickness = freq_line_minor_thickness_px * ndc_scale.x;
-	V2 freq_line_pos = v2(-1, 0);
-	V2 freq_line_dim = v2(freq_line_thickness, 2);
-	V2 freq_line_minor_dim = v2(freq_line_minor_thickness, 2);
-	V4 freq_line_color = v4(1, 1, 1, 1);
-	for(U32 freq_decade_idx = 0; freq_decade_idx < freq_line_count - 1; ++freq_decade_idx) {
-
-	  Rect2 freq_line_rect = rect2_center_dim(freq_line_pos, freq_line_dim);
-	  render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_grid, freq_line_color);
-
-	  R32 sep = ((R32)major_freqs[freq_decade_idx + 1] - (R32)major_freqs[freq_decade_idx])/10.f;
-	  for(U32 line_idx = 1; line_idx < 10; ++line_idx) {
-
-	    R32 offset = (log10f(((R32)major_freqs[freq_decade_idx] + sep*line_idx)/(R32)major_freqs[freq_decade_idx]))*freq_line_major_advance;
-	    V2 pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
-	    freq_line_rect = rect2_center_dim(pos, freq_line_minor_dim);
-	    render_rect(commands, 0, freq_line_rect, rect2_invalid(), RenderLevel_grid, freq_line_color);
-	  }
-
-	  freq_line_pos.x += freq_line_major_advance;
-	}
-
-	U32 amp_line_thickness_px = 5;
-	R32 amp_line_thickness = amp_line_thickness_px * ndc_scale.y;
-	V2 amp_line_pos = v2(0, -1);
-	V2 amp_line_dim = v2(2, amp_line_thickness);
-	V4 amp_line_color = v4(1, 1, 1, 1);
-	for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
-
-	  Rect2 amp_line_rect = rect2_center_dim(amp_line_pos, amp_line_dim);
-	  render_rect(commands, 0, amp_line_rect, rect2_invalid(), RenderLevel_grid, amp_line_color);
-	  amp_line_pos.y += amp_line_major_advance;
-	}
+	draw_spectrum_grid(spec_state, commands, font);
 
 	// NOTE: drawing the spectrum
 	{
@@ -740,7 +792,7 @@ main(int argc, char **argv)
 	    FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
 	    for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
 
-	      R32 window_val = cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f;
+	      R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
 	      sample_buf.mem[sample_idx] *= window_val;
 	    }
 
