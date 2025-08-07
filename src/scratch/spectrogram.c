@@ -541,7 +541,7 @@ typedef struct SpectrogramState
 
   U32 sample_rate;
 
-  FloatBuffer spectrum_cache;
+  ComplexBuffer cached_spectrum;
 } SpectrogramState;
 
 proc SpectrogramState*
@@ -564,9 +564,10 @@ spectrogram_state_alloc(Arena *arena)
 
   result->sample_rate = 48000;
 
-  U32 spectrum_cache_count = 1024;
-  result->spectrum_cache.count = spectrum_cache_count;
-  result->spectrum_cache.mem = arena_push_array(arena, R32, spectrum_cache_count);
+  U32 cached_spectrum_count = 1024;
+  result->cached_spectrum.count = cached_spectrum_count;
+  result->cached_spectrum.re = arena_push_array(arena, R32, cached_spectrum_count);
+  result->cached_spectrum.im = arena_push_array(arena, R32, cached_spectrum_count);
 
   return(result);
 }
@@ -731,38 +732,6 @@ main(int argc, char **argv)
       PackedFont *packed_font = font_pack(render_arena, &loose_font);
       R_Font *font = render_alloc_font(render_arena, packed_font);
 
-#if 0
-      ArenaTemp test_arena = arena_begin_temp(arena);
-      FloatBuffer test_signal = {0};
-      test_signal.count = 1024;
-      test_signal.mem = arena_push_array_z(test_arena.arena, R32, test_signal.count);
-
-      struct {
-	R32 freq, amp;
-      } fa[] = {
-	{ 32.f, 8.f},
-	{105.f, 5.f},
-	{330.f, 3.f},
-      };      
-      for(U32 i = 0; i < test_signal.count; ++i) {
-
-	R32 sample = 0;
-	for(U32 j = 0; j < ArrayCount(fa); ++j) {
-
-	  R32 freq = fa[j].freq;
-	  R32 amp = fa[j].amp;
-	  sample += amp*sin(2.f*PI32*freq*(R32)i/(R32)test_signal.count);
-	}
-	test_signal.mem[i] = sample;
-      }
-
-      ComplexBuffer test_fft_result = fft_re(test_arena.arena, test_signal);
-      FloatBuffer test_result = ifft_re(test_arena.arena, test_fft_result);
-      Unused(test_result);
-
-      arena_end_temp(test_arena);
-#endif
-
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {
@@ -815,102 +784,33 @@ main(int argc, char **argv)
 
 	  fprintf(stderr, "dequeued %u buffers\n", buffer_count);
 
-	  // NOTE: draw	  
-	  for(AudioBufferNode *node = first_node; node; node = node->next) {
+	  // NOTE: draw
+	  if(first_node) {
+	    for(AudioBufferNode *node = first_node; node; node = node->next) {
 
-	    AudioBuffer *buf = &node->buf;
+	      AudioBuffer *buf = &node->buf;
 
-	    // NOTE: window_input
-	    // TODO: maybe don't overwrite the buffer?
-	    FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
-	    for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
+	      // NOTE: window_input
+	      // TODO: maybe don't overwrite the buffer?
+	      FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+	      for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
 
-	      R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
-	      sample_buf.mem[sample_idx] *= window_val;
+		R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
+		sample_buf.mem[sample_idx] *= window_val;
+	      }
+
+	      ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
+	      draw_spectrum(spec_state, spectrum_buf, commands);
+
+	      // NOTE: cache spectrum
+	      // TODO: handle the case when these have different lengths
+	      Assert(spec_state->cached_spectrum.count == spectrum_buf.count);
+	      CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
+	      CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
 	    }
+	  }else {
 
-	    ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-#if 1
-	    draw_spectrum(spec_state, spectrum_buf, commands);
-#else
-#  if 1
-	    // TODO: work out ranges/scaling
-	    U32 bin_count = spectrum_buf.count/2;
-	    R32 width = 2.f/(R32)bin_count;	    
-	    R32 pos_x = -1.f;
-#    if 1
-	    RangeR32 freq_rng = ranger32(2.f, 20000.f);
-	    RangeR32 db_rng = ranger32(-60.f, 0.f);
-	    R32 step = (log10f(freq_rng.max) - log10f(freq_rng.min))/(R32)bin_count;
-	    R32 exp = log10f(freq_rng.min);
-	    for(U32 i = 0; i < bin_count; ++i) {
-
-	      R32 freq = powf(10.f, exp);
-
-	      //R32 freq_screen_pos = 2.f * ranger32_map_01(freq, freq_rng) - 1.f;
-	      //R32 freq_width = (freq - last_freq)/(freq_rng.max - freq_rng.min);
-
-	      R32 freq_bin_pos = (freq*(R32)spectrum_buf.count)/48000.f; // TODO: use actual sample rate
-	      U32 freq_bin_idx = (U32)freq_bin_pos;
-	      R32 freq_bin_frac = freq_bin_pos - (R32)freq_bin_idx;
-	      
-	      R32 bin_re_0 = spectrum_buf.re[freq_bin_idx];
-	      R32 bin_re_1 = spectrum_buf.re[freq_bin_idx + 1];
-	      R32 bin_re = lerp(bin_re_0, bin_re_1, freq_bin_frac);
-	      
-	      R32 bin_im_0 = spectrum_buf.im[freq_bin_idx];
-	      R32 bin_im_1 = spectrum_buf.im[freq_bin_idx + 1];
-	      R32 bin_im = lerp(bin_im_0, bin_im_1, freq_bin_frac);
-
-	      R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
-	      //R32 bin_mag = sqrtf(bin_mag_sq);
-	      //R32 bin_mag_norm = bin_mag/(R32)bin_count;
-	      R32 bin_mag_db = (log10f(bin_mag_sq) - log10f((R32)bin_count)) * 10.f;
-	      R32 bin_height = ranger32_map_01(bin_mag_db, db_rng);
-	      R32 bin_height_ndc = 2.f * bin_height - 1.f;
-
-	      Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
-	      render_rect(commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
-		
-	      exp += step;
-	      pos_x += width;
-	    }
-#    else
-	    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
-
-	      R32 bin_re = spectrum_buf.re[bin_idx];
-	      R32 bin_im = spectrum_buf.im[bin_idx];
-	      R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
-	      R32 bin_mag_sq_norm = bin_mag_sq/(R32)(spectrum_buf.count);
-
-	      Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_mag_sq_norm));
-	      render_rect(commands, 0, bin_rect, rect2_invalid(), 0, v4(0, 0.5f, 0.5f, 1));
-
-	      pos_x += width;
-	    }
-#    endif
-#  else
-	    R32 width = 2.f/(R32)buf->sample_count;
-	    R32 pos_x = -1.f;
-	    R32 last_sample_avg = 0.f;
-	    for(U32 sample_idx = 0; sample_idx < buf->sample_count; ++sample_idx) {
-
-	      R32 sample_l = buf->samples[0][sample_idx];
-	      R32 sample_r = buf->samples[1][sample_idx];
-
-	      R32 sample_avg = (sample_l + sample_r) * 0.5f;	      
-
-	      R32 base_y = Min(sample_avg, last_sample_avg);
-	      R32 height = fabsf(sample_avg - last_sample_avg);
-	      Rect2 sample_rect = rect2_min_dim(v2(pos_x, base_y), v2(width, height));
-
-	      render_rect(commands, 0, sample_rect, rect2_invalid(), 0, v4(0, 1, 0, 1));
-
-	      last_sample_avg = sample_avg;
-	      pos_x += width;
-	    }
-#  endif
-#endif
+	    draw_spectrum(spec_state, spec_state->cached_spectrum, commands);
 	  }
 
 	  if(last_node) {
