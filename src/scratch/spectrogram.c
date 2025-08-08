@@ -768,6 +768,7 @@ main(int argc, char **argv)
 
 	// NOTE: drawing the spectrum
 	{
+	  // NOTE: try to dequeue buffers
 	  AudioBufferNode *first_node = 0;
 	  AudioBufferNode *last_node = 0;
 	  U32 buffer_count = 0;
@@ -784,7 +785,8 @@ main(int argc, char **argv)
 
 	  fprintf(stderr, "dequeued %u buffers\n", buffer_count);
 
-	  // NOTE: draw
+	  // NOTE: if we dequeued buffers, draw their spectra.
+	  //       otherwise draw the cached spectrum
 	  if(first_node) {
 	    for(AudioBufferNode *node = first_node; node; node = node->next) {
 
@@ -813,6 +815,7 @@ main(int argc, char **argv)
 	    draw_spectrum(spec_state, spec_state->cached_spectrum, commands);
 	  }
 
+	  // NOTE: if we dequeued buffers, put them on the freelist
 	  if(last_node) {
 	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
 	    {
