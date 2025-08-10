@@ -8,8 +8,11 @@ SR = 48000
 k = 1.0/float(SR)
 
 t = np.arange(N)
-sig = np.sin(2 * np.pi * float(freq) * k * t)
+sig = 0.1 * np.sin(2 * np.pi * float(freq) * k * t)
 spec = np.fft.fft(sig)[:N//2]/N
+
+for i, val in enumerate(sig):
+    print(f"{i:>4}: {val:.4f}")
 
 f = np.fft.fftfreq(N, k)[:N//2]
 plt.semilogx(f, 10*np.log10(spec.real ** 2 + spec.imag ** 2))

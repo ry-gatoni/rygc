@@ -1,8 +1,6 @@
 /**
  * TODO:
- * make the rendered spectrum not blink
- * the rendered spectrum should have sharper peaks, figure out why it doesn't
- * compare the rendered spectrum against a known implementation
+ * make log-scale spectrum bins non-uniformly spaced, so we have bigger bins at low freqs, and larger at higher
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
@@ -112,26 +110,27 @@ audio_process(Audio_ProcessData *data)
   
     // NOTE: compute audio samples
     R32 *mix_buffer = arena_push_array_z(scratch.arena, R32, sample_count);
-    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx) {
+    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx) {      
+
+      R32 sine_sample = sine_state->volume * sinf(sine_state->phasor);
+      mix_buffer[sample_idx] += sine_sample;
 
       R32 step = TAU32 * freq_buffer[sample_idx] * data->sample_period;
       sine_state->phasor += step;
       if(sine_state->phasor > TAU32) {
 	sine_state->phasor -= TAU32;
       }
-
-      R32 sine_sample = sine_state->volume * sinf(sine_state->phasor);
-      mix_buffer[sample_idx] += sine_sample;
     }
 
     // NOTE: output samples
     CopyArray(data->output[0], mix_buffer, R32, sample_count);
     CopyArray(data->output[1], mix_buffer, R32, sample_count);
 
-    // TODO: queue audio buffer
+    // NOTE: queue audio buffer
+    // NOTE: try to pull a node off the freelist, otherwise allocate a new one
+    AudioBufferNode *node = 0;    
     while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
-    {
-      AudioBufferNode *node = 0;
+    {     
       if(audio_buffer_list.freelist) {
 
 	node = audio_buffer_list.freelist;
@@ -144,10 +143,17 @@ audio_process(Audio_ProcessData *data)
 	node->buf.samples[0] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
 	node->buf.samples[1] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
       }
+    }
+    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
 
-      CopyArray(node->buf.samples[0], mix_buffer, R32, sample_count);
-      CopyArray(node->buf.samples[1], mix_buffer, R32, sample_count);
+    // NOTE: copy samples to audio buffer
+    Assert(node);
+    CopyArray(node->buf.samples[0], mix_buffer, R32, sample_count);
+    CopyArray(node->buf.samples[1], mix_buffer, R32, sample_count);
 
+    // NOTE: push audio buffer onto the queue
+    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
+    {
       SLLQueuePush(audio_buffer_list.first, audio_buffer_list.last, node);
       ++audio_buffer_list.count;
     }
@@ -574,7 +580,7 @@ spectrogram_state_alloc(Arena *arena)
 
 // TODO: make the commands and font globally accessible, or accessible off the spectrogram state
 proc void
-draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
   
@@ -642,11 +648,65 @@ draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_
 }
 
 proc void
-draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U32 freq_line_count = 4;
+  U32 amp_line_count = 6;
+
+  U32 current_freq = 0;
+  U32 freq_line_thickness_px = 5;
+  R32 freq_line_thickness = render_commands->ndc_scale.x * freq_line_thickness_px;
+  R32 freq_line_space = 2.f/(R32)freq_line_count;
+  V2 freq_line_pos = v2(-1, 0);
+  V2 freq_label_pos = v2(-0.99f, -0.95f);
+  for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
+
+    Rect2 freq_line = rect2_center_dim(freq_line_pos, v2(freq_line_thickness, 2.f));
+    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel_grid, v4(1, 1, 1, 1));
+
+    String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
+    render_string(render_commands, font, freq_label, freq_label_pos, v4(1, 1, 1, 1));
+
+    current_freq += 6000;
+    freq_line_pos.x += freq_line_space;
+    freq_label_pos.x += freq_line_space;
+  }
+
+  U32 current_amp = 0;
+  U32 amp_line_thickness_px = 5;
+  R32 amp_line_thickness = render_commands->ndc_scale.y * amp_line_thickness_px;
+  R32 amp_line_space = 2.f/(R32)amp_line_count;
+  V2 amp_line_pos = v2(0, -1);
+  V2 amp_label_pos = v2( -0.95f, -0.99f);
+  for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
+
+    Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, amp_line_thickness));
+    render_rect(render_commands, 0, amp_line, rect2_invalid(), RenderLevel_grid, v4(1, 1, 1, 1));
+
+    String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
+    render_string(render_commands, font, amp_label, amp_label_pos, v4(1, 1, 1, 1));
+
+    current_amp += 400;
+    amp_line_pos.y += amp_line_space;
+    amp_label_pos.y += amp_line_space;
+  }
+
+  arena_release_scratch(scratch);
+}
+
+proc void
+draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
 {
   U32 bin_count = spec_buf.count/2;
+  R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
   R32 width = 2.f/(R32)bin_count;	    
   R32 pos_x = -1.f;
+
+#if 0
+  fprintf(stderr, "log power spectrum:\n"); // DEBUG
+#endif
 
   R32 step = log10f(spec_state->freq_rng.max/spec_state->freq_rng.min)/(R32)bin_count;
   R32 exp = log10f(spec_state->freq_rng.min);
@@ -660,23 +720,81 @@ draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *
 	      
     R32 bin_re_0 = spec_buf.re[freq_bin_idx];
     R32 bin_re_1 = spec_buf.re[freq_bin_idx + 1];
-    R32 bin_re = lerp(bin_re_0, bin_re_1, freq_bin_frac);
 	      
     R32 bin_im_0 = spec_buf.im[freq_bin_idx];
     R32 bin_im_1 = spec_buf.im[freq_bin_idx + 1];
-    R32 bin_im = lerp(bin_im_0, bin_im_1, freq_bin_frac);
 
-    R32 bin_mag_sq = (bin_re*bin_re + bin_im*bin_im);
-    R32 bin_mag_db = (log10f(bin_mag_sq) - log10f((R32)bin_count)) * 10.f;
+    R32 bin_mag_sq_0 = bin_re_0*bin_re_0 + bin_im_0*bin_im_0;
+    R32 bin_mag_sq_1 = bin_re_1*bin_re_1 + bin_im_1*bin_im_1;
+    R32 bin_mag_sq = lerp(bin_mag_sq_0, bin_mag_sq_1, freq_bin_frac);
+
+    R32 bin_mag_db = 10.f*log10f(bin_mag_sq * norm_coeff);
     R32 bin_height = ranger32_map_01(bin_mag_db, spec_state->db_rng);
-    R32 bin_height_ndc = 2.f * bin_height - 1.f;
+    R32 bin_height_ndc = 2.f * bin_height;
 
     Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
     render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
 
+#if 0
+    // DEBUG:
+    fprintf(stderr, "%3u (%.2f): %.4f\n", i, freq, bin_mag_sq);
+    fprintf(stderr, "  access (idx, frac): %3u, %.2f\n", freq_bin_idx, freq_bin_frac);
+    fprintf(stderr, "  bin_mag_sq(0, 1) = %.4f, %.4f\n", bin_mag_sq_0, bin_mag_sq_1);
+#endif
     exp += step;
     pos_x += width;
   }
+}
+
+proc void
+draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+{
+  U32 bin_count = spec_buf.count/2;
+  R32 width = 2.f/(R32)bin_count;
+
+  V2 pos = v2(-1, -1);
+  for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
+
+    R32 bin_re = spec_buf.re[bin_idx];
+    R32 bin_im = spec_buf.im[bin_idx];
+
+    R32 bin_power = bin_re*bin_re + bin_im*bin_im;
+    R32 bin_height = 2.f*bin_power/2400.f;
+    
+    Rect2 bin_rect = rect2_min_dim(pos, v2(width, bin_height));
+    render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
+    
+    pos.x += width;
+  }
+}
+
+proc void
+draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+{
+  draw_spectrum_grid_log_db(spec_state, render_commands, font);
+  //draw_spectrum_grid_lin(spec_state, render_commands, font);
+}
+
+proc void
+draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+{
+#if 0
+  // DEBUG:
+  U32 bin_count = spec_buf.count/2;
+  fprintf(stderr, "linear power spectrum:\n");
+  for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
+
+    R32 bin_freq = bin_idx * 24000.f / (R32)bin_count;
+    R32 bin_re = spec_buf.re[bin_idx];
+    R32 bin_im = spec_buf.im[bin_idx];
+    R32 bin_power = bin_re*bin_re + bin_im*bin_im;
+
+    fprintf(stderr, "%3u (%.2f): %.4f\n", bin_idx, bin_freq, bin_power);
+  }
+#endif
+
+  draw_spectrum_log_db(spec_state, spec_buf, render_commands);
+  //draw_spectrum_lin(spec_state, spec_buf, render_commands);
 }
 
 //
@@ -791,15 +909,26 @@ main(int argc, char **argv)
 	    for(AudioBufferNode *node = first_node; node; node = node->next) {
 
 	      AudioBuffer *buf = &node->buf;
+	      FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
 
+#if 0
+	      // DEBUG:
+	      for(U32 sample_idx = 0; sample_idx < buf->sample_count; ++sample_idx) {
+
+		fprintf(stderr, "%4u: %.4f\n",
+			sample_idx,
+			buf->samples[0][sample_idx]);
+	      }
+#endif
+#if 0
 	      // NOTE: window_input
 	      // TODO: maybe don't overwrite the buffer?
-	      FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
 	      for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
 
 		R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
 		sample_buf.mem[sample_idx] *= window_val;
 	      }
+#endif
 
 	      ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
 	      draw_spectrum(spec_state, spectrum_buf, commands);

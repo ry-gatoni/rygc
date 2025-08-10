@@ -8,7 +8,7 @@ proc B32 is_pow_2(U32 num);
 proc U32 bit_reverse_u32(U32 num);
 proc U64 bit_reverse_u64(U64 num);
 proc U32 rygc_log2(U32 num);
-proc R32 lerp(R32 a, R32 b, R32 t);
+proc R32 lerp(R32 val0, R32 val1, R32 t);
 
 // NOTE: vectors
 typedef union V2
