@@ -1,10 +1,16 @@
 # TODO (August 2025)
+- [] pull OpenGL structs/functions out from examples into a separate module, for use in other modules
 - [] generalized render module
+    - [] support lines/curves in the renderer
 - [] generalized gfx module
     - [] finish wayland input handling
 - [] update the font module to match other general modules (font_common files, folder per backend)
-- [] pull OpenGL structs/functions out from examples into a separate module, for use in other modules
 - [] new ui layout module
 - [] finish spectrogram example
-    - [] compare against python + matplotlib
-- [] 
+    - [X] compare against python + matplotlib
+	- [] lines instead of rectangles
+	- [] visualize phase
+	- [] add ui
+- [] add more functionality and fix bugs in the audio module
+- [] file format parsing/writing module
+- [] plugin loading system

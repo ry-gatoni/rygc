@@ -1,7 +1,8 @@
 /**
  * TODO:
- * make log-scale spectrum bins non-uniformly spaced, so we have bigger bins at low freqs, and larger at higher
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
+ * visualize phase data
+ * draw lines instead of rectangles
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
  * give glyphs transparent backgrounds
@@ -565,7 +566,7 @@ spectrogram_state_alloc(Arena *arena)
   result->freq_rng.min = 2.f;
   result->freq_rng.max = 20000.f;
 
-  result->db_rng.min = -60.f;
+  result->db_rng.min = -90.f;
   result->db_rng.max = 0.f;
 
   result->sample_rate = 48000;
@@ -699,14 +700,46 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
 proc void
 draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
 {
+#if 1
+  U32 bin_count = spec_buf.count/2;
+  R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
+  RangeR32 log_freq_rng = {.min = log10f(spec_state->freq_rng.min), .max = log10f(spec_state->freq_rng.max)};
+
+  V2 pos = v2(-1.f, -1.f);
+  for(U32 bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx) {
+
+    R32 bin_re = spec_buf.re[bin_idx];
+    R32 bin_im = spec_buf.im[bin_idx];
+    R32 bin_power = bin_re*bin_re + bin_im*bin_im;
+    R32 bin_db = 10.f*log10f(bin_power * norm_coeff);
+    R32 bin_height = 2.f*ranger32_map_01(bin_db, spec_state->db_rng); // NOTE: opengl ndc conversion
+
+    R32 next_bin_freq = ((R32)(bin_idx + 1)/(R32)bin_count) * 24000.f;  // TODO: get actual sample rate
+    R32 log_next_bin_freq = log10f(next_bin_freq);
+
+    R32 next_pos_x = 2.f*ranger32_map_01(log_next_bin_freq, log_freq_rng) - 1.f; // NOTE: opengl ndc conversion
+    R32 width = next_pos_x - pos.x;
+
+    Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
+    render_rect(render_commands, 0, bin, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
+
+#  if 0
+    // NOTE: debug
+    fprintf(stderr, "bin_idx=%u, next_freq=%.4f, log_next_freq=%.4f, pos.x=%.2f\n",
+	    bin_idx, next_bin_freq, log_next_bin_freq, pos.x);
+#  endif
+
+    pos.x = next_pos_x;
+  }
+#else
   U32 bin_count = spec_buf.count/2;
   R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
   R32 width = 2.f/(R32)bin_count;	    
   R32 pos_x = -1.f;
 
-#if 0
+#  if 0
   fprintf(stderr, "log power spectrum:\n"); // DEBUG
-#endif
+#  endif
 
   R32 step = log10f(spec_state->freq_rng.max/spec_state->freq_rng.min)/(R32)bin_count;
   R32 exp = log10f(spec_state->freq_rng.min);
@@ -735,15 +768,16 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
     Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
     render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel_signal, v4(0, 0.5f, 0.5f, 1));
 
-#if 0
+#  if 0
     // DEBUG:
     fprintf(stderr, "%3u (%.2f): %.4f\n", i, freq, bin_mag_sq);
     fprintf(stderr, "  access (idx, frac): %3u, %.2f\n", freq_bin_idx, freq_bin_frac);
     fprintf(stderr, "  bin_mag_sq(0, 1) = %.4f, %.4f\n", bin_mag_sq_0, bin_mag_sq_1);
-#endif
+#  endif
     exp += step;
     pos_x += width;
   }
+#endif
 }
 
 proc void
@@ -920,6 +954,7 @@ main(int argc, char **argv)
 			buf->samples[0][sample_idx]);
 	      }
 #endif
+	      // TODO: enable windowing in ui
 #if 0
 	      // NOTE: window_input
 	      // TODO: maybe don't overwrite the buffer?
