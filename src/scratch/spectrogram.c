@@ -5,7 +5,6 @@
  * draw lines instead of rectangles
  * pull out the renering code into a generalized renderer
  * pull out the opengl code for use across programs/modules
- * give glyphs transparent backgrounds
  * get the sample rate from the audio backend
  */
 
@@ -199,7 +198,7 @@ global char frag_shader_src[] =
   "out vec4 out_color;\n"
   "void main() {\n"
   "vec4 sampled = texture(atlas, f_uv);\n"
-  "out_color = f_c * vec4(sampled.r, sampled.r, sampled.r, 1);\n"
+  "out_color = f_c * vec4(sampled.r, sampled.r, sampled.r, sampled.r);\n"
   "}\n";
 
 typedef struct GlShader

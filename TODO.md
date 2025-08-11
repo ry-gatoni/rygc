@@ -4,7 +4,8 @@
     - [] support lines/curves in the renderer
 - [] generalized gfx module
     - [] finish wayland input handling
-- [] update the font module to match other general modules (font_common files, folder per backend)
+- [X] update the font module to match other general modules (font_common files, folder per backend)
+    - [X] fix font glyph blending
 - [] new ui layout module
 - [] finish spectrogram example
     - [X] compare against python + matplotlib
@@ -14,3 +15,4 @@
 - [] add more functionality and fix bugs in the audio module
 - [] file format parsing/writing module
 - [] plugin loading system
+- [] logging system
