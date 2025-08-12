@@ -326,7 +326,7 @@ main(int argc, char **argv)
 
   printf("concatenated code\n");
 
-  os_write_entire_file(code, Str8Lit("../src/wayland_generated.c"));
+  os_write_entire_file(code, Str8Lit("../src/os/gfx/linux/wayland_generated.c"));
   printf("wrote code to file\n");
 
   return(0);

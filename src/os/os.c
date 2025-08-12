@@ -1,9 +1,16 @@
 #if OS_WINDOWS
 #  include "os_windows.c"
 #elif OS_LINUX
-#  include "os_linux.c"
+#  include "core/os_core_linux.c"
 #elif OS_MAC
 #  include "os_mac.c"
 #else
 #  error "ERROR: os not supported"
+#endif
+
+#if defined(OS_FEATURE_GFX)
+#  include "os_gfx.c"
+#  if OS_LINUX
+#    include "gfx/linux/wayland.c"
+#  endif
 #endif

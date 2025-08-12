@@ -37,6 +37,18 @@ typedef double   R64;
 #define R32_MAX (FLT_MAX)
 #define R32_MIN (FLT_MIN)
 
+typedef union Value32
+{
+  R32 flt;
+  U32 uint;
+} Value32;
+
+typedef union Value64
+{
+  R64 flt;
+  U64 uint;
+} Value64;
+
 #define proc static
 #define local static
 #define global static

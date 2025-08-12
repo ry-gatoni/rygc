@@ -7,10 +7,11 @@
  * (wip) pull out the opengl code for use across programs/modules
  */
 
+#define OS_FEATURE_GFX
 #include "base/base.h"
 #include "os/os.h"
 #include "OpenGL/ogl.h"
-#include "wayland.h"
+//#include "wayland.h"
 #include "font/font.h"
 #include "render/render.h"
 #include "audio/audio.h"
@@ -19,7 +20,7 @@
 #include "base/base.c"
 #include "os/os.c"
 #include "OpenGL/ogl.c"
-#include "wayland.c"
+//#include "wayland.c"
 #include "font/font.c"
 #include "render/render.c"
 #include "audio/audio.c"
@@ -509,10 +510,10 @@ main(int argc, char **argv)
     loose_font = font_parse(scratch.arena, font_file, pt_size);
   }
 
-  if(wayland_init()) {
+  if(os_gfx_init()) {
 
-    WaylandWindow *window = wayland_open_window(Str8Lit("spectrogram"), 640, 480, RenderTarget_hardware);
-    if(window) {
+    Os_Handle window = os_open_window(Str8Lit("spectrogram"), 640, 480);
+    if(window.handle) {      
 
       Arena *state_arena = arena_alloc();
       SpectrogramState *spec_state = spectrogram_state_alloc(state_arena);
@@ -544,11 +545,10 @@ main(int argc, char **argv)
       Arena *frame_arena = arena_alloc();
       while(running) {
 	
-	Event event = {0};
-	EventList events = wayland_get_events(window);
-	while(next_event(&events, &event)) {	  
-	  switch(event.kind) {	    
-	  case EventKind_Close:
+	Os_EventList events = os_events_from_window(window);
+	for(Os_EventNode *event_node = events.first; event_node; event_node = event_node->next) {
+	  switch(event_node->event.kind) {
+	  case Os_EventKind_close:
 	    { running = 0; } break;
 	  default:
 	    {} break;
@@ -556,11 +556,12 @@ main(int argc, char **argv)
 	}
 
 	// TODO: generalize this
-	GlFramebuffer framebuffer = wayland_get_framebuffer(window);
+	WaylandWindow *wayland_window = window.handle;
+	GlFramebuffer framebuffer = wayland_get_framebuffer(wayland_window);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 
-	S32 window_width  = window->width;
-	S32 window_height = window->height;
+	S32 window_width  = wayland_window->width;
+	S32 window_height = wayland_window->height;
 	//V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);	
 	glViewport(0, 0, window_width, window_height);
 	glClearColor(0, 0, 0, 1);
@@ -649,15 +650,17 @@ main(int argc, char **argv)
 
 	render_from_commands(commands);
 
-	if(!wayland_end_frame(window)) {
-	  Assert(!"FATAL: wayland end frame failed");
-	}
+	/* if(!wayland_end_frame(wayland_window)) { */
+	/*   Assert(!"FATAL: wayland end frame failed"); */
+	/* } */
+	os_window_end_frame(window);
 
 	arena_clear(frame_arena);
       }
 
       audio_uninit();
-      wayland_close_window(window);
+      //wayland_close_window(window);
+      os_close_window(window);
     }
   }
 

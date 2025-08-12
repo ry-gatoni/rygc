@@ -43,9 +43,12 @@ struct WaylandTempId
 
 typedef struct GlFramebuffer
 {
-  GLuint color_texture;
-  GLuint depth_texture;
-  GLuint fbo;
+  /* GLuint color_texture; */
+  /* GLuint depth_texture; */
+  /* GLuint fbo; */
+  U32 color_texture;
+  U32 depth_texture;
+  U32 fbo;
 
   S32 width;
   S32 height;
@@ -232,8 +235,8 @@ proc Buffer wayland_poll_events(Arena *arena);
 // NOTE: these functions don't depend on the wayland protocol or its
 //       implementation, and so should be moved to an implementation-independent
 //       place when the move to a full OS graphics abstraction layer is done
-proc void event_list_push_ex(EventList *list, Event event, EventNode *node);
-proc void event_list_push(Arena *arena, EventList *list, Event event);
+/* proc void event_list_push_ex(EventList *list, Event event, EventNode *node); */
+/* proc void event_list_push(Arena *arena, EventList *list, Event event); */
 
 proc void wayland_log_error_(char *fmt, ...);
 #define wayland_log_error(message, ...) wayland_log_error_("ERROR(%s, %u): "message, __FUNCTION__, __LINE__, __VA_ARGS__)
@@ -253,8 +256,8 @@ proc WaylandWindow* wayland_open_window(String8 name, S32 width, S32 height, Ren
 proc U32 *wayland_get_render_pixels(WaylandWindow *window);
 proc GlFramebuffer wayland_get_framebuffer(WaylandWindow *window);
 
-proc EventList wayland_get_events(WaylandWindow *window);
-proc B32 next_event(EventList *events, Event *event);
+/* proc EventList wayland_get_events(WaylandWindow *window); */
+/* proc B32 next_event(EventList *events, Event *event); */
 
 proc B32 wayland_end_frame(WaylandWindow *window);
 proc void wayland_close_window(WaylandWindow *window);
