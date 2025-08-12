@@ -14,5 +14,6 @@
 	- [] add ui
 - [] add more functionality and fix bugs in the audio module
 - [] file format parsing/writing module
+- [] file streaming
 - [] plugin loading system
 - [] logging system

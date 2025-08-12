@@ -7,8 +7,9 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
+/* #define GL_GLEXT_PROTOTYPES */
+/* #include <GL/gl.h> */
+//#include "OpenGL/ogl.h"
 
 #include <errno.h>
 

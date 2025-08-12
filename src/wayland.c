@@ -6,6 +6,7 @@
  * log messages/errors somewhere besides the console
  */
 
+//#include "OpenGL/ogl.c"
 #include "wayland_generated.c"
 
 proc WaylandHashKey
