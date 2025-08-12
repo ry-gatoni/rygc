@@ -5,7 +5,6 @@
  * draw lines instead of rectangles
  * (wip) pull out the renering code into a generalized renderer
  * (wip) pull out the opengl code for use across programs/modules
- * get the sample rate from the audio backend
  */
 
 #include "base/base.h"
@@ -303,8 +302,13 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  U32 freq_line_count = 4;
-  U32 amp_line_count = 6;
+  U32 freq_space = 6000;
+  U32 amp_space = 400;
+
+  /* U32 freq_line_count = 4; */
+  /* U32 amp_line_count = 6; */
+  U32 freq_line_count = (U32)(ranger32_len(spec_state->freq_rng) + 1) / freq_space;
+  U32 amp_line_count = 2400 / amp_space;
 
   U32 current_freq = 0;
   U32 freq_line_thickness_px = 5;
@@ -320,7 +324,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
     render_string(render_commands, font, freq_label, freq_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
 
-    current_freq += 6000;
+    current_freq += freq_space;
     freq_line_pos.x += freq_line_space;
     freq_label_pos.x += freq_line_space;
   }
@@ -339,7 +343,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
     String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
     render_string(render_commands, font, amp_label, amp_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
 
-    current_amp += 400;
+    current_amp += amp_space;
     amp_line_pos.y += amp_line_space;
     amp_label_pos.y += amp_line_space;
   }
@@ -353,6 +357,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
 #if 1
   U32 bin_count = spec_buf.count/2;
   R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
+  R32 nyquist = 0.5f * (R32)spec_state->sample_rate;
   RangeR32 log_freq_rng = {.min = log10f(spec_state->freq_rng.min), .max = log10f(spec_state->freq_rng.max)};
 
   V2 pos = v2(-1.f, -1.f);
@@ -363,8 +368,8 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
     R32 bin_power = bin_re*bin_re + bin_im*bin_im;
     R32 bin_db = 10.f*log10f(bin_power * norm_coeff);
     R32 bin_height = 2.f*ranger32_map_01(bin_db, spec_state->db_rng); // NOTE: opengl ndc conversion
-
-    R32 next_bin_freq = ((R32)(bin_idx + 1)/(R32)bin_count) * 24000.f;  // TODO: get actual sample rate
+    
+    R32 next_bin_freq = ((R32)(bin_idx + 1)/(R32)bin_count) * nyquist;
     R32 log_next_bin_freq = log10f(next_bin_freq);
 
     R32 next_pos_x = 2.f*ranger32_map_01(log_next_bin_freq, log_freq_rng) - 1.f; // NOTE: opengl ndc conversion
@@ -435,6 +440,7 @@ draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Comman
 {
   U32 bin_count = spec_buf.count/2;
   R32 width = 2.f/(R32)bin_count;
+  Unused(spec_state);
 
   V2 pos = v2(-1, -1);
   for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
@@ -515,7 +521,7 @@ main(int argc, char **argv)
 
 	audio_buffer_list.arena = arena_alloc();
 	audio_set_user_data(spec_state->sine_osc_state);
-	// TOOD: get sample rate from audio backend
+	spec_state->sample_rate = audio_get_sample_rate();
       }
 
       glEnable(GL_TEXTURE_2D);

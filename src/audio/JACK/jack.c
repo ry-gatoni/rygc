@@ -163,3 +163,10 @@ audio_set_user_data(void *data)
 {
   global_process_data.user_data = data;
 }
+
+proc U32
+audio_get_sample_rate(void)
+{
+  U32 result = jack_get_sample_rate(jack_state.client);
+  return(result);
+}
