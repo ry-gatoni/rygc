@@ -46,6 +46,8 @@ proc void os_close_window(Os_Handle window);
 
 proc Os_EventList os_events_from_window(Os_Handle window);
 
+proc V2S32 os_window_get_dim(Os_Handle window);
+
 // TODO: move to render module
 proc void os_window_begin_frame(Os_Handle window);
 proc void os_window_end_frame(Os_Handle window);

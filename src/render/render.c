@@ -1,3 +1,17 @@
+proc void
+render_init(void)
+{
+  glEnable(GL_TEXTURE_2D);
+      
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glDepthFunc(GL_LESS);
+
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+}
+
 proc R_Font*
 render_alloc_font(Arena *arena, PackedFont *font)
 {
@@ -70,10 +84,60 @@ render_alloc_commands(Arena *arena)
 }
 
 proc void
-render_begin_frame(R_Commands *commands, S32 window_width, S32 window_height)
+render_equip_window(R_Commands *commands, Os_Handle window)
 {
-  commands->window_dim = v2s32(window_width, window_height);
-  commands->ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);
+  commands->window = window;
+}
+
+// TODO: depends on OpenGL
+proc void
+render_begin_frame(R_Commands *commands)
+{
+  os_window_begin_frame(commands->window);
+
+  commands->window_dim = os_window_get_dim(commands->window);
+  commands->ndc_scale = v2(2.f/(R32)commands->window_dim.width,
+			   2.f/(R32)commands->window_dim.height);
+
+  glViewport(0, 0, commands->window_dim.width, commands->window_dim.height);
+  glClearColor(0, 0, 0, 1);
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+// TODO: still depends on OpenGL
+proc void
+render_end_frame(R_Commands *commands)
+{
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(R_Vertex),
+			PtrFromInt(OffsetOf(R_Vertex, pos)));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(R_Vertex),
+			PtrFromInt(OffsetOf(R_Vertex, uv)));
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
+			PtrFromInt(OffsetOf(R_Vertex, color)));
+
+  // NOTE: render all batches
+  for(R_Batch *batch = commands->first_batch; batch; batch = batch->next) {
+    
+    glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, batch->texture->handle);
+
+    glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
+  }
+
+  // NOTE: push all batches onto the freelist
+  commands->last_batch->next = commands->batch_freelist;
+  commands->batch_freelist = commands->first_batch;
+  commands->first_batch = 0;
+  commands->last_batch = 0;
+  commands->batch_count = 0;
+
+  os_window_end_frame(commands->window);
 }
 
 proc void
@@ -163,37 +227,4 @@ render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, R32 le
     
     pos.x += ndc_scale.x * glyph->advance;
   }
-}
-
-// TODO: still depends on OpenGL
-proc void
-render_from_commands(R_Commands *commands)
-{
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, pos)));
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, uv)));
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, color)));
-
-  // NOTE: render all batches
-  for(R_Batch *batch = commands->first_batch; batch; batch = batch->next) {
-    
-    glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, batch->texture->handle);
-
-    glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
-  }
-
-  // NOTE: push all batches onto the freelist
-  commands->last_batch->next = commands->batch_freelist;
-  commands->batch_freelist = commands->first_batch;
-  commands->first_batch = 0;
-  commands->last_batch = 0;
-  commands->batch_count = 0;
 }

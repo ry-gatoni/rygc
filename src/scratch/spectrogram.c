@@ -3,15 +3,12 @@
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * visualize phase data
  * draw lines instead of rectangles
- * (wip) pull out the renering code into a generalized renderer
- * (wip) pull out the opengl code for use across programs/modules
  */
 
 #define OS_FEATURE_GFX
 #include "base/base.h"
 #include "os/os.h"
 #include "OpenGL/ogl.h"
-//#include "wayland.h"
 #include "font/font.h"
 #include "render/render.h"
 #include "audio/audio.h"
@@ -20,7 +17,6 @@
 #include "base/base.c"
 #include "os/os.c"
 #include "OpenGL/ogl.c"
-//#include "wayland.c"
 #include "font/font.c"
 #include "render/render.c"
 #include "audio/audio.c"
@@ -177,12 +173,14 @@ typedef enum RenderLevel
   RenderLevel_count,
 } RenderLevel;
 
-proc R32
-render_level(RenderLevel level)
-{
-  R32 result = (R32)level/(R32)RenderLevel_count;
-  return(result);
-}
+#define RenderLevel(level) ((R32)(RenderLevel_##level)/(R32)(RenderLevel_count))
+
+/* proc R32 */
+/* render_level(RenderLevel level) */
+/* { */
+/*   R32 result = (R32)level/(R32)RenderLevel_count; */
+/*   return(result); */
+/* } */
 
 //
 // application
@@ -253,7 +251,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, freq_line_dim);
-    render_rect(render_commands, 0, freq_line, rect2_invalid(), render_level(RenderLevel_grid), v4(1, 1, 1, 1));
+    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     if(freq_line_idx < freq_line_count - 1) {
 
@@ -264,12 +262,12 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
 	R32 offset = freq_line_major_advance*log10f(((R32)current_freq + sep*(R32)minor_line_idx)/(R32)current_freq);
 	V2 minor_line_pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
 	Rect2 minor_line = rect2_center_dim(minor_line_pos, freq_line_minor_dim);
-	render_rect(render_commands, 0, minor_line, rect2_invalid(), render_level(RenderLevel_grid), v4(1, 1, 1, 1));
+	render_rect(render_commands, 0, minor_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
       }
     }
     
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
-    render_string(render_commands, font, freq_label, freq_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
+    render_string(render_commands, font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_freq *= 10;
     freq_line_pos.x += freq_line_major_advance;
@@ -285,10 +283,10 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
   for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx) {
 
     Rect2 db_line = rect2_center_dim(db_line_pos, db_line_dim);
-    render_rect(render_commands, 0, db_line, rect2_invalid(), render_level(RenderLevel_grid), v4(1, 1, 1, 1));
+    render_rect(render_commands, 0, db_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 db_label = str8_push_f(scratch.arena, "%d", current_db);
-    render_string(render_commands, font, db_label, db_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
+    render_string(render_commands, font, db_label, db_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_db += 6;
     db_line_pos.y += db_line_major_advance;
@@ -320,10 +318,10 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, v2(freq_line_thickness, 2.f));
-    render_rect(render_commands, 0, freq_line, rect2_invalid(), render_level(RenderLevel_grid), v4(1, 1, 1, 1));
+    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
-    render_string(render_commands, font, freq_label, freq_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
+    render_string(render_commands, font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_freq += freq_space;
     freq_line_pos.x += freq_line_space;
@@ -339,10 +337,10 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
   for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
     Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, amp_line_thickness));
-    render_rect(render_commands, 0, amp_line, rect2_invalid(), render_level(RenderLevel_grid), v4(1, 1, 1, 1));
+    render_rect(render_commands, 0, amp_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
-    render_string(render_commands, font, amp_label, amp_label_pos, render_level(RenderLevel_label), v4(1, 1, 1, 1));
+    render_string(render_commands, font, amp_label, amp_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_amp += amp_space;
     amp_line_pos.y += amp_line_space;
@@ -377,7 +375,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
     R32 width = next_pos_x - pos.x;
 
     Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(render_commands, 0, bin, rect2_invalid(), render_level(RenderLevel_signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(render_commands, 0, bin, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
 
 #  if 0
     // NOTE: debug
@@ -453,7 +451,7 @@ draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Comman
     R32 bin_height = 2.f*bin_power/2400.f;
     
     Rect2 bin_rect = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(render_commands, 0, bin_rect, rect2_invalid(), render_level(RenderLevel_signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
     
     pos.x += width;
   }
@@ -525,15 +523,7 @@ main(int argc, char **argv)
 	spec_state->sample_rate = audio_get_sample_rate();
       }
 
-      glEnable(GL_TEXTURE_2D);
-      
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-      glDepthFunc(GL_LESS);
-
-      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      render_init();
 
       Arena *render_arena = arena_alloc();
       R_Commands *commands = render_alloc_commands(render_arena);
@@ -555,24 +545,12 @@ main(int argc, char **argv)
 	  }
 	}
 
-	// TODO: generalize this
-	WaylandWindow *wayland_window = window.handle;
-	GlFramebuffer framebuffer = wayland_get_framebuffer(wayland_window);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
-
-	S32 window_width  = wayland_window->width;
-	S32 window_height = wayland_window->height;
-	//V2 ndc_scale = v2(2.f/(R32)window_width, 2.f/(R32)window_height);	
-	glViewport(0, 0, window_width, window_height);
-	glClearColor(0, 0, 0, 1);
-	glClearDepth(1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	render_begin_frame(commands, window_width, window_height);
+	render_equip_window(commands, window);
+	render_begin_frame(commands);
 		
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
 	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
-	render_rect(commands, 0, screen_rect, rect2_invalid(), render_level(RenderLevel_background), background_color);
+	render_rect(commands, 0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
 
 	draw_spectrum_grid(spec_state, commands, font);
 
@@ -648,18 +626,11 @@ main(int argc, char **argv)
 	  }
 	}
 
-	render_from_commands(commands);
-
-	/* if(!wayland_end_frame(wayland_window)) { */
-	/*   Assert(!"FATAL: wayland end frame failed"); */
-	/* } */
-	os_window_end_frame(window);
-
+	render_end_frame(commands);
 	arena_clear(frame_arena);
       }
 
       audio_uninit();
-      //wayland_close_window(window);
       os_close_window(window);
     }
   }

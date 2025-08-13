@@ -1333,11 +1333,20 @@ os_events_from_window(Os_Handle window)
   return(result);
 }
 
+proc V2S32
+os_window_get_dim(Os_Handle window)
+{
+  WaylandWindow *wayland_window = window.handle;
+  V2S32 result = v2s32(wayland_window->width, wayland_window->height);
+  return(result);
+}
+
 // TODO: move to render module
 proc void
 os_window_begin_frame(Os_Handle window)
 {
-  
+  GlFramebuffer framebuffer = wayland_get_framebuffer(window.handle);
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 }
 
 proc void

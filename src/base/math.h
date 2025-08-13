@@ -20,6 +20,7 @@ typedef union V2
 typedef union V2S32
 {
   struct {S32 x, y;};
+  struct {S32 width, height;};
   S32 v[2];
 } V2S32;
 

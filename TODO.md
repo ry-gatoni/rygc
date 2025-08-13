@@ -1,9 +1,9 @@
 # TODO (August 2025)
 - [] os/gfx module
-    - [] create generalization layer w/ multiple backends (Wayland, X11, Windows, Mac)
+    - [X] create generalization layer w/ multiple backends (Wayland, X11, Windows, Mac)
     - [] finish wayland input handling
 	- [] finish wayland smooth resizing
-	- [] should contain graphics library generalizations for creating textures, to be used in font module
+	- [?] should contain graphics library generalizations for creating textures, to be used in font module
 - [] pull OpenGL structs/functions out from examples into a separate module, for use in other modules
 
 - [] render module
@@ -14,7 +14,7 @@
 	
 - [] font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
-	- [] pull out graphics library dependant calls into os/gfx generalized backend
+	- [] pull out graphics library dependant calls into  generalized os/gfx or render backend
 	
 - [] audio module
     - [X] get sample rate from audio backend
