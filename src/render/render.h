@@ -46,6 +46,7 @@ typedef struct R_Commands
 
   R_Batch *batch_freelist;
 
+  // TODO: pull out OpenGL-specific stuff
   GLuint vao;
   GLuint vbo;
   GLuint sampler;
@@ -56,16 +57,18 @@ typedef struct R_Commands
   GlShader shader_prog;
 } R_Commands;
 
+global R_Commands *render_commands = 0;
+
 proc void render_init(void); // TODO: this should probably allocate global commands
 
-proc R_Font* render_alloc_font(Arena *arena, PackedFont *font);
+proc R_Font* render_alloc_font(LooseFont *loose_font);
 proc R_Commands* render_alloc_commands(Arena *arena);
 
-proc void render_equip_window(R_Commands *commands, Os_Handle window);
+proc void render_equip_window(Os_Handle window);
 
-proc void render_begin_frame(R_Commands *commands);
-proc void render_end_frame(R_Commands *commands);
+proc void render_begin_frame(void);
+proc void render_end_frame(void);
 
-proc void render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color);
-proc void render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, R32 level, V4 color);
+proc void render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color);
+proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
 //proc void render_from_commands(R_Commands *commands);

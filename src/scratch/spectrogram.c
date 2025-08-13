@@ -229,7 +229,7 @@ spectrogram_state_alloc(Arena *arena)
 
 // TODO: make the commands and font globally accessible, or accessible off the spectrogram state
 proc void
-draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Font *font)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
   
@@ -251,7 +251,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, freq_line_dim);
-    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     if(freq_line_idx < freq_line_count - 1) {
 
@@ -262,12 +262,12 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
 	R32 offset = freq_line_major_advance*log10f(((R32)current_freq + sep*(R32)minor_line_idx)/(R32)current_freq);
 	V2 minor_line_pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
 	Rect2 minor_line = rect2_center_dim(minor_line_pos, freq_line_minor_dim);
-	render_rect(render_commands, 0, minor_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+	render_rect(0, minor_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
       }
     }
     
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
-    render_string(render_commands, font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
+    render_string(font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_freq *= 10;
     freq_line_pos.x += freq_line_major_advance;
@@ -283,10 +283,10 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
   for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx) {
 
     Rect2 db_line = rect2_center_dim(db_line_pos, db_line_dim);
-    render_rect(render_commands, 0, db_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(0, db_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 db_label = str8_push_f(scratch.arena, "%d", current_db);
-    render_string(render_commands, font, db_label, db_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
+    render_string(font, db_label, db_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_db += 6;
     db_line_pos.y += db_line_major_advance;
@@ -297,7 +297,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Commands *render_comma
 }
 
 proc void
-draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
@@ -318,10 +318,10 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, v2(freq_line_thickness, 2.f));
-    render_rect(render_commands, 0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
-    render_string(render_commands, font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
+    render_string(font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_freq += freq_space;
     freq_line_pos.x += freq_line_space;
@@ -337,10 +337,10 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
   for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
     Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, amp_line_thickness));
-    render_rect(render_commands, 0, amp_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(0, amp_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
-    render_string(render_commands, font, amp_label, amp_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
+    render_string(font, amp_label, amp_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
 
     current_amp += amp_space;
     amp_line_pos.y += amp_line_space;
@@ -351,7 +351,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Commands *render_commands
 }
 
 proc void
-draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf)
 {
 #if 1
   U32 bin_count = spec_buf.count/2;
@@ -375,7 +375,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
     R32 width = next_pos_x - pos.x;
 
     Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(render_commands, 0, bin, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(0, bin, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
 
 #  if 0
     // NOTE: debug
@@ -435,7 +435,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Com
 }
 
 proc void
-draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf)
 {
   U32 bin_count = spec_buf.count/2;
   R32 width = 2.f/(R32)bin_count;
@@ -451,21 +451,21 @@ draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Comman
     R32 bin_height = 2.f*bin_power/2400.f;
     
     Rect2 bin_rect = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(render_commands, 0, bin_rect, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(0, bin_rect, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
     
     pos.x += width;
   }
 }
 
 proc void
-draw_spectrum_grid(SpectrogramState *spec_state, R_Commands *render_commands, R_Font *font)
+draw_spectrum_grid(SpectrogramState *spec_state, R_Font *font)
 {
-  draw_spectrum_grid_log_db(spec_state, render_commands, font);
-  //draw_spectrum_grid_lin(spec_state, render_commands, font);
+  draw_spectrum_grid_log_db(spec_state, font);
+  //draw_spectrum_grid_lin(spec_state, font);
 }
 
 proc void
-draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *render_commands)
+draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf)
 {
 #if 0
   // DEBUG:
@@ -482,8 +482,8 @@ draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf, R_Commands *
   }
 #endif
 
-  draw_spectrum_log_db(spec_state, spec_buf, render_commands);
-  //draw_spectrum_lin(spec_state, spec_buf, render_commands);
+  draw_spectrum_log_db(spec_state, spec_buf);
+  //draw_spectrum_lin(spec_state, spec_buf);
 }
 
 //
@@ -523,13 +523,8 @@ main(int argc, char **argv)
 	spec_state->sample_rate = audio_get_sample_rate();
       }
 
-      render_init();
-
-      Arena *render_arena = arena_alloc();
-      R_Commands *commands = render_alloc_commands(render_arena);
-      
-      PackedFont *packed_font = font_pack(render_arena, &loose_font);
-      R_Font *font = render_alloc_font(render_arena, packed_font);
+      render_init(); // TODO: should check success
+      R_Font *font = render_alloc_font(&loose_font);
 
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
@@ -545,14 +540,14 @@ main(int argc, char **argv)
 	  }
 	}
 
-	render_equip_window(commands, window);
-	render_begin_frame(commands);
+	render_equip_window(window);
+	render_begin_frame();
 		
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
 	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
-	render_rect(commands, 0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
+	render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
 
-	draw_spectrum_grid(spec_state, commands, font);
+	draw_spectrum_grid(spec_state, font);
 
 	// NOTE: drawing the spectrum
 	{
@@ -602,7 +597,7 @@ main(int argc, char **argv)
 #endif
 
 	      ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-	      draw_spectrum(spec_state, spectrum_buf, commands);
+	      draw_spectrum(spec_state, spectrum_buf);
 
 	      // NOTE: cache spectrum
 	      // TODO: handle the case when these have different lengths
@@ -612,7 +607,7 @@ main(int argc, char **argv)
 	    }
 	  }else {
 
-	    draw_spectrum(spec_state, spec_state->cached_spectrum, commands);
+	    draw_spectrum(spec_state, spec_state->cached_spectrum);
 	  }
 
 	  // NOTE: if we dequeued buffers, put them on the freelist
@@ -626,7 +621,7 @@ main(int argc, char **argv)
 	  }
 	}
 
-	render_end_frame(commands);
+	render_end_frame();
 	arena_clear(frame_arena);
       }
 

@@ -1,6 +1,7 @@
 proc void
 render_init(void)
 {
+  // TODO: pull out OpenGL-specific stuff
   glEnable(GL_TEXTURE_2D);
       
   glEnable(GL_BLEND);
@@ -10,11 +11,16 @@ render_init(void)
 
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+  Arena *arena = arena_alloc();
+  render_commands = render_alloc_commands(arena);
 }
 
 proc R_Font*
-render_alloc_font(Arena *arena, PackedFont *font)
+render_alloc_font(LooseFont *loose_font)
 {
+  Arena *arena = render_commands->arena;
+  PackedFont *font = font_pack(arena, loose_font);
   R_Texture *atlas = arena_push_struct(arena, R_Texture);
   atlas->handle = font->atlas_texture_id;
   atlas->dim = v2s32(font->atlas_width, font->atlas_height);
@@ -84,15 +90,16 @@ render_alloc_commands(Arena *arena)
 }
 
 proc void
-render_equip_window(R_Commands *commands, Os_Handle window)
+render_equip_window(Os_Handle window)
 {
-  commands->window = window;
+  render_commands->window = window;
 }
 
 // TODO: depends on OpenGL
 proc void
-render_begin_frame(R_Commands *commands)
+render_begin_frame(void)
 {
+  R_Commands *commands = render_commands;
   os_window_begin_frame(commands->window);
 
   commands->window_dim = os_window_get_dim(commands->window);
@@ -107,8 +114,9 @@ render_begin_frame(R_Commands *commands)
 
 // TODO: still depends on OpenGL
 proc void
-render_end_frame(R_Commands *commands)
+render_end_frame(void)
 {
+  R_Commands *commands = render_commands;
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(R_Vertex),
 			PtrFromInt(OffsetOf(R_Vertex, pos)));
@@ -141,8 +149,9 @@ render_end_frame(R_Commands *commands)
 }
 
 proc void
-render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
+render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
 {
+  R_Commands *commands = render_commands;
   // NOTE: if a texture was not supplied, use the white texture
   if(!texture) {
     texture = commands->white_texture;
@@ -211,8 +220,9 @@ render_rect(R_Commands *commands, R_Texture *texture, Rect2 rect, Rect2 uv, R32 
 }
 
 proc void
-render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, R32 level, V4 color)
+render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
 {
+  R_Commands *commands = render_commands;
   V2 ndc_scale = v2(2.f/(R32)commands->window_dim.x,
 		    2.f/(R32)commands->window_dim.y);
 
@@ -223,7 +233,7 @@ render_string(R_Commands *commands, R_Font *font, String8 string, V2 pos, R32 le
 
     Rect2 rect = rect2(v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min)),
 		       v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max)));
-    render_rect(commands, font->atlas, rect, glyph->uv, level, color);
+    render_rect(font->atlas, rect, glyph->uv, level, color);
     
     pos.x += ndc_scale.x * glyph->advance;
   }
