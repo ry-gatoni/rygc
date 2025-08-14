@@ -1,24 +1,31 @@
 #define GL_GLEXT_PROTOTYPES
 #include "GL/gl.h"
 
-typedef enum Ogl_PixelFormat
-{
-  Ogl_PixelFormat_rgba,
-  Ogl_PixelFormat_abgr,
-  Ogl_PixelFormat_red,
-} Ogl_PixelFormat;
-
 global GLint ogl_fmts[] ={
-  [Ogl_PixelFormat_rgba] = GL_RGBA,
-  [Ogl_PixelFormat_abgr] = GL_BGRA,
-  [Ogl_PixelFormat_red] = GL_RED,
+  [R_PixelFormat_rgba] = GL_RGBA,
+  [R_PixelFormat_abgr] = GL_BGRA,
+  [R_PixelFormat_red] = GL_RED,
 };
 
-typedef struct GlShader
+typedef struct Ogl_Shader
 {
   GLuint handle;
   String8 log;
-} GlShader;
+} Ogl_Shader;
+
+typedef struct Ogl_Renderer
+{
+  GLuint vao;
+  GLuint vbo;
+  GLuint sampler;
+  GLint sampler_loc;
+  
+  Ogl_Shader vert_shader;
+  Ogl_Shader frag_shader;
+  Ogl_Shader shader_prog;
+} Ogl_Renderer;
+
+global Ogl_Renderer *ogl_renderer = 0;
 
 global char vert_shader_src[] =
   "#version 330\n"
@@ -44,7 +51,7 @@ global char frag_shader_src[] =
   "out_color = f_c * vec4(sampled.r, sampled.r, sampled.r, sampled.r);\n"
   "}\n";
 
-proc U32 ogl_create_texture(S32 width, S32 height, Ogl_PixelFormat tex_fmt, Ogl_PixelFormat pix_fmt, void *pix_data);
+//proc U32 ogl_create_texture(S32 width, S32 height, Ogl_PixelFormat tex_fmt, Ogl_PixelFormat pix_fmt, void *pix_data);
 
-proc GlShader gl_make_shader(Arena *arena, char *src, GLenum kind);
-proc GlShader gl_make_program(Arena *arena, GLuint *shaders, U32 shader_count);
+proc Ogl_Shader ogl_make_shader(Arena *arena, char *src, GLenum kind);
+proc Ogl_Shader ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count);

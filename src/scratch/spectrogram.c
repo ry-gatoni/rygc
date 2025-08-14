@@ -8,17 +8,17 @@
 #define OS_FEATURE_GFX
 #include "base/base.h"
 #include "os/os.h"
-#include "OpenGL/ogl.h"
-#include "font/font.h"
 #include "render/render.h"
+#include "font/font.h"
+#include "OpenGL/ogl.h"
 #include "audio/audio.h"
 #include "fourier/fourier.h"
 
 #include "base/base.c"
 #include "os/os.c"
-#include "OpenGL/ogl.c"
-#include "font/font.c"
 #include "render/render.c"
+#include "font/font.c"
+#include "OpenGL/ogl.c"
 #include "audio/audio.c"
 #include "fourier/fourier.c"
 
@@ -174,13 +174,6 @@ typedef enum RenderLevel
 } RenderLevel;
 
 #define RenderLevel(level) ((R32)(RenderLevel_##level)/(R32)(RenderLevel_count))
-
-/* proc R32 */
-/* render_level(RenderLevel level) */
-/* { */
-/*   R32 result = (R32)level/(R32)RenderLevel_count; */
-/*   return(result); */
-/* } */
 
 //
 // application
@@ -524,7 +517,7 @@ main(int argc, char **argv)
       }
 
       render_init(); // TODO: should check success
-      R_Font *font = render_alloc_font(&loose_font);
+      R_Font *font = render_alloc_font(&loose_font);      
 
       B32 running = 1;
       Arena *frame_arena = arena_alloc();

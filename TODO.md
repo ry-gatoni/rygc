@@ -3,18 +3,18 @@
     - [X] create generalization layer w/ multiple backends (Wayland, X11, Windows, Mac)
     - [] finish wayland input handling
 	- [] finish wayland smooth resizing
-	- [?] should contain graphics library generalizations for creating textures, to be used in font module
-- [] pull OpenGL structs/functions out from examples into a separate module, for use in other modules
+- [X] pull OpenGL structs/functions out from examples into a separate module, for use in other modules
 
 - [] render module
     - [X] fix font glyph blending
+	- [X] pull out graphics library depended calls into generalized backend
+	- [] pass pixel coordinates when calling render primatives
     - [] support lines/curves in the renderer
-	- [] pull out graphics library depended calls into generalized backend
 	- [] make calling render functions more ergonomic (separate drawing module?)
 	
 - [] font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
-	- [] pull out graphics library dependant calls into  generalized os/gfx or render backend
+	- [X] pull out graphics library dependant calls into  generalized os/gfx or render backend
 	
 - [] audio module
     - [X] get sample rate from audio backend
@@ -35,3 +35,4 @@
 - [] file streaming
 - [] plugin loading system
 - [] logging system
+- [] way of denoting which functions are implemented in another layer

@@ -74,9 +74,7 @@ typedef struct PackedFont
   U32 codepoint_map_count;
   CodepointMapBucket *codepoint_map;
 
-  S32 atlas_width;
-  S32 atlas_height;
-  U32 atlas_texture_id;
+  R_Texture atlas;
 } PackedFont;
 
 typedef struct CodepointHashKey
@@ -84,7 +82,6 @@ typedef struct CodepointHashKey
   U32 codepoint;
   U64 hash;
 } CodepointHashKey;
-
 
 proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
 proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);

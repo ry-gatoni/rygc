@@ -108,18 +108,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   }
 
   // NOTE: build atlas
-  U32 atlas_texture = 0;
-  glGenTextures(1, &atlas_texture);
-  result->atlas_texture_id = atlas_texture;
-  result->atlas_width = atlas_w;
-  result->atlas_height = atlas_h;
-
-  // TODO: pull out the OpenGL-specific stuff
-  glBindTexture(GL_TEXTURE_2D, atlas_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
-	       result->atlas_width, result->atlas_height, 0,
-	       GL_RED, GL_UNSIGNED_BYTE, 0);
-  GlTextureDefaultParams();  
+  result->atlas = render_create_texture(atlas_w, atlas_h, R_PixelFormat_red, R_PixelFormat_red, 0);
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;
@@ -141,8 +130,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
     glyph->uv.max.y = (y + h) * atlas_inv_h;
 
     // NOTE: copy bitmap data to atlas
-    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RED, GL_UNSIGNED_BYTE,
-		    pack_node->loose_glyph->bitmap);
+    render_update_texture(&result->atlas, x, y, w, h, R_PixelFormat_red, pack_node->loose_glyph->bitmap);
   }
 
   arena_release_scratch(scratch);
