@@ -96,3 +96,5 @@ proc Rect2 rect2_invalid(void);
 proc Rect2 rect2_min_dim(V2 min, V2 dim);
 proc Rect2 rect2_center_dim(V2 center, V2 dim);
 proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);
+
+proc Rect2 rect2_offset(Rect2 rect, V2 offset);

@@ -84,24 +84,32 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
   // TODO: allocate a new batch if we go over capacity
   Assert(batch->vertex_count + 6 <= batch->vertex_cap);
 
+  // NOTE: convert from pixel coords (0, window width/height) to ndc coords (-1, 1)
+  // TODO: different coordinates for different graphics backends?
+  R32 ndc_min_x = 2.f*rect.min.x/(R32)commands->window_dim.width  - 1.f;
+  R32 ndc_max_x = 2.f*rect.max.x/(R32)commands->window_dim.width  - 1.f;
+  R32 ndc_min_y = 2.f*rect.min.y/(R32)commands->window_dim.height - 1.f;
+  R32 ndc_max_y = 2.f*rect.max.y/(R32)commands->window_dim.height - 1.f;
+
   U32 color_u32 = color_u32_from_v4(color);
   R_Vertex v00 = {0};
-  v00.pos = v3(rect.min.x, rect.min.y, level);
+  v00.pos = v3(ndc_min_x, ndc_min_y, level);
   v00.uv = uv.min;
   v00.color = color_u32;
   R_Vertex v01 = {0};
-  v01.pos = v3(rect.min.x, rect.max.y, level);
+  v01.pos = v3(ndc_min_x, ndc_max_y, level);
   v01.uv = v2(uv.min.x, uv.max.y);
   v01.color = color_u32;
   R_Vertex v10 = {0};
-  v10.pos = v3(rect.max.x, rect.min.y, level);
+  v10.pos = v3(ndc_max_x, ndc_min_y, level);
   v10.uv = v2(uv.max.x, uv.min.y);
   v10.color = color_u32;
   R_Vertex v11 = {0};
-  v11.pos = v3(rect.max.x, rect.max.y, level);
+  v11.pos = v3(ndc_max_x, ndc_max_y, level);
   v11.uv = uv.max;
   v11.color = color_u32;
 
+  // TODO: different vertex layouts for different graphics backends?
   R_Vertex *verts = batch->vertex_buffer + batch->vertex_count;
   verts[0] = v00;
   verts[1] = v10;
@@ -115,19 +123,13 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
 proc void
 render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
 {
-  R_Commands *commands = render_commands;
-  V2 ndc_scale = v2(2.f/(R32)commands->window_dim.x,
-		    2.f/(R32)commands->window_dim.y);
-
   for(U32 char_idx = 0; char_idx < string.count; ++char_idx) {
 
     U8 c = string.string[char_idx];
     PackedGlyph *glyph = font_glyph_from_codepoint(font, c);
-
-    Rect2 rect = rect2(v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.min)),
-		       v2_add(pos, v2_hadamard(ndc_scale, glyph->rect.max)));
-    render_rect(&font->atlas, rect, glyph->uv, level, color);
+ 
+    render_rect(&font->atlas, rect2_offset(glyph->rect, pos), glyph->uv, level, color);
     
-    pos.x += ndc_scale.x * glyph->advance;
+    pos.x += glyph->advance;
   }
 }

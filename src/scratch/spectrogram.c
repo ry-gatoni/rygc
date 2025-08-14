@@ -222,25 +222,25 @@ spectrogram_state_alloc(Arena *arena)
 
 // TODO: make the commands and font globally accessible, or accessible off the spectrogram state
 proc void
-draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Font *font)
+draw_spectrum_grid_log_db(SpectrogramState *spec_state, V2S32 window_dim, R_Font *font)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
   
   U32 freq_line_count = (U32)log10f(spec_state->freq_rng.max/spec_state->freq_rng.min) + 1;
   U32 db_line_count = (U32)((spec_state->db_rng.max - spec_state->db_rng.min)/6.f) + 1;
 
-  R32 freq_line_major_advance = 2.f/(R32)(freq_line_count - 1);
-  R32 db_line_major_advance = 2.f/(R32)(db_line_count - 1);
+  R32 freq_line_major_advance = (R32)window_dim.width/(R32)(freq_line_count - 1);
+  R32 db_line_major_advance = (R32)window_dim.height/(R32)(db_line_count - 1);
+
+  V2 window_dimf = v2((R32)window_dim.x, (R32)window_dim.y);
 
   U32 current_freq = (U32)spec_state->freq_rng.min;
-  V2 freq_label_pos = v2(-0.99, -0.95f);
+  V2 freq_label_pos = v2_hadamard(v2(0.005f, 0.025f), window_dimf);
   U32 freq_line_thickness_px = 5;
   U32 freq_line_minor_thickness_px = 2;
-  R32 freq_line_thickness = (R32)freq_line_thickness_px * render_commands->ndc_scale.x;
-  R32 freq_line_minor_thickness = (R32)freq_line_minor_thickness_px * render_commands->ndc_scale.x;
-  V2 freq_line_pos = v2(-1, 0);
-  V2 freq_line_dim = v2(freq_line_thickness, 2.f);
-  V2 freq_line_minor_dim = v2(freq_line_minor_thickness, 2.f);
+  V2 freq_line_pos = v2(0, 0.5f*(R32)window_dim.height);
+  V2 freq_line_dim = v2((R32)freq_line_thickness_px, (R32)window_dim.height);
+  V2 freq_line_minor_dim = v2((R32)freq_line_minor_thickness_px, (R32)window_dim.height);
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, freq_line_dim);
@@ -268,11 +268,10 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, R_Font *font)
   }
 
   S32 current_db = (S32)spec_state->db_rng.min;
-  V2 db_label_pos = v2(-0.95f, -0.99);
+  V2 db_label_pos = v2_hadamard(v2(0.025f, 0.005f), window_dimf);
   U32 db_line_thickness_px = 5;
-  R32 db_line_thickness = (R32)db_line_thickness_px * render_commands->ndc_scale.y;
-  V2 db_line_pos = v2(0, -1);
-  V2 db_line_dim = v2(2.f, db_line_thickness); 
+  V2 db_line_pos = v2(0.5f*(R32)window_dim.width, 0);
+  V2 db_line_dim = v2((R32)window_dim.width, (R32)db_line_thickness_px); 
   for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx) {
 
     Rect2 db_line = rect2_center_dim(db_line_pos, db_line_dim);
@@ -344,7 +343,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 }
 
 proc void
-draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf)
+draw_spectrum_log_db(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec_buf)
 {
 #if 1
   U32 bin_count = spec_buf.count/2;
@@ -352,19 +351,22 @@ draw_spectrum_log_db(SpectrogramState *spec_state, ComplexBuffer spec_buf)
   R32 nyquist = 0.5f * (R32)spec_state->sample_rate;
   RangeR32 log_freq_rng = {.min = log10f(spec_state->freq_rng.min), .max = log10f(spec_state->freq_rng.max)};
 
-  V2 pos = v2(-1.f, -1.f);
+  R32 window_width  = (R32)window_dim.width;
+  R32 window_height = (R32)window_dim.height;
+
+  V2 pos = v2(0, 0);
   for(U32 bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx) {
 
     R32 bin_re = spec_buf.re[bin_idx];
     R32 bin_im = spec_buf.im[bin_idx];
     R32 bin_power = bin_re*bin_re + bin_im*bin_im;
     R32 bin_db = 10.f*log10f(bin_power * norm_coeff);
-    R32 bin_height = 2.f*ranger32_map_01(bin_db, spec_state->db_rng); // NOTE: opengl ndc conversion
+    R32 bin_height = window_height * ranger32_map_01(bin_db, spec_state->db_rng);
     
     R32 next_bin_freq = ((R32)(bin_idx + 1)/(R32)bin_count) * nyquist;
     R32 log_next_bin_freq = log10f(next_bin_freq);
 
-    R32 next_pos_x = 2.f*ranger32_map_01(log_next_bin_freq, log_freq_rng) - 1.f; // NOTE: opengl ndc conversion
+    R32 next_pos_x = window_width * ranger32_map_01(log_next_bin_freq, log_freq_rng) - 1.f;
     R32 width = next_pos_x - pos.x;
 
     Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
@@ -451,14 +453,14 @@ draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf)
 }
 
 proc void
-draw_spectrum_grid(SpectrogramState *spec_state, R_Font *font)
+draw_spectrum_grid(SpectrogramState *spec_state, V2S32 window_dim, R_Font *font)
 {
-  draw_spectrum_grid_log_db(spec_state, font);
-  //draw_spectrum_grid_lin(spec_state, font);
+  draw_spectrum_grid_log_db(spec_state, window_dim, font);
+  //draw_spectrum_grid_lin(spec_state, window_dim, font);
 }
 
 proc void
-draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf)
+draw_spectrum(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec_buf)
 {
 #if 0
   // DEBUG:
@@ -475,8 +477,8 @@ draw_spectrum(SpectrogramState *spec_state, ComplexBuffer spec_buf)
   }
 #endif
 
-  draw_spectrum_log_db(spec_state, spec_buf);
-  //draw_spectrum_lin(spec_state, spec_buf);
+  draw_spectrum_log_db(spec_state, window_dim, spec_buf);
+  //draw_spectrum_lin(spec_state, window_dim, spec_buf);
 }
 
 //
@@ -535,12 +537,13 @@ main(int argc, char **argv)
 
 	render_equip_window(window);
 	render_begin_frame();
-		
+
+	V2S32 window_dim = os_window_get_dim(window);
+	Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
-	Rect2 screen_rect = rect2_center_dim(v2(0, 0), v2(2, 2));
 	render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
 
-	draw_spectrum_grid(spec_state, font);
+	draw_spectrum_grid(spec_state, window_dim, font);
 
 	// NOTE: drawing the spectrum
 	{
@@ -590,7 +593,7 @@ main(int argc, char **argv)
 #endif
 
 	      ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-	      draw_spectrum(spec_state, spectrum_buf);
+	      draw_spectrum(spec_state, window_dim, spectrum_buf);
 
 	      // NOTE: cache spectrum
 	      // TODO: handle the case when these have different lengths
@@ -600,7 +603,7 @@ main(int argc, char **argv)
 	    }
 	  }else {
 
-	    draw_spectrum(spec_state, spec_state->cached_spectrum);
+	    draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
 	  }
 
 	  // NOTE: if we dequeued buffers, put them on the freelist

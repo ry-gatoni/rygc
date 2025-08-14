@@ -262,3 +262,10 @@ rect2_center_halfdim(V2 center, V2 halfdim)
   Rect2 result = {.min = v2_sub(center, halfdim), .max = v2_add(center, halfdim)};
   return(result);
 }
+
+proc Rect2
+rect2_offset(Rect2 rect, V2 offset)
+{
+  Rect2 result = {.min = v2_add(rect.min, offset), .max = v2_add(rect.max, offset)};
+  return(result);
+}
