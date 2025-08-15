@@ -13,6 +13,7 @@
 #include "OpenGL/ogl.h"
 #include "audio/audio.h"
 #include "fourier/fourier.h"
+#include "ui/ui.h"
 
 #include "base/base.c"
 #include "os/os.c"
@@ -21,6 +22,7 @@
 #include "OpenGL/ogl.c"
 #include "audio/audio.c"
 #include "fourier/fourier.c"
+#include "ui/ui.c"
 
 //
 // audio

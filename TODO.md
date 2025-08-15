@@ -11,6 +11,7 @@
 	- [X] pass pixel coordinates when calling render primatives
     - [] support lines/curves in the renderer
 	- [] make calling render functions more ergonomic (separate drawing module?)
+	- [] instancing
 	
 - font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
@@ -34,5 +35,7 @@
 - [] ui layout module
 - [] plugin loading system
 - [] way of denoting which functions are implemented in another layer
+- [] input fuzzing
+- [] profiler
 - [] file format parsing/writing module
 - [] file streaming
