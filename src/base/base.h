@@ -4,5 +4,6 @@
 #include "memory.h"
 #include "intrinsics.h"
 #include "strings.h"
+#include "log.h"
 #include "buffer.h"
 #include "math.h"

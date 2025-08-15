@@ -8,9 +8,9 @@ if [[ $BUILD_DEBUG == 1 ]]; then
     CFLAGS+=" -g -fsanitize=address"
 fi
 CFLAGS+=" -DBUILD_DEBUG=$BUILD_DEBUG"
-if [[ "$OS_TYPE" == "darwin"* ]]; then
+if [[ "$OSTYPE" == "darwin"* ]]; then
     echo ""
-elif [[ "$OS_TYPE" == "linux-gnu"* ]]; then
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo ""
 fi
 CFLAGS+=" -fvisibility=hidden"

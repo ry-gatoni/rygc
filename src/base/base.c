@@ -1,5 +1,6 @@
 #include "memory.c"
 #include "strings.c"
 #include "buffer.c"
+#include "log.c"
 #include "math.c"
 #include "color.c"
