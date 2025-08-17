@@ -39,3 +39,5 @@
 - [] profiler
 - [] file format parsing/writing module
 - [] file streaming
+- [] thread pool
+- [] pseudo random number generation
