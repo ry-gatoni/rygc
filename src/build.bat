@@ -3,7 +3,7 @@
 set SRC=%CD%
 
 set BUILD_DEBUG=1
-set CFLAGS=-nologo -W3 -wd"4042"
+set CFLAGS=-nologo -W3
 set LFLAGS=-incremental:no -opt:ref
 
 if %BUILD_DEBUG%==1 set CFLAGS=%CFLAGS% -Z7 -fsanitize=address

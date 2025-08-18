@@ -1,5 +1,5 @@
 #if OS_WINDOWS
-#  include "core/os_core_windows.c"
+#  include "core/os_core_win32.c"
 #elif OS_LINUX
 #  include "core/os_core_linux.c"
 #elif OS_MAC

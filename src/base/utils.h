@@ -25,7 +25,7 @@
 #  if COMPILER_CLANG || COMPILER_GCC
 #    define Assert(cond) if(!(cond)) __builtin_trap()
 #  elif COMPILER_MSVC
-#    define Assert(cond) if(!(cond)) __debugbreak
+#    define Assert(cond) if(!(cond)) __debugbreak()
 #  else
 #    define Assert(cond) if(!(cond)) *(void *)0
 #  endif

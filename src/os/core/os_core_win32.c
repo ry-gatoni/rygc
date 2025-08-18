@@ -43,7 +43,7 @@ os_file_open(String8 path, Os_FileOpenFlags flags)
     share_flags |= FILE_SHARE_WRITE;
   }
 
-  HANDLE handle = CreateFile(pathw.string, access_flags, share_flags, 0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
+  HANDLE handle = CreateFile((LPCSTR)pathw.string, access_flags, share_flags, 0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
   arena_release_scratch(scratch);
   
   Os_Handle result = {0};
@@ -55,11 +55,11 @@ proc Os_FileAttributes
 os_file_attributes(Os_Handle file)
 {
   HANDLE handle = file.handle;
-  U64 file_size = 0;
+  LARGE_INTEGER file_size;
   GetFileSizeEx(handle, &file_size);
 
   Os_FileAttributes result = {0};
-  result.size = file_size;
+  result.size = file_size.QuadPart;
   return(result);
 }
 
@@ -73,7 +73,7 @@ os_file_read(Arena *arena, Os_Handle file, U64 size)
   U64 bytes_to_read = size;
   U8 *contents_at = contents;
   while(bytes_to_read) {
-    U64 bytes_read = 0;
+    DWORD bytes_read = 0;
     B32 read_result = ReadFile(handle, contents_at, bytes_to_read, &bytes_read, 0);
     if(!read_result) {
       arena_pop(arena, size + 1);
@@ -98,7 +98,7 @@ os_file_write(Buffer file_contents, Os_Handle file)
   HANDLE handle = file.handle;
   U64 bytes_to_write = file_contents.size;
   U8 *contents = file_contents.mem;
-  U64 bytes_written = 0;
+  DWORD bytes_written = 0;
   while(bytes_to_write) {
     B32 write_result = WriteFile(handle, contents, bytes_to_write, &bytes_written, 0);
     if(!write_result) {

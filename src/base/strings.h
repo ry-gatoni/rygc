@@ -84,5 +84,13 @@ typedef struct String32List
   U64 total_count;
 } String32List;
 
+// NOTE: unicode
+typedef struct UnicodeDecode
+{
+  U32 inc;
+  U32 cp;
+} UnicodeDecode;
 
+proc UnicodeDecode utf8_decode(U8 *str, U64 count);
+proc UnicodeDecode utf16_decode(U16 *str, U64 count);
 

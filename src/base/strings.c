@@ -195,3 +195,99 @@ str16_from_str8(Arena *arena, String8 str8)
   // TODO: do the unicode conversion
   return(result);
 }
+
+// NOTE: map the high nibble of a utf8 byte to its class.
+//       classes 1 through 4 correspond to the length of the encoding, and
+//       class 0 is a non-leading byte (invalid starting byte)
+global U8 utf8_class[16] = {
+  1, 1, 1, 1,
+  1, 1, 1, 1,
+  0, 0, 0, 0,
+  2, 2, 3, 4,
+};
+
+proc UnicodeDecode
+utf8_decode(U8 *str, U64 count)
+{
+  U32 inc = 1;
+  U32 cp = U32_MAX;
+  {
+    U8 byte_1 = str[0];
+    U8 top_4 = byte_1 >> 4;
+    U8 class = utf8_class[top_4];
+    switch(class) {
+    case 1: {
+      cp = byte_1 & 0x7F;
+    } break;    
+    case 2: {
+      if(count > 1) {
+	U8 byte_2 = str[1];
+	Assert(utf8_class[byte_2 >> 4] == 0);
+	cp = (((byte_1 & 0x1F) << 6) |
+	      (byte_2 & 0x3F));
+      }
+    } break;
+    case 3: {
+      if(count > 2) {
+	U8 byte_2 = str[1];
+	U8 byte_3 = str[2];
+	Assert(utf8_class[byte_2 >> 4] == 0);
+	Assert(utf8_class[byte_3 >> 4] == 0);
+	cp = (((byte_1 & 0xF) << 12) |
+	      ((byte_2 & 0x3F) << 6) |
+	      (byte_3 & 0x3F));
+      }
+    } break;
+    case 4: {
+      if(count > 3) {
+	U8 byte_2 = str[1];
+	U8 byte_3 = str[2];
+	U8 byte_4 = str[3];
+	Assert(utf8_class[byte_2 >> 4] == 0);      
+	Assert(utf8_class[byte_3 >> 4] == 0);
+	Assert(utf8_class[byte_4 >> 4] == 0);
+	cp = (((byte_1 & 0x7) << 18) |
+	      ((byte_2 & 0x3F) << 12) |
+	      ((byte_3 & 0x3F) << 6) |
+	      (byte_4 & 0x3F));
+      }
+    } break;
+    default: {
+      Assert(!"ERROR: decoding invalid utf8 byte");
+    } break;
+    }
+    inc = class;
+  }
+  
+  UnicodeDecode result = {0};
+  result.inc = inc;
+  result.cp = cp;
+  return(result);
+}
+
+proc UnicodeDecode
+utf16_decode(U16 *str, U64 count)
+{
+  U32 inc = 1;
+  U32 cp = U32_MAX;
+  {
+    U16 word_1 = str[0];
+    if(word_1 < 0xD800 || word_1 > 0xDFFF) {
+      // NOTE: single word encoding
+      cp = word_1;
+    }else {
+      if(count > 1) {
+	U16 word_2 = str[1];
+	Assert((word_1 >> 10) == 0b110110);
+	Assert((word_2 >> 10) == 0b110111);
+	cp = (((word_1 & 0x3FF) << 10) |
+	      (word_2 & 0x3FF)) + 0x10000;
+      }
+    }
+  }
+
+  UnicodeDecode result = {0};
+  result.inc = inc;
+  result.cp = cp;
+  return(result);
+}

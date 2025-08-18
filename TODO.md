@@ -47,10 +47,10 @@
 - [] pseudo random number generation
 
 ## windows port
-- [] fix Assert on windows/msvc
-- [] string unicode conversion
+- [X] fix Assert on windows/msvc
+- [?] string unicode conversion
 - [] wasapi audio backend
 - [] directwrite font backend
-- [] opengl loading
+- [] opengl defines/loading
 - [] window opening
 - [] clean up os include situation
