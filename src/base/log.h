@@ -24,7 +24,7 @@ typedef struct Log
   LogScope *active_scope;
 } Log;
 
-thread_local Log *active_log = 0;
+thread_var Log *active_log = 0;
 
 // NOTE: interface
 proc Log* log_alloc(void);

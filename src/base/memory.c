@@ -161,7 +161,7 @@ arena_end_temp(ArenaTemp temp)
 }
 
 #define ARENA_SCRATCH_POOL_COUNT 2
-thread_local Arena *m__scratch_pool[ARENA_SCRATCH_POOL_COUNT] = {0};
+thread_var Arena *m__scratch_pool[ARENA_SCRATCH_POOL_COUNT] = {0};
 
 proc ArenaTemp
 arena_get_scratch(Arena **conflicts, U64 count)

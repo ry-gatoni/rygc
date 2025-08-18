@@ -52,6 +52,8 @@ proc void str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list 
 proc String8 str8_join(Arena *arena, String8List *list);
 proc String8List str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count);
 
+proc String16 str16_from_str8(Arena *arena, String8 str8);
+
 typedef struct String16Node String16Node;
 struct String16Node
 {

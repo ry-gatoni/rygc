@@ -8,7 +8,8 @@ proc U64 cpu_get_cycle_count(void);
     __atomic_compare_exchange_n((volatile U32*)(dest), &temp, new_val, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
     })
 #elif OS_WINDOWS
-#  error TODO: implement
+#  define AtomicCompareAndSwap(dest, old_val, new_val) \
+  InterlockedCompareExchange((volatile LONG*)dest, new_val, old_val)
 #else
 #  error ERROR: unsupported os
 #endif

@@ -4,6 +4,7 @@
 	- [] make wayland implemenation graphics library agnostic
     - [] finish wayland input handling
 	- [] finish wayland smooth resizing
+	- [] port to windows
 
 - render module
     - [X] fix font glyph blending
@@ -12,10 +13,12 @@
     - [] support lines/curves in the renderer
 	- [] make calling render functions more ergonomic (separate drawing module?)
 	- [] instancing
+	- [] port to windows
 	
 - font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
 	- [X] pull out graphics library dependant calls into  generalized os/gfx or render backend
+	- [] port to windows
 	
 - audio module
     - [X] get sample rate from audio backend
@@ -23,6 +26,7 @@
 	- [] support changing connected audio devices (and overriding defaults)
 	- [] get/set audio device latency
 	- [] how to support midi sysex?
+	- [] port to windows
 
 - spectrogram example
     - [X] compare against python + matplotlib
@@ -30,7 +34,7 @@
 	- [] visualize phase
 	- [] add ui
 	- [] store spectra per frame, display spectrogram
-	
+	 	
 - [] logging system
 - [] ui layout module
 - [] plugin loading system
@@ -41,3 +45,12 @@
 - [] file streaming
 - [] thread pool
 - [] pseudo random number generation
+
+## windows port
+- [] fix Assert on windows/msvc
+- [] string unicode conversion
+- [] wasapi audio backend
+- [] directwrite font backend
+- [] opengl loading
+- [] window opening
+- [] clean up os include situation

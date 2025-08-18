@@ -1,5 +1,9 @@
 #define GL_GLEXT_PROTOTYPES
 #include "GL/gl.h"
+#if OS_WINDOWS
+#  pragma comment(lib, "opengl32")
+#  define GL_BGRA 32993 // TODO: check this
+#endif
 
 global GLint ogl_fmts[] ={
   [R_PixelFormat_rgba] = GL_RGBA,

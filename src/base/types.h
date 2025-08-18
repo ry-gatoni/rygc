@@ -54,9 +54,9 @@ typedef union Value64
 #define global static
 
 #if COMPILER_CLANG || COMPILER_GCC
-#  define thread_local __thread
+#  define thread_var __thread
 #elif COMPILER_MSVC
-#  define thread_local __declspec(thread)
+#  define thread_var __declspec(thread)
 #else
 #  error ERROR: unsupported compiler
 #endif

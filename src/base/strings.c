@@ -186,3 +186,12 @@ str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count)
   return(result);
 }
 
+proc String16
+str16_from_str8(Arena *arena, String8 str8)
+{
+  String16 result = {0};
+  result.count = str8.count;
+  result.string = arena_push_array(arena, U16, result.count);
+  // TODO: do the unicode conversion
+  return(result);
+}

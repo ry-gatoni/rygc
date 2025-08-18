@@ -1,8 +1,3 @@
-typedef struct Os_Handle
-{
-  void *handle;
-} Os_Handle;
-
 typedef enum Os_EventKind
 {
   Os_EventKind_move,
