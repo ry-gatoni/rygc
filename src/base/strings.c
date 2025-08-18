@@ -188,11 +188,26 @@ str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count)
 
 proc String16
 str16_from_str8(Arena *arena, String8 str8)
-{
+{  
+  U64 cap = 2*str8.count;
+  U16 *string = arena_push_array(arena, U16, cap + 1);
+  U64 count = 0;
+  {
+    U8 *start = str8.string;
+    U8 *opl = start + str8.count;
+    U16 *dest = string;
+    UnicodeDecode decode;    
+    for(U8 *src = start; src < opl; src += decode.inc) {
+      decode = utf8_decode(src, opl - src);
+      count += utf16_encode(dest, decode.cp);
+    }
+  }
+  string[count] = 0;
+  arena_pop(arena, (cap - count)*2);
+  
   String16 result = {0};
-  result.count = str8.count;
-  result.string = arena_push_array(arena, U16, result.count);
-  // TODO: do the unicode conversion
+  result.string = string;
+  result.count = count;
   return(result);
 }
 
@@ -282,6 +297,7 @@ utf16_decode(U16 *str, U64 count)
 	Assert((word_2 >> 10) == 0b110111);
 	cp = (((word_1 & 0x3FF) << 10) |
 	      (word_2 & 0x3FF)) + 0x10000;
+	inc = 2;
       }
     }
   }
@@ -290,4 +306,52 @@ utf16_decode(U16 *str, U64 count)
   result.inc = inc;
   result.cp = cp;
   return(result);
+}
+
+proc U32
+utf8_encode(U8 *str, U32 cp)
+{
+  U32 count = 1;
+  if(cp < 0x80) {
+    str[0] = cp;
+  }else
+  if(cp < 0x800) {
+    str[0] = (0x80 | (cp & 0x3F));
+    str[1] = (0xC0 | ((cp >> 6) & 0x1F));
+    count = 2;
+  }else
+  if(cp < 0x10000) {
+    str[0] = (0x80 | (cp & 0x3F));
+    str[1] = (0x80 | ((cp >> 6) & 0x3F));
+    str[2] = (0xE0 | ((cp >> 12) & 0xF));
+    count = 3;
+  }else
+  if(cp < 0x110000) {
+    str[0] = (0x80 | (cp & 0x3F));
+    str[1] = (0x80 | ((cp >> 6) & 0x3F));
+    str[2] = (0x80 | ((cp >> 12) & 0x3F));    
+    str[3] = (0xE0 | ((cp >> 18) & 0x7));
+    count = 4;
+  }else {
+    str[0] = '?';
+  }
+  return(count);
+}
+
+proc U32
+utf16_encode(U16 *str, U32 cp)
+{
+  U32 count = 1;
+  if(cp < 0xD800 || (cp > 0xE000 && cp < 0x10000)) {
+    str[0] = cp;
+  }else
+  if(cp >= 0x10000 && cp <= 0x10FFFF) {
+    U16 u = cp - 0x10000;
+    str[0] = 0xD800 + ((u >> 10) & 0x3F);
+    str[1] = 0xDC00 + (u & 0x3F);
+    count = 2;
+  }else {
+    str[0] = (U16)'?';
+  }
+  return(count);
 }

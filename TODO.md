@@ -48,7 +48,7 @@
 
 ## windows port
 - [X] fix Assert on windows/msvc
-- [?] string unicode conversion
+- [X] string unicode conversion
 - [] wasapi audio backend
 - [] directwrite font backend
 - [] opengl defines/loading

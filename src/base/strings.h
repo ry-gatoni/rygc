@@ -94,3 +94,6 @@ typedef struct UnicodeDecode
 proc UnicodeDecode utf8_decode(U8 *str, U64 count);
 proc UnicodeDecode utf16_decode(U16 *str, U64 count);
 
+proc U32 utf8_encode(U8 *str, U32 cp);
+proc U32 utf16_encode(U16 *str, U32 cp);
+
