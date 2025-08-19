@@ -1,8 +1,10 @@
-#define GL_GLEXT_PROTOTYPES
-#include "GL/gl.h"
-#if OS_WINDOWS
-#  pragma comment(lib, "opengl32")
-#  define GL_BGRA 32993 // TODO: check this
+#if OS_LINUX
+#  define GL_GLEXT_PROTOTYPES
+#  include "GL/gl.h"
+#elif OS_WINDOWS
+#  include "ogl_api_defs.h"
+#else
+#  error platform not implemented
 #endif
 
 global GLint ogl_fmts[] ={

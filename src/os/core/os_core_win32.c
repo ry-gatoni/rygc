@@ -73,8 +73,9 @@ os_file_read(Arena *arena, Os_Handle file, U64 size)
   U64 bytes_to_read = size;
   U8 *contents_at = contents;
   while(bytes_to_read) {
+    DWORD bytes_to_read_32 = (DWORD)bytes_to_read;
     DWORD bytes_read = 0;
-    B32 read_result = ReadFile(handle, contents_at, bytes_to_read, &bytes_read, 0);
+    B32 read_result = ReadFile(handle, contents_at, bytes_to_read_32, &bytes_read, 0);
     if(!read_result) {
       arena_pop(arena, size + 1);
       contents = 0;
@@ -100,7 +101,8 @@ os_file_write(Buffer file_contents, Os_Handle file)
   U8 *contents = file_contents.mem;
   DWORD bytes_written = 0;
   while(bytes_to_write) {
-    B32 write_result = WriteFile(handle, contents, bytes_to_write, &bytes_written, 0);
+    DWORD bytes_to_write_32 = (DWORD)bytes_to_write;
+    B32 write_result = WriteFile(handle, contents, bytes_to_write_32, &bytes_written, 0);
     if(!write_result) {
       result = 0;
       break;

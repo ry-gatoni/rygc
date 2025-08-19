@@ -12,5 +12,9 @@
 #  include "os_gfx.c"
 #  if OS_LINUX
 #    include "gfx/linux/wayland.c"
+#  elif OS_WINDOWS
+#    include "gfx/windows/win32.c"
+#  else
+#    error platform not implemented
 #  endif
 #endif

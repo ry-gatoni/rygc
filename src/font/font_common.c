@@ -49,11 +49,11 @@ font_pack(Arena *arena, LooseFont *loose_font)
       loose_glyph = loose_glyph->next, ++glyph_idx) {
 
     PackedGlyph *packed_glyph = result->glyphs + glyph_idx;
-    packed_glyph->rect.min.x = loose_glyph->left_bearing;
-    packed_glyph->rect.min.y = loose_glyph->top_bearing - loose_glyph->height;
-    packed_glyph->rect.max.x = loose_glyph->left_bearing + loose_glyph->width;
-    packed_glyph->rect.max.y = loose_glyph->top_bearing;
-    packed_glyph->advance = loose_glyph->advance;
+    packed_glyph->rect.min.x = (R32)loose_glyph->left_bearing;
+    packed_glyph->rect.min.y = (R32)loose_glyph->top_bearing - (R32)loose_glyph->height;
+    packed_glyph->rect.max.x = (R32)loose_glyph->left_bearing + (R32)loose_glyph->width;
+    packed_glyph->rect.max.y = (R32)loose_glyph->top_bearing;
+    packed_glyph->advance = (R32)loose_glyph->advance;
 
     B32 inserted = 0;
     while(!inserted && grow_count <= max_grow_count) {

@@ -4,6 +4,10 @@
 #  include "os_gfx.h"
 #  if OS_LINUX
 #    include "gfx/linux/wayland.h"
+#  elif OS_WINDOWS
+#    include "gfx/windows/win32.h"
+#  else
+#    error platform not implemented
 #  endif
 #endif
 /* #if OS_WINDOWS */

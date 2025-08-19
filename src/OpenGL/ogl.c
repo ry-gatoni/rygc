@@ -86,7 +86,7 @@ render_create_texture(S32 width, S32 height, R_PixelFormat internal_fmt, R_Pixel
 proc void
 render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels)
 {
-  U32 handle = IntFromPtr(texture->handle.handle);
+  U32 handle = (U32)IntFromPtr(texture->handle.handle);
   glBindTexture(GL_TEXTURE_2D, handle);
 
   glTexSubImage2D(GL_TEXTURE_2D, 0, pos_x, pos_y, width, height, ogl_fmts[format], GL_UNSIGNED_BYTE, pixels);
@@ -175,7 +175,7 @@ render_end_frame(void)
     glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, IntFromPtr(batch->texture->handle.handle));
+    glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
 
     glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
   }

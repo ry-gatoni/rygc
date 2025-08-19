@@ -348,7 +348,7 @@ proc void
 draw_spectrum_log_db(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec_buf)
 {
 #if 1
-  U32 bin_count = spec_buf.count/2;
+  U32 bin_count = (U32)spec_buf.count/2;
   R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
   R32 nyquist = 0.5f * (R32)spec_state->sample_rate;
   RangeR32 log_freq_rng = {.min = log10f(spec_state->freq_rng.min), .max = log10f(spec_state->freq_rng.max)};
@@ -434,7 +434,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuff
 proc void
 draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf)
 {
-  U32 bin_count = spec_buf.count/2;
+  U32 bin_count = (U32)spec_buf.count/2;
   R32 width = 2.f/(R32)bin_count;
   Unused(spec_state);
 
@@ -557,7 +557,7 @@ main(int argc, char **argv)
 	  {
 	    first_node = audio_buffer_list.first;
 	    last_node = audio_buffer_list.last;
-	    buffer_count = audio_buffer_list.count;
+	    buffer_count = (U32)audio_buffer_list.count;
 	    audio_buffer_list.first = 0;
 	    audio_buffer_list.last = 0;
 	    audio_buffer_list.count = 0;

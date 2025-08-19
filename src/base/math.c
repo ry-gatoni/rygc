@@ -96,7 +96,7 @@ v2s32(S32 x, S32 y)
 proc V2
 v2_from_v2s32(V2S32 v)
 {
-  V2 result = {.x = v.x, .y = v.y};
+  V2 result = {.x = (R32)v.x, .y = (R32)v.y};
   return(result);
 }
      

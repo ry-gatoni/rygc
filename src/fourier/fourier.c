@@ -9,8 +9,8 @@ fft_re(Arena *arena, FloatBuffer in)
 
   // NOTE: input permutation
   {
-    Assert(is_pow_2(count));
-    U64 count_log2 = log2(count);
+    Assert(is_pow_2((U32)count));
+    U64 count_log2 = (U64)log2((R64)count);
     R32 *src = in.mem;
     for(U32 i = 0; i < count; ++i) {
 
@@ -24,8 +24,8 @@ fft_re(Arena *arena, FloatBuffer in)
     for(U32 m = 2; m <= count; m <<= 1) {
 
       R32 theta = -2.f*PI32/(R32)m;
-      R32 wm_re = cos(theta);
-      R32 wm_im = sin(theta);
+      R32 wm_re = cosf(theta);
+      R32 wm_im = sinf(theta);
       for(U32 k = 0; k < count; k += m) {
 	
 	R32 w_re = 1.f;
@@ -81,8 +81,8 @@ ifft_re(Arena *arena, ComplexBuffer in)
 
   // NOTE: input permutation
   {
-    Assert(is_pow_2(count));
-    U64 count_log2 = log2(count);
+    Assert(is_pow_2((U32)count));
+    U64 count_log2 = (U64)log2((R64)count);
     R32 inv_count = 1.f/(R32)count;
     R32 *src_re = in.re;
     R32 *src_im = in.im;
@@ -99,8 +99,8 @@ ifft_re(Arena *arena, ComplexBuffer in)
     for(U32 m = 2; m <= count; m <<= 1) {
 
       R32 theta = 2.f*PI32/(R32)m;
-      R32 wm_re = cos(theta);
-      R32 wm_im = sin(theta);
+      R32 wm_re = cosf(theta);
+      R32 wm_im = sinf(theta);
       for(U32 k = 0; k < count; k += m) {
 	
 	R32 w_re = 1.f;
