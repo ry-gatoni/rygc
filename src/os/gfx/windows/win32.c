@@ -5,6 +5,12 @@ win32_init(void)
 {
   Arena *arena = arena_alloc();
   w32_state = arena_push_struct(arena, Win32State);
+
+  // NOTE: register window class
+
+  // TODO: opengl initialization
+  
+
   return(w32_state != 0);
 }
 

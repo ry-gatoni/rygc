@@ -4,6 +4,7 @@
 // https://registry.khronos.org/EGL/api/KHR/khrplatform.h
 
 // NOTE: typedefs
+// TODO: maybe define these in terms of base layer types/defines
 typedef void			GLvoid;
 typedef unsigned int		GLenum;
 /* typedef float		GLfloat; */
