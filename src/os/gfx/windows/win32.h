@@ -2,7 +2,10 @@ typedef struct Win32Window Win32Window;
 struct Win32Window
 {
   Win32Window *next;
+  Win32Window *prev;
+  String8 name;
   V2S32 dim;
+  HWND h_wnd;
 };
 
 typedef struct Win32State
@@ -14,7 +17,7 @@ typedef struct Win32State
   U64 window_count;
   Win32Window *window_freelist;
 
-  
+  HINSTANCE h_instance;
 } Win32State;
 
 proc B32 win32_init(void);

@@ -67,6 +67,13 @@
 #define DLLPushBack_NP(f, l, n, next, prev) ((((f)==0) ? ((f)=(l)=(n), (n)->prev=0) : ((n)->prev=(l), (l)->next=(n), (l)=(n))), (n)->next=0)
 #define DLLPushBack(f, l, n) DLLPushBack_NP(f, l, n, next, prev)
 
+#define DLLRemove_NP(f, l, n, next, prev)\
+  ((((n)==(f)) ? (f)=(n)->next : (0)),				\
+   (((n)==(l)) ? (l)=(n)->prev : (0)),				\
+   (((n)->prev==0) ? (0) : ((n)->prev->next=(n)->next)),		\
+   (((n)->next==0) ? (0) : ((n)->next->prev=(n)->prev)))
+#define DLLRemove(f, l, n) DLLRemove_NP(f, l, n, next, prev)
+
 // NOTE: copying/zeroing utils
 #define CopySize(dest, source, size) memcpy(dest, source, size)
 #define CopyStruct(dest, source, type) memcpy(dest, source, sizeof(type))
