@@ -7,9 +7,9 @@
 
 #pragma comment(lib, "user32.lib")
 
+#if 0
 global B32 running = 1;
 
-#if 0
 proc LRESULT
 w32_window_proc(HWND wnd, UINT msg, WPARAM w_param, LPARAM l_param)
 {
@@ -54,17 +54,36 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShow
   ShowWindow(w32_window, nShowCmd);
 #else
   if(os_gfx_init()) {
-    
+
+    // TODO: I think the window title unicode coversion isn't working correctly
     Os_Handle window = os_open_window(Str8Lit("w32-window-test"), 640, 480);
     if(window.handle) {
 #endif
+      B32 running = 1;
+      Arena *frame_arena = arena_alloc();
       while(running) {
+#if 1
+	Os_EventList events = os_events(frame_arena);
+	for(Os_Event *event = events.first; event; event = event->next) {
+	  if(event->window.handle == window.handle) {
+	    switch(event->kind)
+	      {
+	      case Os_EventKind_close:
+		{
+		  running = 0;
+		}break;
+	      }
+	  }
+	}
+	arena_clear(frame_arena);
+#else
 	// NOTE: poll input
 	MSG msg = {0};
 	while(GetMessage(&msg, 0, 0, 0)) {
 	  TranslateMessage(&msg);
 	  DispatchMessage(&msg);
-	}    
+	}
+#endif
       }
       os_close_window(window);
 #if 1
