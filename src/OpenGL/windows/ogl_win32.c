@@ -39,13 +39,16 @@ win32_ogl_init(void)
     pfd.cDepthBits = 24;
     pfd.cStencilBits = 8;
     pf = ChoosePixelFormat(dc, &pfd);
-    DescribePixelFormat(dc, pf, sizeof(pfd), &pfd);
-    SetPixelFormat(dc, pf, &pfd);
+    int max_pf = DescribePixelFormat(dc, pf, sizeof(pfd), &pfd);
+    BOOL success = SetPixelFormat(dc, pf, &pfd);
+    Unused(max_pf);
+    Unused(success);
   }
 
   // NOTE: make boostrap context
   HGLRC glrc = wglCreateContext(dc);
-  wglMakeCurrent(dc, glrc);
+  BOOL make_current_success = wglMakeCurrent(dc, glrc);
+  Unused(make_current_success);
   
   // NOTE: load wgl extensions
   {
@@ -68,18 +71,19 @@ win32_ogl_init(void)
     };
 
     UINT fmt_count = 0;
-    wglChoosePixelFormatARB(dc, pf_attribs, 0, 1, &pf, &fmt_count);
+    BOOL success = wglChoosePixelFormatARB(dc, pf_attribs, 0, 1, &pf, &fmt_count);
+    Assert(success);
+    w32_state->pf = pf;
   }
 
   // NOTE: make real context
-  HGLRC real_ctxt = 0;
   {
     int ctxt_attribs[] = {
       WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
       WGL_CONTEXT_MINOR_VERSION_ARB, 3,
       0,
     };
-    real_ctxt = wglCreateContextAttribsARB(dc, glrc, ctxt_attribs);
+    w32_state->gfx_ctxt = wglCreateContextAttribsARB(dc, glrc, ctxt_attribs);
   }
 
   // NOTE: load opengl functions
@@ -91,11 +95,12 @@ win32_ogl_init(void)
 
   // NOTE: clean up boostrap
   {
-    wglMakeCurrent(0, 0);
-    wglDeleteContext(glrc);
+    Assert(wglMakeCurrent(dc, 0));
+    Assert(wglDeleteContext(glrc));
     ReleaseDC(bootstrap_window, dc);
     DestroyWindow(bootstrap_window);
     UnregisterClass(bootstrap_class_name, wnd_class.hInstance);
+    //wglMakeCurrent(dc, w32_state->gfx_ctxt);
   }
 
   return(result);

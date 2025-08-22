@@ -9,6 +9,7 @@ struct Win32Window
   String8 name;
   V2S32 dim;
   HWND hwnd;
+  HDC dc;
 };
 
 typedef struct Win32State
@@ -21,6 +22,9 @@ typedef struct Win32State
   Win32Window *window_freelist;
 
   HINSTANCE h_instance;
+
+  int pf; // NOTE: pixel format
+  HGLRC gfx_ctxt;
 } Win32State;
 
 // NOTE: internal functions
@@ -33,5 +37,6 @@ proc Os_Event* win32_push_event(Os_EventKind kind, Os_Handle window);
 
 proc B32 win32_init(void);
 proc Win32Window* win32_open_window(String8 name, S32 width, S32 height);
+proc B32 win32_begin_frame(Win32Window *window);
 proc B32 win32_end_frame(Win32Window *window);
 proc void win32_close_window(Win32Window *window);

@@ -39,6 +39,15 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShow
 	      }
 	  }
 	}
+
+	os_window_begin_frame(window);
+	{
+	  V2S32 window_dim = os_window_get_dim(window);
+	  glViewport(0, 0, window_dim.width, window_dim.height);
+	  glClearColor(1.f, 0.f, 1.f, 1.f);
+	  glClear(GL_COLOR_BUFFER_BIT);
+	}
+	os_window_end_frame(window);
 	
 	arena_clear(frame_arena);
       }

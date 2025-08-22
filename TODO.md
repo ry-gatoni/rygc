@@ -4,7 +4,7 @@
 	- [] make wayland implemenation graphics library agnostic
     - [] finish wayland input handling
 	- [] finish wayland smooth resizing
-	- [] port to windows
+	- [X] port to windows
 
 - render module
     - [X] fix font glyph blending
@@ -13,7 +13,7 @@
     - [] support lines/curves in the renderer
 	- [] make calling render functions more ergonomic (separate drawing module?)
 	- [] instancing
-	- [] port to windows
+	- [X] port to windows
 	
 - font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
@@ -51,6 +51,6 @@
 - [X] string unicode conversion
 - [] wasapi audio backend
 - [] directwrite font backend
-- [] opengl defines/loading
-- [] window opening
+- [X] opengl defines/loading
+- [X] window opening
 - [] clean up os include situation

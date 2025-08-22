@@ -15,10 +15,18 @@ win32_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     switch(msg)
       {
 	// TODO: resize
-      /* case WM_SIZE: */
+      case WM_SIZE:
+	{
+	
+	}break;
+      /* case WM_PAINT: */
       /* 	{ */
 	
       /* 	}break; */
+      case WM_DESTROY:
+	{
+	  PostQuitMessage(0);
+	}break;
       case WM_CLOSE:
 	{
 	  win32_push_event(Os_EventKind_close, window);
@@ -179,7 +187,23 @@ win32_open_window(String8 name, S32 width, S32 height)
     window->hwnd =
       CreateWindowEx(0, (LPCSTR)w32_class_name, (LPCSTR)name_w.string, WS_OVERLAPPEDWINDOW,
 		     CW_USEDEFAULT, CW_USEDEFAULT, width, height,
-		     0, 0, w32_state->h_instance, 0);
+		     0, 0, w32_state->h_instance, 0);    
+    {
+      HDC dc = GetDC(window->hwnd);
+      PIXELFORMATDESCRIPTOR pfd = {0};
+      SetPixelFormat(dc, w32_state->pf, &pfd);
+      BOOL success = wglMakeCurrent(dc, w32_state->gfx_ctxt);
+      if(!success) {
+	DWORD error = GetLastError();
+	char *error_message;
+	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		       0, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		       (LPSTR)&error_message, 0, 0);
+	OutputDebugStringA(error_message);
+      }
+      window->dc = dc; 
+      //ReleaseDC(window->hwnd, dc);
+    }
     ShowWindow(window->hwnd, SW_SHOW);
     arena_release_scratch(scratch);    
   }
@@ -187,10 +211,31 @@ win32_open_window(String8 name, S32 width, S32 height)
 }
 
 proc B32
+win32_begin_frame(Win32Window *window)
+{
+  /* HDC dc = GetDC(window->hwnd); */
+  /* BOOL result = wglMakeCurrent(dc, w32_state->gfx_ctxt); */
+  /* if(!result) { */
+  /*   DWORD error = GetLastError(); */
+  /*   char *error_message; */
+  /*   FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, */
+  /* 		   0, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), */
+  /* 		   (LPSTR)&error_message, 0, 0); */
+  /*   OutputDebugStringA(error_message); */
+  /* } */
+  /* Assert(result); */
+  /* window->dc = dc; */
+  return(1);
+}
+
+proc B32
 win32_end_frame(Win32Window *window)
 {
-  // TODO: implement
-  return(0);
+  BOOL swapped = SwapBuffers(window->dc);
+  Assert(swapped);
+  /* ReleaseDC(window->hwnd, window->dc); */
+  /* window->dc = 0; */
+  return(1);
 }
 
 proc void
@@ -242,6 +287,9 @@ os_events(Arena *arena)
   while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {    
     TranslateMessage(&msg);
     DispatchMessage(&msg);
+    if(msg.message == WM_QUIT) {
+      win32_push_event(Os_EventKind_close, (Os_Handle){0});
+    }
   }
   return(result);
 }
@@ -258,13 +306,11 @@ os_window_get_dim(Os_Handle window)
 proc void
 os_window_begin_frame(Os_Handle window)
 {
-  // TODO: implement
-  Unused(window);
+  win32_begin_frame(window.handle);
 }
 
 proc void
 os_window_end_frame(Os_Handle window)
 {
-  // TODO: implement
-  Unused(window);
+  win32_end_frame(window.handle);
 }
