@@ -55,6 +55,8 @@ typedef signed long int		GLsizeiptr;
 #define GL_STREAM_DRAW                    0x88E0
 #define GL_TEXTURE0                       0x84C0
 #define GL_TRIANGLES                      0x0004
+#define GL_FALSE                          0
+#define GL_TRUE                           1
 
 // NOTE: functions
 // NOTE: x macro format: name, return, args

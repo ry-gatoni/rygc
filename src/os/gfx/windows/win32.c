@@ -135,8 +135,9 @@ win32_init(void)
   }
 
   // TODO: opengl initialization
-
-  return(w32_state != 0);
+  B32 ogl_init_result = ogl_init();
+  B32 result = (w32_state != 0) && ogl_init_result;
+  return(result);
 }
 
 proc Win32Window*

@@ -57,7 +57,11 @@ global char frag_shader_src[] =
   "out_color = f_c * vec4(sampled.r, sampled.r, sampled.r, sampled.r);\n"
   "}\n";
 
-//proc U32 ogl_create_texture(S32 width, S32 height, Ogl_PixelFormat tex_fmt, Ogl_PixelFormat pix_fmt, void *pix_data);
+proc B32 ogl_init(void);
 
 proc Ogl_Shader ogl_make_shader(Arena *arena, char *src, GLenum kind);
 proc Ogl_Shader ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count);
+
+#if OS_WINDOWS
+#  include "OpenGl/windows/ogl_win32.h"
+#endif

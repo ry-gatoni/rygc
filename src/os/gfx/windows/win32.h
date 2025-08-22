@@ -1,4 +1,5 @@
 #include <windowsx.h>
+#pragma comment(lib, "user32.lib")
 
 typedef struct Win32Window Win32Window;
 struct Win32Window

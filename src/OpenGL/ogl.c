@@ -1,3 +1,7 @@
+#if OS_WINDOWS
+#  include "OpenGl/windows/ogl_win32.c"
+#endif
+
 proc Ogl_Shader
 ogl_make_shader(Arena *arena, char *src, GLenum kind)
 {  
