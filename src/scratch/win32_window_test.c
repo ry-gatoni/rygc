@@ -17,12 +17,15 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShow
   int result = 0;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
+  LooseFont loose_font =
+    font_parse(scratch.arena, Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf"), 32);
+
   if(os_gfx_init()) {
 
     // TODO: I think the window title unicode coversion isn't working correctly
     Os_Handle window = os_open_window(Str8Lit("w32-window-test"), 640, 480);
     if(window.handle) {
-
+      
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {

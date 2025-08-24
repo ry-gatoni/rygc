@@ -1,13 +1,20 @@
 //#include <dwrite_1.h>
 // NOTE: pieces taken and modified from windows' dwrite.h and dcommon.h, for interoperability with C
+/* #include <combaseapi.h> */
+/* #include <dcommon.h> */
+#include <initguid.h>
 #pragma comment(lib, "dwrite.lib")
 
 // NOTE: defines
-#define DWRITE_EXPORT __declspec(dllimport) WINAPI
+#ifndef DWRITE_EXPORT
+#  define DWRITE_EXPORT __declspec(dllimport) WINAPI
+#endif
+
 #define DWRITE_METHOD(ret, interface, name, ...) \
   static inline ret Glue(Glue(interface, _), name)(interface *this_, __VA_ARGS__)
 #define DWRITE_METHOD_VOID(ret, interface, name) \
   static inline ret Glue(Glue(interface, _), name)(interface *this_)
+
 DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a, 0xd838, 0x4b5b, 0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48);
 
 // NOTE: interfaces

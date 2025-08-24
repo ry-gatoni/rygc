@@ -199,7 +199,7 @@ str16_from_str8(Arena *arena, String8 str8)
     UnicodeDecode decode;    
     for(U8 *src = start; src < opl; src += decode.inc) {
       decode = utf8_decode(src, opl - src);
-      count += utf16_encode(dest, decode.cp);
+      count += utf16_encode(dest + count, decode.cp);
     }
   }
   string[count] = 0;
