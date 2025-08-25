@@ -15,12 +15,14 @@
 #define DWRITE_METHOD_VOID(ret, interface, name) \
   static inline ret Glue(Glue(interface, _), name)(interface *this_)
 
-DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a, 0xd838, 0x4b5b, 0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48);
+DEFINE_GUID(IID_IDWriteFactory,  0xb859ee5a, 0xd838, 0x4b5b, 0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48);
+DEFINE_GUID(IID_IDWriteFactory1, 0x30572f99, 0xdac6, 0x41db, 0xa1, 0x6e, 0x04, 0x86, 0x30, 0x7e, 0x60, 0x6a);
 
 // NOTE: interfaces
 typedef struct IDWriteFactory			{ struct { void *tbl[]; } *v; } IDWriteFactory;
 typedef struct IDWriteFontFile			{ struct { void *tbl[]; } *v; } IDWriteFontFile;
 typedef struct IDWriteFontFace			{ struct { void *tbl[]; } *v; } IDWriteFontFace;
+typedef struct IDWriteFontFace1			{ struct { void *tbl[]; } *v; } IDWriteFontFace1;
 typedef struct IDWriteRenderingParams		{ struct { void *tbl[]; } *v; } IDWriteRenderingParams;
 typedef struct IDWriteGdiInterop		{ struct { void *tbl[]; } *v; } IDWriteGdiInterop;
 typedef struct IDWriteBitmapRenderTarget	{ struct { void *tbl[]; } *v; } IDWriteBitmapRenderTarget;
@@ -124,6 +126,12 @@ typedef struct DWRITE_GLYPH_METRICS
   INT32 verticalOriginY;
 } DWRITE_GLYPH_METRICS;
 
+typedef struct DWRITE_UNICODE_RANGE
+{
+  UINT32 first;
+  UINT32 last;
+} DWRITE_UNICODE_RANGE;
+
 // NOTE: functions
 EXTERN_C HRESULT DWRITE_EXPORT DWriteCreateFactory(DWRITE_FACTORY_TYPE factoryType, REFIID iid, IUnknown **factory);
 /* EXTERN_C HRESULT DWRITE_EXPORT DWriteCreateFactory(DWRITE_FACTORY_TYPE factoryType, const GUID *iid, IUnknown **factory); */
@@ -183,9 +191,21 @@ DWRITE_METHOD(HRESULT, IDWriteFontFace, GetDesignGlyphMetrics,
 {
   return(((HRESULT (WINAPI*)(IDWriteFontFace*, UINT16 const*, UINT32, DWRITE_GLYPH_METRICS*, BOOL))this_->v->tbl[10])(this_, glyphIndices, glyphCount, glyphMetrics, isSideways));
 }
+// TODO: I don't know why the macro isn't working here
+/* DWRITE_METHOD(HRESULT, IDWriteFontFace, GetGlyphIndices, */
+/* 	      const UINT32* codePoints, UINT32 codePointCount, UINT16* glyphIndices) */
+static inline HRESULT IDWriteFontFace_GetGlyphIndices(IDWriteFontFace* this_, const UINT32* codePoints, UINT32 codePointCount, UINT16* glyphIndices)
+{
+  return(((HRESULT (WINAPI*)(IDWriteFontFace*, const UINT32*, UINT32, UINT16*))this_->v->tbl[11])(this_, codePoints, codePointCount, glyphIndices));
+}
 DWRITE_METHOD_VOID(UINT16, IDWriteFontFace, GetGlyphCount)
 {
    return(((UINT16 (WINAPI*)(IDWriteFontFace*))this_->v->tbl[9])(this_));
+}
+DWRITE_METHOD(HRESULT, IDWriteFontFace1, GetUnicodeRanges,
+	      UINT32 maxRangeCount, DWRITE_UNICODE_RANGE* unicodeRanges, UINT32* actualRangeCount)
+{
+  return(((HRESULT (WINAPI*)(IDWriteFontFace1*, UINT32, DWRITE_UNICODE_RANGE*, UINT32*))this_->v->tbl[21])(this_, maxRangeCount, unicodeRanges, actualRangeCount));
 }
 
 DWRITE_METHOD(HRESULT, IDWriteGdiInterop, CreateBitmapRenderTarget,
@@ -205,6 +225,45 @@ DWRITE_METHOD_VOID(HDC, IDWriteBitmapRenderTarget, GetMemoryDC)
 {
   return(((HDC (WINAPI*)(IDWriteBitmapRenderTarget*))this_->v->tbl[4])(this_));
 }
+
+// NOTE: internal structures
+typedef struct DWriteFontMetrics
+{
+  R32 pixel_per_em;
+  R32 pixel_per_design_unit;
+
+  U16 ascender;
+  U16 descender;
+  S16 line_height;
+} DWriteFontMetrics;
+
+typedef struct DWriteFont
+{
+  IDWriteFontFile *font_file;
+  IDWriteFontFace *font_face;
+  DWriteFontMetrics metrics;
+} DWriteFont;
+
+typedef struct DWriteState
+{
+  Arena *arena;
+
+  U32 factory_version;
+  IDWriteFactory *factory;
+  IDWriteRenderingParams *default_render_params;
+  IDWriteRenderingParams *render_params;
+  IDWriteGdiInterop *gdi_interop;
+} DWriteState;
+
+global DWriteState *dwrite_state = 0;
+
+// NOTE: internal functions
+proc B32 dwrite_init(void);
+
+proc DWriteFont dwrite_open_font(String8 font_path);
+proc void dwrite_font_metrics(DWriteFont *font, U32 font_size_pt);
+proc RangeU32 dwrite_font_glyph_map(Arena *arena, DWriteFont *font, CodepointIndex **first, CodepointIndex **last);
+proc void dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range, LooseGlyph **first, LooseGlyph **last);
 
 // TODO: pull out into font_common (align with freetype)
 proc LooseFont font_parse(Arena *arena, String8 font_path, U32 font_size_pt);
