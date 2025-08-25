@@ -90,7 +90,9 @@ dwrite_font_metrics(DWriteFont *font, U32 font_size_pt)
 
   R32 dpi = 81; // TODO: ???
   R32 pixel_per_em = (R32)font_size_pt*(R32)dpi/72.f;
-  font->metrics.pixel_per_design_unit = pixel_per_em/(R32)font_metrics.designUnitsPerEm;
+  R32 pixel_per_design_unit = pixel_per_em/(R32)font_metrics.designUnitsPerEm;
+  font->metrics.pixel_per_em = pixel_per_em;
+  font->metrics.pixel_per_design_unit = pixel_per_design_unit;
   font->metrics.ascender = font_metrics.ascent;
   font->metrics.descender = font_metrics.descent;
   font->metrics.line_height = font_metrics.lineGap;
@@ -155,8 +157,10 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
   LooseGlyph *first_glyph = 0;
   LooseGlyph *last_glyph = 0;
 
-  S32 width = 64;
-  S32 height = 64;
+  S32 width = 128;
+  S32 height = 128;
+  R32 baseline_x = 64.f;
+  R32 baseline_y = 64.f;
   IDWriteBitmapRenderTarget *render_target = 0;
   error = IDWriteGdiInterop_CreateBitmapRenderTarget(dwrite_state->gdi_interop, 0, width, height, &render_target);
   Assert(error == S_OK);
@@ -183,11 +187,14 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       glyph_run.glyphIndices = &(U16)glyph_idx;
 
       RECT bounding_box = {0};
-      error = IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, 0, 0, DWRITE_MEASURING_MODE_NATURAL,
-						     &glyph_run, dwrite_state->render_params,
-						     RGB(255, 255, 255), &bounding_box);      
+      error =
+	IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, baseline_x, baseline_y,
+					       DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
+					       dwrite_state->render_params, RGB(255, 255, 255),
+					       &bounding_box);      
       Assert(error == S_OK);
-      if(bounding_box.top < 0 || bounding_box.left < 0) continue;
+      //if(bounding_box.top < 0 || bounding_box.left < 0) continue;
+      Assert(bounding_box.left >= 0 && bounding_box.top >= 0);
       Assert(bounding_box.right <= width && bounding_box.bottom <= height);
 
       DWRITE_GLYPH_METRICS glyph_metrics = {0};
@@ -199,8 +206,8 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       glyph->width = bounding_box.right - bounding_box.left;
       glyph->height = bounding_box.bottom - bounding_box.top;
       glyph->stride = glyph->width;
-      glyph->left_bearing = glyph_metrics.leftSideBearing;
-      glyph->top_bearing = glyph_metrics.topSideBearing;
+      glyph->left_bearing = bounding_box.left - (S32)baseline_x;//glyph_metrics.leftSideBearing;
+      glyph->top_bearing = bounding_box.top - (S32)baseline_y;//glyph_metrics.topSideBearing;
       glyph->advance = (U32)(glyph_metrics.advanceWidth*font->metrics.pixel_per_design_unit);
       glyph->bitmap = arena_push_array_z(arena, U8, glyph->width*glyph->height);
 
@@ -341,8 +348,10 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
   U16 descender = font_metrics.descent;
   S16 line_height = font_metrics.lineGap;
 
-  S32 width = 64;
-  S32 height = 64;
+  S32 width = 128;
+  S32 height = 128;
+  S32 baseline_x = 64;
+  S32 baseline_y = 64;
   IDWriteBitmapRenderTarget *render_target = 0;
   error = IDWriteGdiInterop_CreateBitmapRenderTarget(gdi_interop, 0, width, height, &render_target);
   DWCheckPtr(render_target, Assert(!"render_target"));
@@ -374,11 +383,12 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
     glyph_run.glyphIndices = &glyph_idx;
 
     RECT bounding_box = {0};
-    error = IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, 0, 0, DWRITE_MEASURING_MODE_NATURAL,
-						   &glyph_run, render_params,
-						   RGB(255, 255, 255), &bounding_box);
+    error = IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, baseline_x, baseline_y,
+						   DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
+						   render_params, RGB(255, 255, 255), &bounding_box);
     DWCheck(Assert(!"not good"));
-    if(bounding_box.top < 0 || bounding_box.left < 0) continue;
+    //if(bounding_box.top < 0 || bounding_box.left < 0) continue;
+    Assert(bounding_box.left >= 0 && bounding_box.top >= 0);
     Assert(bounding_box.right <= width && bounding_box.bottom <= height);
 
     DWRITE_GLYPH_METRICS glyph_metrics = {0};

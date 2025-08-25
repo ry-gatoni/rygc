@@ -7,14 +7,14 @@
 // TODO: maybe define these in terms of base layer types/defines
 typedef void			GLvoid;
 typedef unsigned int		GLenum;
-/* typedef float		GLfloat; */
+typedef float			GLfloat;
 typedef int			GLint;
 typedef int			GLsizei;
 typedef unsigned int		GLbitfield;
-/* typedef double		GLdouble; */
+typedef double			GLdouble;
 typedef unsigned int		GLuint;
 typedef unsigned char		GLboolean;
-/* typedef unsigned char	GLbyte; */
+typedef unsigned char		GLbyte;
 typedef char			GLchar;
 typedef float			GLclampf;
 typedef double			GLclampd;
@@ -57,6 +57,11 @@ typedef signed long int		GLsizeiptr;
 #define GL_TRIANGLES                      0x0004
 #define GL_FALSE                          0
 #define GL_TRUE                           1
+#define GL_NO_ERROR                       0
+#define GL_INVALID_ENUM                   0x0500
+#define GL_INVALID_VALUE                  0x0501
+#define GL_INVALID_OPERATION              0x0502
+#define GL_OUT_OF_MEMORY                  0x0505
 
 // NOTE: functions
 // NOTE: x macro format: name, return, args
@@ -78,6 +83,7 @@ typedef signed long int		GLsizeiptr;
   X(glTexParameteri, void, (GLenum target, GLenum pname, GLint param))\
     X(glTexSubImage2D, void, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *data))\
     X(glEnable, void, (GLenum cap))\
+    X(glDisable, void, (GLenum cap))\
     X(glBlendFunc, void, (GLenum sfactor, GLenum dfactor))\
     X(glDepthFunc, void, (GLenum func))\
     X(glPixelStorei, void, (GLenum pname, GLint param))\
@@ -99,6 +105,13 @@ typedef signed long int		GLsizeiptr;
     X(glBufferData, void, (GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage))\
   X(glActiveTexture, void, (GLenum texture))\
   X(glDrawArrays, void, (GLenum mode, GLint first, GLsizei count))\
+  X(glGetError, GLenum, (void))\
+    X(glVertex3f, void, (GLfloat x, GLfloat y, GLfloat z))\
+   X(glColor3f, void, (GLfloat red, GLfloat green, GLfloat blue))\
+    X(glTexCoord2f, void, (GLfloat s, GLfloat t))\
+  X(glBegin, void, (GLenum mode))\
+    X(glEnd, void, (void))\
+
 
 // NOTE: function typedefs
 #define X(N, R, A) typedef R Glue(GL_, N)A;

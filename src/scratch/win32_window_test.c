@@ -16,11 +16,33 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShow
 {
   int result = 0;
   ArenaTemp scratch = arena_get_scratch(0, 0);
-
+  
   LooseFont loose_font =
     font_parse(scratch.arena, Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf"), 32);
 
   if(os_gfx_init()) {
+
+    Win32GlLogError();
+    
+    glEnable(GL_TEXTURE_2D);
+      
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glDepthFunc(GL_LESS);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+    Win32GlLogError();
+
+    Arena *arena = arena_alloc();
+    PackedFont *packed_font = font_pack(arena, &loose_font);
+    U32 font_atlas_texture_handle = (U32)IntFromPtr(packed_font->atlas.handle.handle);
+    //glBindTexture(GL_TEXTURE_2D, font_atlas_texture_handle);
+    glDisable(GL_TEXTURE_2D);
+
+    Win32GlLogError();
 
     // TODO: I think the window title unicode coversion isn't working correctly
     Os_Handle window = os_open_window(Str8Lit("w32-window-test"), 640, 480);
@@ -47,8 +69,44 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShow
 	{
 	  V2S32 window_dim = os_window_get_dim(window);
 	  glViewport(0, 0, window_dim.width, window_dim.height);
-	  glClearColor(1.f, 0.f, 1.f, 1.f);
-	  glClear(GL_COLOR_BUFFER_BIT);
+	  glClearColor(0.f, 0.f, 0.f, 1.f);
+	  glClearDepth(1);
+	  glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+	  Win32GlLogError();
+	  
+	  glBegin(GL_TRIANGLES);
+	  Win32GlLogError();
+	  {
+	    //glTexCoord2f(0, 0);
+	    glColor3f(1.f, 0.f, 0.f);
+	    glVertex3f(-1, -1, 0);
+	    Win32GlLogError();
+	    //glTexCoord2f(1, 0);
+	    glColor3f(0.f, 1.f, 0.f);
+	    glVertex3f(1, -1, 0);
+	    Win32GlLogError();
+	    //glTexCoord2f(1, 1);
+	    glColor3f(1.f, 1.f, 1.f);
+	    glVertex3f(1, 1, 0);
+	    Win32GlLogError();
+
+	    //glTexCoord2f(0, 0);
+	    glColor3f(1.f, 0.f, 0.f);
+	    glVertex3f(-1, -1, 0);
+	    Win32GlLogError();
+	    //glTexCoord2f(1, 1);
+	    glColor3f(1.f, 1.f, 1.f);
+	    glVertex3f(1, 1, 0);
+	    Win32GlLogError();
+	    //glTexCoord2f(0, 1);
+	    glColor3f(0.f, 0.f, 1.f);
+	    glVertex3f(-1, 1, 0);
+	    Win32GlLogError();
+	  }
+	  glEnd();
+
+	  Win32GlLogError();
 	}
 	os_window_end_frame(window);
 	

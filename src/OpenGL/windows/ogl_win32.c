@@ -1,3 +1,6 @@
+global GLenum err = 0;
+#define Win32GlLogError() err = glGetError(); if(err != GL_NO_ERROR) OutputDebugStringA("gl error\n");
+
 proc B32
 win32_ogl_init(void)
 {
@@ -93,15 +96,20 @@ win32_ogl_init(void)
 #undef X
   }
 
+  Win32GlLogError();
+
   // NOTE: clean up boostrap
   {
-    Assert(wglMakeCurrent(dc, 0));
-    Assert(wglDeleteContext(glrc));
+    //Assert(wglMakeCurrent(dc, 0));
+    //Win32GlLogError();
+    /* Assert(wglDeleteContext(glrc)); */
+    /* Win32GlLogError(); */
     ReleaseDC(bootstrap_window, dc);
     DestroyWindow(bootstrap_window);
     UnregisterClass(bootstrap_class_name, wnd_class.hInstance);
     //wglMakeCurrent(dc, w32_state->gfx_ctxt);
   }
+  
 
   return(result);
 }

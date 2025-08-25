@@ -56,11 +56,11 @@ typedef struct PackedGlyph
   R32 advance;
 } PackedGlyph;
 
-typedef struct GlTexture
-{  
-  S32 width;
-  S32 height;
-} GlTexture;
+/* typedef struct GlTexture */
+/* {   */
+/*   S32 width; */
+/*   S32 height; */
+/* } GlTexture; */
 
 typedef struct PackedFont
 {
