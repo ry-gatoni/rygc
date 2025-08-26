@@ -14,10 +14,13 @@ win32_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     B32 release = 0;
     switch(msg)
       {
-	// TODO: resize
+	// TODO: handle smooth resizing
       case WM_SIZE:
 	{
-	
+	  S16 new_width = LOWORD(lparam);
+	  S16 new_height = HIWORD(lparam);
+	  w32_window->dim.width = new_width;
+	  w32_window->dim.height = new_height;
 	}break;
       /* case WM_PAINT: */
       /* 	{ */

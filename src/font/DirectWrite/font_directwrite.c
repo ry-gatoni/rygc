@@ -149,6 +149,7 @@ dwrite_font_glyph_map(Arena *arena, DWriteFont *font,
   return(result);
 }
 
+// TODO: glyph rasterization is wrong. Fix
 proc void
 dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
 			LooseGlyph **first, LooseGlyph **last)

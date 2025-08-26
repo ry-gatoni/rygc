@@ -24,7 +24,7 @@ pushd ..\build
 
 set BUILD=%CD%
 
-::cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
+cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
 cl %CFLAGS% %SRC%\scratch\win32_window_test.c /link %LFLAGS% /out:win32_window_test.exe
 
 :: build -> src

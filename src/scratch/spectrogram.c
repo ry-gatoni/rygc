@@ -486,24 +486,30 @@ draw_spectrum(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec
 //
 // entry point
 //
+#if OS_WINDOWS
+int
+WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+{
+#else
 int
 main(int argc, char **argv)
 {
   Unused(argc);
   Unused(argv);
+#endif
 
   int result = 0;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  LooseFont loose_font = {0};  
+  //LooseFont loose_font = {0};  
   
-  String8 font_file_path = Str8Lit("/usr/share/fonts/liberation-mono-fonts/LiberationMono-Regular.ttf");
-  String8 font_file = os_read_entire_file(scratch.arena, font_file_path);
-  if(font_file.count) {
+  /* String8 font_file_path = Str8Lit("/usr/share/fonts/liberation-mono-fonts/LiberationMono-Regular.ttf"); */
+  /* String8 font_file = os_read_entire_file(scratch.arena, font_file_path); */
+  /* if(font_file.count) { */
 
-    U32 pt_size = 32;
-    loose_font = font_parse(scratch.arena, font_file, pt_size);
-  }
+  /*   U32 pt_size = 32; */
+  /*   loose_font = font_parse(scratch.arena, font_file, pt_size); */
+  /* } */
 
   if(os_gfx_init()) {
 
@@ -521,22 +527,30 @@ main(int argc, char **argv)
       }
 
       render_init(); // TODO: should check success
+      String8 font_file_path = Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf");
+      U32 font_pt_size = 32;
+      LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
       R_Font *font = render_alloc_font(&loose_font);      
 
       B32 running = 1;
       Arena *frame_arena = arena_alloc();
       while(running) {
 	
-	Os_EventList events = os_events_from_window(window);
-	for(Os_EventNode *event_node = events.first; event_node; event_node = event_node->next) {
-	  switch(event_node->event.kind) {
-	  case Os_EventKind_close:
-	    { running = 0; } break;
-	  default:
-	    {} break;
+	//Os_EventList events = os_events_from_window(window);
+	//for(Os_EventNode *event_node = events.first; event_node; event_node = event_node->next) {
+	Os_EventList events = os_events(frame_arena);
+	for(Os_Event *event = events.first; event; event = event->next) {
+	  if(event->window.handle == window.handle) {
+	    //switch(event_node->event.kind) {
+	    switch(event->kind) {
+	    case Os_EventKind_close:
+	      { running = 0; } break;
+	    default:
+	      {} break;
+	    }
 	  }
 	}
-
+	
 	render_equip_window(window);
 	render_begin_frame();
 
@@ -545,8 +559,11 @@ main(int argc, char **argv)
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
 	render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
 
-	draw_spectrum_grid(spec_state, window_dim, font);
+	//draw_spectrum_grid(spec_state, window_dim, font);
+	render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)),
+		    RenderLevel(label), v4(1, 1, 1, 1));
 
+#if 0
 	// NOTE: drawing the spectrum
 	{
 	  // NOTE: try to dequeue buffers
@@ -618,6 +635,7 @@ main(int argc, char **argv)
 	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
 	  }
 	}
+#endif
 
 	render_end_frame();
 	arena_clear(frame_arena);

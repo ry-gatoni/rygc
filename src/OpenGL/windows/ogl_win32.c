@@ -84,9 +84,11 @@ win32_ogl_init(void)
     int ctxt_attribs[] = {
       WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
       WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+      //WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
       0,
     };
     w32_state->gfx_ctxt = wglCreateContextAttribsARB(dc, glrc, ctxt_attribs);
+    wglMakeCurrent(dc, w32_state->gfx_ctxt);
   }
 
   // NOTE: load opengl functions

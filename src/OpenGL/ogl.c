@@ -101,15 +101,23 @@ render_backend_init(Arena *arena)
 {  
   ogl_renderer = arena_push_struct(arena, Ogl_Renderer);
 
-  glEnable(GL_TEXTURE_2D);
+  /* glEnable(GL_TEXTURE_2D); */
+  
+  /* Win32GlLogError(); // NOCHECKIN */
       
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  Win32GlLogError(); // NOCHECKIN
+
   glDepthFunc(GL_LESS);
+
+  Win32GlLogError(); // NOCHECKIN
 
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+  Win32GlLogError(); // NOCHECKIN
 
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
   ogl_renderer->vert_shader = ogl_make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);
@@ -117,12 +125,14 @@ render_backend_init(Arena *arena)
     fprintf(stderr, "ERROR: vert_shader: %.*s\n",
 	    (int)ogl_renderer->vert_shader.log.count, ogl_renderer->vert_shader.log.string);
   }
+  Win32GlLogError(); // NOCHECKIN
   
   ogl_renderer->frag_shader = ogl_make_shader(scratch.arena, frag_shader_src, GL_FRAGMENT_SHADER);
   if(ogl_renderer->frag_shader.log.count) {
     fprintf(stderr, "ERROR: frag_shader: %.*s\n",
 	    (int)ogl_renderer->frag_shader.log.count, ogl_renderer->frag_shader.log.string);
   }
+  Win32GlLogError(); // NOCHECKIN
 
   GLuint shaders[] = {
     ogl_renderer->vert_shader.handle,
@@ -133,19 +143,24 @@ render_backend_init(Arena *arena)
     fprintf(stderr, "ERROR: shader_program: %.*s\n",
 	    (int)ogl_renderer->shader_prog.log.count, ogl_renderer->shader_prog.log.string);
   }
+  Win32GlLogError(); // NOCHECKIN
 
   glUseProgram(ogl_renderer->shader_prog.handle);
+  Win32GlLogError(); // NOCHECKIN
 
   // NOTE: generate arrays, samplers, uniforms
   glGenVertexArrays(1, &ogl_renderer->vao);
   glBindVertexArray(ogl_renderer->vao);
+  Win32GlLogError(); // NOCHECKIN
 
   glGenBuffers(1, &ogl_renderer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, ogl_renderer->vbo);
+  Win32GlLogError(); // NOCHECKIN
 
   glGenSamplers(1, &ogl_renderer->sampler);
   ogl_renderer->sampler_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "atlas");
   glUniform1i(ogl_renderer->sampler_loc, 0);
+  Win32GlLogError(); // NOCHECKIN
 
   arena_release_scratch(scratch);
 
