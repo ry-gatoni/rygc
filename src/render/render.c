@@ -39,7 +39,9 @@ render_begin_frame(void)
 
   commands->window_dim = os_window_get_dim(commands->window);
   commands->ndc_scale = v2(2.f/(R32)commands->window_dim.width,
-			   2.f/(R32)commands->window_dim.height);  
+			   2.f/(R32)commands->window_dim.height);
+  commands->transform = mat4_yflip();
+  //commands->transform = mat4_id();
 }
 
 proc void

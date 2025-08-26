@@ -18,7 +18,7 @@
 - font module
     - [X] update the font module to match other general modules (font_common files, folder per backend)
 	- [X] pull out graphics library dependant calls into  generalized os/gfx or render backend
-	- [] port to windows
+	- [X] port to windows
 	
 - audio module
     - [X] get sample rate from audio backend
@@ -50,7 +50,7 @@
 - [X] fix Assert on windows/msvc
 - [X] string unicode conversion
 - [] wasapi audio backend
-- [] directwrite font backend
+- [X] directwrite font backend
 - [X] opengl defines/loading
 - [X] window opening
 - [] clean up os include situation

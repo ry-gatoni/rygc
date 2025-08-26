@@ -162,6 +162,8 @@ render_backend_init(Arena *arena)
   glUniform1i(ogl_renderer->sampler_loc, 0);
   Win32GlLogError(); // NOCHECKIN
 
+  ogl_renderer->transform_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "transform");  
+
   arena_release_scratch(scratch);
 
   R_Handle result = {0};
@@ -182,6 +184,8 @@ render_end_frame(void)
   glEnableVertexAttribArray(2);
   glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
 			PtrFromInt(OffsetOf(R_Vertex, color)));
+
+  glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 0, (GLfloat*)commands->transform.v);
 
   glViewport(0, 0, commands->window_dim.width, commands->window_dim.height);
   glClearColor(0, 0, 0, 1);

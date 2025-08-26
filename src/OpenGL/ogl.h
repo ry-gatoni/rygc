@@ -25,6 +25,7 @@ typedef struct Ogl_Renderer
   GLuint vbo;
   GLuint sampler;
   GLint sampler_loc;
+  GLint transform_loc;
   
   Ogl_Shader vert_shader;
   Ogl_Shader frag_shader;
@@ -38,10 +39,11 @@ global char vert_shader_src[] =
   "layout (location = 0) in vec3 v_p;\n"
   "layout (location = 1) in vec2 v_uv;\n"
   "layout (location = 2) in vec4 v_c;\n"
+  "uniform mat4 transform;\n"
   "out vec2 f_uv;\n"
   "out vec4 f_c;\n"
   "void main() {\n"
-  "gl_Position = vec4(v_p, 1);\n"
+  "gl_Position = transform * vec4(v_p, 1);\n"
   "f_uv = v_uv;\n"
   "f_c = v_c;\n"  
   "}\n";

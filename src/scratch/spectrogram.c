@@ -559,9 +559,9 @@ main(int argc, char **argv)
 	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
 	render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
 
-	//draw_spectrum_grid(spec_state, window_dim, font);
-	render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)),
-		    RenderLevel(label), v4(1, 1, 1, 1));
+	draw_spectrum_grid(spec_state, window_dim, font);
+	/* render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)), */
+	/* 	    RenderLevel(label), v4(1, 1, 1, 1)); */
 
 #if 0
 	// NOTE: drawing the spectrum

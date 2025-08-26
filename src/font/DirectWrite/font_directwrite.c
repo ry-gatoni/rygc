@@ -80,6 +80,7 @@ dwrite_open_font(String8 font_path)
   return(result);
 }
 
+// TODO: check that these metrics make sense
 proc void
 dwrite_font_metrics(DWriteFont *font, U32 font_size_pt)
 {
@@ -149,7 +150,6 @@ dwrite_font_glyph_map(Arena *arena, DWriteFont *font,
   return(result);
 }
 
-// TODO: glyph rasterization is wrong. Fix
 proc void
 dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
 			LooseGlyph **first, LooseGlyph **last)
@@ -233,6 +233,16 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       }
       
       SLLQueuePush(first_glyph, last_glyph, glyph);
+
+      // NOTE: clear render target
+      {
+	HGDIOBJ original = SelectObject(dc, GetStockObject(DC_PEN));
+	SetDCPenColor(dc, RGB(0, 0, 0));
+	SelectObject(dc, GetStockObject(DC_BRUSH));
+	SetDCBrushColor(dc, RGB(0, 0, 0));
+	Rectangle(dc, bounding_box.left, bounding_box.top, bounding_box.right, bounding_box.bottom);
+	SelectObject(dc, original);
+      }
     }
   }
   

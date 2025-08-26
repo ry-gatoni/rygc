@@ -98,3 +98,24 @@ proc Rect2 rect2_center_dim(V2 center, V2 dim);
 proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);
 
 proc Rect2 rect2_offset(Rect2 rect, V2 offset);
+
+// NOTE: matrices
+typedef union Mat3
+{
+  struct { V3 c0; V3 c1; V3 c2; };
+  R32 v[3][3];
+} Mat3;
+
+typedef union Mat4
+{
+  struct { V4 c0; V4 c1; V4 c2; V4 c3; };
+  R32 v[4][4];
+} Mat4;
+
+proc Mat3 mat3(V3 c0, V3 c1, V3 c2);
+proc Mat3 mat3_id(void);
+
+proc Mat4 mat4(V4 c0, V4 c1, V4 c2, V4 c3);
+proc Mat4 mat4_id(void);
+proc Mat4 mat4_yflip(void);
+

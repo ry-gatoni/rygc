@@ -96,6 +96,7 @@ typedef signed long int		GLsizeiptr;
   X(glGenSamplers, void, (GLsizei n, GLuint *samplers))\
   X(glGetUniformLocation, GLint, (GLuint program, const GLchar *name))\
   X(glUniform1i, void, (GLint location, GLint v0))\
+  X(glUniformMatrix4fv, void, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)) \
   X(glEnableVertexAttribArray, void, (GLuint index))\
   X(glVertexAttribPointer, void, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer))\
     X(glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))\

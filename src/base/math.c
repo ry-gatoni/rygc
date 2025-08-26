@@ -269,3 +269,45 @@ rect2_offset(Rect2 rect, V2 offset)
   Rect2 result = {.min = v2_add(rect.min, offset), .max = v2_add(rect.max, offset)};
   return(result);
 }
+
+// NOTE: matrices
+proc Mat3
+mat3(V3 c0, V3 c1, V3 c2)
+{
+  Mat3 result = {.c0 = c0, .c1 = c1, .c2 = c2};
+  return(result);
+}
+
+proc Mat3
+mat3_id(void)
+{
+  Mat3 result = mat3(v3(1, 0, 0), v3(0, 1, 0), v3(0, 0, 1));
+  return(result);
+}
+
+proc Mat4
+mat4(V4 c0, V4 c1, V4 c2, V4 c3)
+{
+  Mat4 result = {.c0 = c0, .c1 = c1, .c2 = c2, .c3 = c3};
+  return(result);
+}
+
+proc Mat4
+mat4_id(void)
+{
+  Mat4 result = mat4(v4(1, 0, 0, 0),
+		     v4(0, 1, 0, 0),
+		     v4(0, 0, 1, 0),
+		     v4(0, 0, 0, 1));
+  return(result);
+}
+
+proc Mat4
+mat4_yflip(void)
+{
+  Mat4 result = mat4(v4(1,  0,  0,  0),
+		     v4(0, -1,  0,  0),
+		     v4(0,  0,  1,  0),
+		     v4(0,  0,  0,  1));
+  return(result);
+}
