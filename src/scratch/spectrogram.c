@@ -562,6 +562,7 @@ main(int argc, char **argv)
 	draw_spectrum_grid(spec_state, window_dim, font);
 	/* render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)), */
 	/* 	    RenderLevel(label), v4(1, 1, 1, 1)); */
+	
 
 #if 0
 	// NOTE: drawing the spectrum
