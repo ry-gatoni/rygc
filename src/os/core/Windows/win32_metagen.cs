@@ -68,14 +68,14 @@ string GetSimpleType(TypeReference type)
     return(type.Name);
 }
 
-void WriteField(int level, int max_len, FieldDefinition field)
+void WriteField(StreamWriter fs, int level, int max_len, FieldDefinition field)
 {
     string indent = string.Empty.PadRight(2*level);
     
     if(field.FieldType.IsArray)
     {
 	var array_type = (ArrayType)field.FieldType;
-	Console.WriteLine($"{indent}{GetSimpleType(array_type.ElementType).PadRight(max_len)} {field.Name}[{array_type.Dimensions[0].UpperBound + 1}];");
+	fs.WriteLine($"{indent}{GetSimpleType(array_type.ElementType).PadRight(max_len)} {field.Name}[{array_type.Dimensions[0].UpperBound + 1}];");
     }
     else
     {
@@ -86,35 +86,54 @@ void WriteField(int level, int max_len, FieldDefinition field)
 		.Where(nested => !nested.FieldType.Resolve().IsNested)
 		.Aggregate(0, (max, nested) => Math.Max(max, GetSimpleType(nested.FieldType).Length));
 	    
-	    Console.WriteLine($"{indent}struct");
-	    Console.WriteLine($"{indent}{{");
+	    fs.WriteLine($"{indent}struct");
+	    fs.WriteLine($"{indent}{{");
 	    foreach(var nested_field in type.Fields)
 	    {
-		WriteField(level + 1, max_len, nested_field);
+		WriteField(fs, level + 1, max_len, nested_field);
 	    }
-	    Console.WriteLine($"{indent}}} {field.Name};");
+	    fs.WriteLine($"{indent}}} {field.Name};");
 	}
 	else
 	{
-	    Console.WriteLine($"{indent}{GetSimpleType(field.FieldType).PadRight(max_len)} {field.Name};");
+	    fs.WriteLine($"{indent}{GetSimpleType(field.FieldType).PadRight(max_len)} {field.Name};");
 	}
     }
 }
 
-void WriteEnums()
+void WriteGuids(StreamWriter fs)
 {
-    Console.WriteLine();
-    Console.WriteLine("// enums");
+    fs.WriteLine();
+    fs.WriteLine("// guids");
+    fs.WriteLine();
+
+    int max_len = interfaces.Max(i => i.Name.Length);
+
+    foreach(var i in interfaces.OrderBy(i => i.Name))
+    {
+	var guid_attr = i.CustomAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == "Windows.Win32.Foundation.Metadata.GuidAttribute");
+
+	var ga = guid_attr.ConstructorArguments;
+	var name = $"IID_{i.Name},";
+	fs.WriteLine($"DEFINE_GUID({name.PadRight(max_len + 5)} 0x{ga[0].Value:x8}, 0x{ga[1].Value:x4}, 0x{ga[2].Value:x4}, {string.Join(", ", ga.Skip(3).Select(x => $"0x{x.Value:x2}"))});");
+    }
+}
+
+
+void WriteEnums(StreamWriter fs)
+{
+    fs.WriteLine();
+    fs.WriteLine("// enums");
 
     foreach(var e in enums.OrderBy(e => e.Name))
     {
-	Console.WriteLine();
+	fs.WriteLine();
 
 	int max_len = e.Fields.Where(field => !field.IsSpecialName).Max(field => field.Name.Length);
 
 	var name = e.Name;
-	Console.WriteLine($"typedef enum {name}");
-	Console.WriteLine($"{{");
+	fs.WriteLine($"typedef enum {name}");
+	fs.WriteLine($"{{");
 	foreach(var field in e.Fields.Where(field => !field.IsSpecialName))
 	{
 	    var field_const = field.Constant;
@@ -139,20 +158,20 @@ void WriteEnums()
 	    {
 		throw new InvalidOperationException();
 	    }
-	    Console.WriteLine($"  {field.Name.PadRight(max_len)} = {val},");
+	    fs.WriteLine($"  {field.Name.PadRight(max_len)} = {val},");
 	}
-	Console.WriteLine($"}} {name};");
+	fs.WriteLine($"}} {name};");
     }
 }
 
-void WriteStructs()
+void WriteStructs(StreamWriter fs)
 {
-    Console.WriteLine();
-    Console.WriteLine("// structs");
+    fs.WriteLine();
+    fs.WriteLine("// structs");
 
     foreach(var s in structs.OrderBy(s => s.Name))
     {
-	Console.WriteLine();
+	fs.WriteLine();
 	
 	int max_len = s.Fields
 	    .Where(field => !field.FieldType.Resolve().IsNested)
@@ -160,36 +179,36 @@ void WriteStructs()
 
 	var typename = (s.Attributes & TypeAttributes.ExplicitLayout) != 0 ? "union" : "struct";
 	var name = s.Name;
-	Console.WriteLine($"typedef {typename} {name}");
-	Console.WriteLine($"{{");
+	fs.WriteLine($"typedef {typename} {name}");
+	fs.WriteLine($"{{");
 	foreach(var field in s.Fields)
 	{
-	    WriteField(1, max_len, field);
+	    WriteField(fs, 1, max_len, field);
 	}
-	Console.WriteLine($"}} {name};");
+	fs.WriteLine($"}} {name};");
     }
 }
 
-void WriteInterfaces()
+void WriteInterfaces(StreamWriter fs)
 {
-    Console.WriteLine();
-    Console.WriteLine("// interfaces");
-    Console.WriteLine();
+    fs.WriteLine();
+    fs.WriteLine("// interfaces");
+    fs.WriteLine();
 
     int max_len = interfaces.Max(i => i.Name.Length + 1);
 
     foreach(var i in interfaces.OrderBy(i => i.Name))
     {
 	//Console.WriteLine($"interface {i.Name}");
-	Console.WriteLine($"typedef struct {i.Name.PadRight(max_len)} {{ struct {{ void *tbl[]; }} *v; }} {i.Name};");
+	fs.WriteLine($"typedef struct {i.Name.PadRight(max_len)} {{ struct {{ void *tbl[]; }} *v; }} {i.Name};");
     }
 }
 
-void WriteMethodsRecursive(string base_type, TypeDefinition type, HashSet<string> names, ref uint index)
+void WriteMethodsRecursive(StreamWriter fs, string base_type, TypeDefinition type, HashSet<string> names, ref uint index)
 {
     if(type.Interfaces.Count != 0)
     {
-	WriteMethodsRecursive(base_type, type.Interfaces[0].InterfaceType.Resolve(), names, ref index);
+	WriteMethodsRecursive(fs, base_type, type.Interfaces[0].InterfaceType.Resolve(), names, ref index);
     }
 
     foreach(var member in type.Methods)
@@ -215,53 +234,53 @@ void WriteMethodsRecursive(string base_type, TypeDefinition type, HashSet<string
 	var ret_type = GetSimpleType(member.ReturnType);
 
 	var name = $"{base_type}_{member_name}";
-	Console.Write($"static inline {ret_type} {name}(base_type *this_");
+	fs.Write($"static inline {ret_type} {name}(base_type *this_");
 	if(member.Parameters.Count != 0)
 	{
-	    Console.Write(", ");
+	    fs.Write(", ");
 	}
-	Console.Write(string.Join(", ", member.Parameters.Select(arg => $"{GetParamType(arg)} {arg.Name}")));
-	Console.Write($") {{ ");
+	fs.Write(string.Join(", ", member.Parameters.Select(arg => $"{GetParamType(arg)} {arg.Name}")));
+	fs.Write($") {{ ");
 	if(ret_type != "void")
 	{
-	    Console.Write("return(");
+	    fs.Write("return(");
 	}
-	Console.Write($"(({ret_type} (WINAPI*)({base_type}*");
+	fs.Write($"(({ret_type} (WINAPI*)({base_type}*");
 	if(member.Parameters.Count != 0)
 	{
-	    Console.Write(", ");
+	    fs.Write(", ");
 	}
-	Console.Write(string.Join(", ", member.Parameters.Select(arg => GetParamType(arg))));
-	Console.Write($"))this_->v->tbl[{index}](this_");
+	fs.Write(string.Join(", ", member.Parameters.Select(arg => GetParamType(arg))));
+	fs.Write($"))this_->v->tbl[{index}](this_");
 	if(member.Parameters.Count != 0)
 	{
-	    Console.Write(", ");
+	    fs.Write(", ");
 	}
-	Console.Write(string.Join(", ", member.Parameters.Select(arg => arg.Name)));
-	Console.WriteLine($")); }}");
+	fs.Write(string.Join(", ", member.Parameters.Select(arg => arg.Name)));
+	fs.WriteLine($")); }}");
 	index++;
     }
 }
 
-void WriteMethods()
+void WriteMethods(StreamWriter fs)
 {
-    Console.WriteLine();
-    Console.WriteLine("// methods");
+    fs.WriteLine();
+    fs.WriteLine("// methods");
 
     foreach(var i in interfaces.OrderBy(i => i.Name))
     {
-	Console.WriteLine();
+	fs.WriteLine();
 	var names = new HashSet<string>();
 	uint index = 0;
-	WriteMethodsRecursive(i.Name, i, names, ref index);
+	WriteMethodsRecursive(fs, i.Name, i, names, ref index);
     }
 }
 
-void WriteFunctions()
+void WriteFunctions(StreamWriter fs)
 {
-    Console.WriteLine();
-    Console.WriteLine("// functions");
-    Console.WriteLine();
+    fs.WriteLine();
+    fs.WriteLine("// functions");
+    fs.WriteLine();
 
     int max_ret = functions.Max(f => GetSimpleType(f.ReturnType).Length);
     int max_len = functions.Max(f => f.Name.Length + 1);
@@ -272,10 +291,10 @@ void WriteFunctions()
 	// NOTE: ignoring some functions that are probably not needed for now, so that the code runs
 	if(Char.IsUpper(f.Name[0]))
 	{
-	    Console.Write($"EXTERN_C {GetSimpleType(f.ReturnType).PadRight(max_ret)} DECLSPEC_IMPORT WINAPI {f.Name.PadRight(max_len)}(");
-	    Console.Write(string.Join(", ", f.Parameters.Select(arg => $"{GetParamType(arg)} {arg.Name}")));
-	    Console.Write(") WIN_NOEXCEPT;");
-	    Console.WriteLine();
+	    fs.Write($"EXTERN_C {GetSimpleType(f.ReturnType).PadRight(max_ret)} DECLSPEC_IMPORT WINAPI {f.Name.PadRight(max_len)}(");
+	    fs.Write(string.Join(", ", f.Parameters.Select(arg => $"{GetParamType(arg)} {arg.Name}")));
+	    fs.Write(") WIN_NOEXCEPT;");
+	    fs.WriteLine();
 	}
     }
 }
@@ -288,11 +307,11 @@ void PrintAllTypesInNamespace(ModuleDefinition module, string ns)
     }
 }
 
-void Parse(ModuleDefinition module)
+void Parse(ModuleDefinition module, string out_path, string ns)
 {
     foreach(var type in module.GetTypes()
-	     .Where(type => type.Namespace == "Windows.Win32.Media.Audio")
-	     //.OrderBy(type => type.Name)
+	    .Where(type => type.Namespace == ns)
+	    //.OrderBy(type => type.Name)
     )
     {
 	var name = type.Name;
@@ -325,11 +344,18 @@ void Parse(ModuleDefinition module)
 	}
     }
 
-    WriteInterfaces();
-    WriteEnums();
-    WriteStructs();
-    WriteMethods();
-    WriteFunctions();
+    using (var fs = File.CreateText(out_path))
+    {
+	fs.WriteLine("// generated from src/os/windows/win32_metagen.cs");
+	fs.WriteLine("#include <initguid.h>");
+
+	WriteGuids(fs);
+	WriteInterfaces(fs);
+	WriteEnums(fs);
+	WriteStructs(fs);
+	WriteMethods(fs);
+	WriteFunctions(fs);
+    }
 }
 
 var fs = File.OpenRead("../../../../data/win32-metadata/Windows.Win32.winmd.gz");
@@ -339,4 +365,4 @@ gz.CopyTo(stream);
 stream.Seek(0, SeekOrigin.Begin);
 var module = ModuleDefinition.ReadModule(stream);
 //PrintAllTypesInNamespace(module, "Windows.Win32.Media.Audio");
-Parse(module);
+Parse(module, "win32_audio_defines.h", "Windows.Win32.Media.Audio");
