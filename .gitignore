@@ -15,6 +15,5 @@ src/third_party/freetype-2.13.3/*
 !src/third_party/freetype-2.13.3/include/*
 !src/third_party/freetype-2.13.3/include/**/*
 
-## todo: there should be a better place for these...
-src/os/core/Windows/bin/*
-src/os/core/Windows/obj/*
+## todo: if we find a use for windows metadata codegen, put the script somewhere more sensible
+src/os/core/Windows/*
