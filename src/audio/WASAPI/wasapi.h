@@ -6,10 +6,26 @@
 #  endif
 #endif
 
+#include <initguid.h>
 #include <combaseapi.h>
+
 #include <mmdeviceapi.h>
 #include <Audioclient.h>
 #include <Audiopolicy.h>
+
+#pragma comment(lib, "ole32.lib")
+
+// NOTE: windows doesn't provide IIDs needed here in headers or libs, so manual definition is needed
+DEFINE_GUID(IID_IMMDeviceEnumerator,
+	    0xa95664d2, 0x9614, 0x4f35, 0xa7, 0x46, 0xde, 0x8d, 0xb6, 0x36, 0x17, 0xe6);
+DEFINE_GUID(CLSID_MMDeviceEnumerator,
+	    0xBCDE0395, 0xE52F, 0x467C, 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E);
+DEFINE_GUID(IID_IAudioClient,
+	    0x1cb9ad4c, 0xdbfa, 0x4c32, 0xb1, 0x78, 0xc2, 0xf5, 0x68, 0xa7, 0x03, 0xb2);
+DEFINE_GUID(IID_IAudioRenderClient,
+	    0xf294acfc, 0x3146, 0x4483, 0xa7, 0xbf, 0xad, 0xdc, 0xa7, 0xc2, 0x60, 0xe2);
+DEFINE_GUID(IID_IAudioCaptureClient,
+	    0xc8adbd64, 0xe71e, 0x48a0, 0xa4, 0xde, 0x18, 0x5c, 0x39, 0x5c, 0xd3, 0x17);
 
 // NOTE: wasapi helpers
 // TODO: these could be generated and put in a separate file, included here
@@ -89,10 +105,15 @@ typedef struct Wasapi_State
   IMMDeviceEnumerator *device_enumerator;
   IMMDevice *input_device;
   IMMDevice *output_device;
-  IMMDevice *midi_device;
+  //IMMDevice *midi_device;
 
   IAudioClient *input_client;
   IAudioClient *output_client;
+
+  IAudioCaptureClient *source;
+  IAudioRenderClient  *sink;
+
+  HANDLE callback_event_handle;
 
   Wasapi_Port source_port;
   Wasapi_Port sink_port;
@@ -100,11 +121,15 @@ typedef struct Wasapi_State
 
   IAudioSessionControl *session;
 
+  B32 running;
   U32 sample_rate;
+  U32 output_buffer_size_in_frames;
 } Wasapi_State;
 
 global Wasapi_State *wasapi_state = 0;
 global Audio_ProcessData *global_process_data = 0;
 
-proc B32 win32_audio_init(void);
+proc B32 wasapi_init(String8 client_name);
+
+proc void wasapi_process(void);
 

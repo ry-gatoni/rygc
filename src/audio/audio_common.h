@@ -42,8 +42,12 @@ extern void audio_process(Audio_ProcessData *data);
 // NOTE: interface
 proc B32 audio_init(String8 client_name);
 proc void audio_uninit(void);
+
 proc void audio_set_user_data(void *data);
 proc U32 audio_get_sample_rate(void);
+
+proc B32 audio_start(void);
+proc B32 audio_stop(void);
 
 // NOTE: midi message handling
 proc Audio_MidiMessage* audio_next_midi_message(Audio_ProcessData *data);
