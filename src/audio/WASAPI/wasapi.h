@@ -121,6 +121,8 @@ typedef struct Wasapi_State
 
   IAudioSessionControl *session;
 
+  Os_Handle wasapi_process_thread_handle;
+
   B32 running;
   U32 sample_rate;
   U32 output_buffer_size_in_frames;
@@ -131,5 +133,6 @@ global Audio_ProcessData *global_process_data = 0;
 
 proc B32 wasapi_init(String8 client_name);
 
-proc void wasapi_process(void);
+//proc void wasapi_process(void *data);
+proc OsThreadProc(wasapi_process);
 

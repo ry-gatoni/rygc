@@ -129,18 +129,19 @@ audio_process(Audio_ProcessData *data)
     // NOTE: try to pull a node off the freelist, otherwise allocate a new one
     AudioBufferNode *node = 0;    
     while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
-    {     
+    {
+      U32 sample_count_pow2 = RoundUpPow2(sample_count);
       if(audio_buffer_list.freelist) {
 
 	node = audio_buffer_list.freelist;
-	Assert(node->buf.sample_count == sample_count);
+	Assert(node->buf.sample_count == sample_count_pow2);
 	SLLStackPop(audio_buffer_list.freelist);
       }else {
 
-	node = arena_push_struct(audio_buffer_list.arena, AudioBufferNode);
-	node->buf.sample_count = sample_count;
-	node->buf.samples[0] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
-	node->buf.samples[1] = arena_push_array(audio_buffer_list.arena, R32, sample_count);
+	node = arena_push_struct(audio_buffer_list.arena, AudioBufferNode);	
+	node->buf.sample_count = sample_count_pow2;
+	node->buf.samples[0] = arena_push_array_z(audio_buffer_list.arena, R32, sample_count_pow2);
+	node->buf.samples[1] = arena_push_array_z(audio_buffer_list.arena, R32, sample_count_pow2);
       }
     }
     while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
@@ -214,7 +215,9 @@ spectrogram_state_alloc(Arena *arena)
 
   result->sample_rate = 48000;
 
-  U32 cached_spectrum_count = 1024;
+  // TODO: make size less hacky, and handle caching multiple spectrum sizes
+  //U32 cached_spectrum_count = 1024;
+  U32 cached_spectrum_count = 2048;
   result->cached_spectrum.count = cached_spectrum_count;
   result->cached_spectrum.re = arena_push_array(arena, R32, cached_spectrum_count);
   result->cached_spectrum.im = arena_push_array(arena, R32, cached_spectrum_count);
@@ -511,139 +514,143 @@ main(int argc, char **argv)
   /*   loose_font = font_parse(scratch.arena, font_file, pt_size); */
   /* } */
 
-  if(os_gfx_init()) {
+  if(os_init()) {
+    if(os_gfx_init()) {
 
-    Os_Handle window = os_open_window(Str8Lit("spectrogram"), 640, 480);
-    if(window.handle) {      
+      Os_Handle window = os_open_window(Str8Lit("spectrogram"), 640, 480);
+      if(window.handle) {      
 
-      Arena *state_arena = arena_alloc();
-      SpectrogramState *spec_state = spectrogram_state_alloc(state_arena);
+	Arena *state_arena = arena_alloc();
+	SpectrogramState *spec_state = spectrogram_state_alloc(state_arena);
 
-      if(audio_init(Str8Lit("spectrogram audio"))) {
+	if(audio_init(Str8Lit("spectrogram audio"))) {
 
-	audio_buffer_list.arena = arena_alloc();
-	audio_set_user_data(spec_state->sine_osc_state);
-	spec_state->sample_rate = audio_get_sample_rate();
-      }
-
-      render_init(); // TODO: should check success
-      String8 font_file_path = Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf");
-      U32 font_pt_size = 32;
-      LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
-      R_Font *font = render_alloc_font(&loose_font);      
-
-      B32 running = 1;
-      Arena *frame_arena = arena_alloc();
-      while(running) {
-	
-	//Os_EventList events = os_events_from_window(window);
-	//for(Os_EventNode *event_node = events.first; event_node; event_node = event_node->next) {
-	Os_EventList events = os_events(frame_arena);
-	for(Os_Event *event = events.first; event; event = event->next) {
-	  if(event->window.handle == window.handle) {
-	    //switch(event_node->event.kind) {
-	    switch(event->kind) {
-	    case Os_EventKind_close:
-	      { running = 0; } break;
-	    default:
-	      {} break;
-	    }
-	  }
+	  audio_buffer_list.arena = arena_alloc();
+	  audio_set_user_data(spec_state->sine_osc_state);
+	  spec_state->sample_rate = audio_get_sample_rate();
 	}
+
+	render_init(); // TODO: should check success
+	String8 font_file_path = Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf");
+	U32 font_pt_size = 32;
+	LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
+	R_Font *font = render_alloc_font(&loose_font);      
+
+	B32 running = 1;
+	Arena *frame_arena = arena_alloc();
+	while(running) {
 	
-	render_equip_window(window);
-	render_begin_frame();
-
-	V2S32 window_dim = os_window_get_dim(window);
-	Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
-	V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
-	render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
-
-	draw_spectrum_grid(spec_state, window_dim, font);
-	/* render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)), */
-	/* 	    RenderLevel(label), v4(1, 1, 1, 1)); */
-	
-
-#if 0
-	// NOTE: drawing the spectrum
-	{
-	  // NOTE: try to dequeue buffers
-	  AudioBufferNode *first_node = 0;
-	  AudioBufferNode *last_node = 0;
-	  U32 buffer_count = 0;
-	  while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
-	  {
-	    first_node = audio_buffer_list.first;
-	    last_node = audio_buffer_list.last;
-	    buffer_count = (U32)audio_buffer_list.count;
-	    audio_buffer_list.first = 0;
-	    audio_buffer_list.last = 0;
-	    audio_buffer_list.count = 0;
-	  }
-	  while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
-
-	  fprintf(stderr, "dequeued %u buffers\n", buffer_count);
-
-	  // NOTE: if we dequeued buffers, draw their spectra.
-	  //       otherwise draw the cached spectrum
-	  if(first_node) {
-	    for(AudioBufferNode *node = first_node; node; node = node->next) {
-
-	      AudioBuffer *buf = &node->buf;
-	      FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
-
-#if 0
-	      // DEBUG:
-	      for(U32 sample_idx = 0; sample_idx < buf->sample_count; ++sample_idx) {
-
-		fprintf(stderr, "%4u: %.4f\n",
-			sample_idx,
-			buf->samples[0][sample_idx]);
+	  //Os_EventList events = os_events_from_window(window);
+	  //for(Os_EventNode *event_node = events.first; event_node; event_node = event_node->next) {
+	  Os_EventList events = os_events(frame_arena);
+	  for(Os_Event *event = events.first; event; event = event->next) {
+	    if(event->window.handle == window.handle) {
+	      //switch(event_node->event.kind) {
+	      switch(event->kind) {
+	      case Os_EventKind_close:
+		{ running = 0; } break;
+	      default:
+		{} break;
 	      }
-#endif
-	      // TODO: enable windowing in ui
-#if 0
-	      // NOTE: window_input
-	      // TODO: maybe don't overwrite the buffer?
-	      for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
-
-		R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
-		sample_buf.mem[sample_idx] *= window_val;
-	      }
-#endif
-
-	      ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-	      draw_spectrum(spec_state, window_dim, spectrum_buf);
-
-	      // NOTE: cache spectrum
-	      // TODO: handle the case when these have different lengths
-	      Assert(spec_state->cached_spectrum.count == spectrum_buf.count);
-	      CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
-	      CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
 	    }
-	  }else {
-
-	    draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
 	  }
+	
+	  render_equip_window(window);
+	  render_begin_frame();
 
-	  // NOTE: if we dequeued buffers, put them on the freelist
-	  if(last_node) {
+	  V2S32 window_dim = os_window_get_dim(window);
+	  Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
+	  V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
+	  render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
+
+	  draw_spectrum_grid(spec_state, window_dim, font);
+	  /* render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)), */
+	  /* 	    RenderLevel(label), v4(1, 1, 1, 1)); */
+	
+
+#if 1
+	  // NOTE: drawing the spectrum
+	  {
+	    // NOTE: try to dequeue buffers
+	    AudioBufferNode *first_node = 0;
+	    AudioBufferNode *last_node = 0;
+	    U32 buffer_count = 0;
 	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
 	    {
-	      last_node->next = audio_buffer_list.freelist;
-	      audio_buffer_list.freelist = last_node;	  
+	      first_node = audio_buffer_list.first;
+	      last_node = audio_buffer_list.last;
+	      buffer_count = (U32)audio_buffer_list.count;
+	      audio_buffer_list.first = 0;
+	      audio_buffer_list.last = 0;
+	      audio_buffer_list.count = 0;
 	    }
 	    while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
-	  }
-	}
+
+	    fprintf(stderr, "dequeued %u buffers\n", buffer_count);
+
+	    // NOTE: if we dequeued buffers, draw their spectra.
+	    //       otherwise draw the cached spectrum
+	    if(first_node) {
+	      // TODO: how to handle multiple buffer nodes?
+	      //for(AudioBufferNode *node = first_node; node; node = node->next) {
+	      for(AudioBufferNode *node = first_node; node; node = 0) {
+
+		AudioBuffer *buf = &node->buf;
+		FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+
+#if 0
+		// DEBUG:
+		for(U32 sample_idx = 0; sample_idx < buf->sample_count; ++sample_idx) {
+
+		  fprintf(stderr, "%4u: %.4f\n",
+			  sample_idx,
+			  buf->samples[0][sample_idx]);
+		}
+#endif
+		// TODO: enable windowing in ui
+#if 0
+		// NOTE: window_input
+		// TODO: maybe don't overwrite the buffer?
+		for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx) {
+
+		  R32 window_val = 0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
+		  sample_buf.mem[sample_idx] *= window_val;
+		}
 #endif
 
-	render_end_frame();
-	arena_clear(frame_arena);
-      }
+		ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
+		draw_spectrum(spec_state, window_dim, spectrum_buf);
 
-      audio_uninit();
-      os_close_window(window);
+		// NOTE: cache spectrum
+		// TODO: handle the case when these have different lengths
+		Assert(spec_state->cached_spectrum.count == spectrum_buf.count);
+		CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
+		CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
+	      }
+	    }else {
+
+	      draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
+	    }
+
+	    // NOTE: if we dequeued buffers, put them on the freelist
+	    if(last_node) {
+	      while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
+	      {
+		last_node->next = audio_buffer_list.freelist;
+		audio_buffer_list.freelist = last_node;	  
+	      }
+	      while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
+	    }
+	  }
+#endif
+
+	  render_end_frame();
+	  arena_clear(frame_arena);
+	}
+
+	audio_uninit();
+	os_close_window(window);
+      }
     }
   }
 

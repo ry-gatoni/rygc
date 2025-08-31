@@ -63,7 +63,7 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
       batch = current_batch;
       break;
     }
-  }
+  }  
 
   // NOTE: if there is not already a batch with this texture, allocate a new one and add it to the list
   if(!batch) {
@@ -75,7 +75,7 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
     }else {
       // NOTE: push a new batch onto the arena
       batch = arena_push_struct_z(commands->arena, R_Batch);
-      batch->vertex_cap = KB(32);
+      batch->vertex_cap = KB(64);
       batch->vertex_buffer = arena_push_array_z(commands->arena, R_Vertex, batch->vertex_cap);      
     }
     batch->texture = texture;
@@ -84,8 +84,9 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
   }
 
   // TODO: allocate a new batch if we go over capacity
-  Assert(batch->vertex_count + 6 <= batch->vertex_cap);
+  Assert(batch->vertex_count + 6 <= batch->vertex_cap);  
 
+  // TODO: do the transform in the shader
   // NOTE: convert from pixel coords (0, window width/height) to ndc coords (-1, 1)
   // TODO: different coordinates for different graphics backends?
   R32 ndc_min_x = 2.f*rect.min.x/(R32)commands->window_dim.width  - 1.f;

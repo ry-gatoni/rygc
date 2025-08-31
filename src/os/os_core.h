@@ -26,6 +26,8 @@ typedef OsThreadProc(Os_ThreadProc);
 #  error TODO: mac
 #endif
 
+proc B32 os_init(void);
+
 // NOTE: os memory functions
 proc void* os_mem_reserve(U64 size);
 proc B32 os_mem_commit(void *mem, U64 size);

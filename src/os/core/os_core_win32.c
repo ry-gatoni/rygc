@@ -4,6 +4,7 @@ win32_init(void)
 {
   Arena *arena = arena_alloc();
   w32_state = arena_push_struct(arena, Win32_State);
+  w32_state->arena = arena;
   B32 result = w32_state != 0;
   return(result);
 }
@@ -32,6 +33,14 @@ w32_thread_entry_point(void *param)
   Win32_ThreadInfo *thread_info = param;
   thread_info->procedure(thread_info->data);
   return(0);
+}
+
+// NOTE: os functions
+proc B32
+os_init(void)
+{
+  B32 result = win32_init();
+  return(result);
 }
 
 // NOTE: os memory functions

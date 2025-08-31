@@ -13,3 +13,28 @@ proc U64 cpu_get_cycle_count(void);
 #else
 #  error ERROR: unsupported os
 #endif
+
+#if COMPILER_CLANG || COMPILER_GCC
+#  define MSB(n) (8*sizeof(void*)-1 - __builtin_clz((n)|1))
+#  define LSB(n) (__builtin_ctz((n)|1) + 1)
+#elif COMPILER_MSVC
+#  include <intrin.h>
+static inline U32
+msb_helper(U64 num)
+{
+  U32 index = 0;
+  _BitScanReverse64(&index, num | 1);
+  return(index);
+}
+static inline U32
+lsb_helper(U64 num)
+{
+  U32 index = 0;
+  _BitScanForward64(&index, num | 1);
+  return(index);
+}
+#  define MSB(n) msb_helper(n)
+#  define LSB(n) lsb_helper(n)
+#else
+#  error compiler not implemented
+#endif
