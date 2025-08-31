@@ -76,7 +76,7 @@ win32_ogl_init(void)
     UINT fmt_count = 0;
     BOOL success = wglChoosePixelFormatARB(dc, pf_attribs, 0, 1, &pf, &fmt_count);
     Assert(success);
-    w32_state->pf = pf;
+    w32_gfx_state->pf = pf;
   }
 
   // NOTE: make real context
@@ -87,8 +87,8 @@ win32_ogl_init(void)
       //WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
       0,
     };
-    w32_state->gfx_ctxt = wglCreateContextAttribsARB(dc, glrc, ctxt_attribs);
-    wglMakeCurrent(dc, w32_state->gfx_ctxt);
+    w32_gfx_state->gfx_ctxt = wglCreateContextAttribsARB(dc, glrc, ctxt_attribs);
+    wglMakeCurrent(dc, w32_gfx_state->gfx_ctxt);
   }
 
   // NOTE: load opengl functions

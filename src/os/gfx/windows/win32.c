@@ -1,4 +1,4 @@
-global Win32State *w32_state = 0;
+global Win32_GfxState *w32_gfx_state = 0;
 global wchar_t w32_class_name[] = L"os-gfx-win32-class";
 global Os_EventList *os_event_list = 0;
 global Arena *event_arena = 0;
@@ -9,7 +9,7 @@ win32_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   // TODO: implement event handling
   LRESULT result = 0;
   if(os_event_list != 0 && event_arena != 0) {
-    Win32Window *w32_window = win32_window_from_hwnd(hwnd);
+    Win32_Window *w32_window = win32_window_from_hwnd(hwnd);
     Os_Handle window = win32_handle_from_window(w32_window);
     B32 release = 0;
     switch(msg)
@@ -98,12 +98,12 @@ win32_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   return(result);
 }
 
-proc Win32Window*
+proc Win32_Window*
 win32_window_from_hwnd(HWND hwnd)
 {
   // TODO: accelerate this lookup?
-  Win32Window *result = 0;
-  for(Win32Window *w = w32_state->first_window; w; w = w->next) {
+  Win32_Window *result = 0;
+  for(Win32_Window *w = w32_gfx_state->first_window; w; w = w->next) {
     if(w->hwnd == hwnd) {
       result = w;
       break;
@@ -113,7 +113,7 @@ win32_window_from_hwnd(HWND hwnd)
 }
 
 proc Os_Handle
-win32_handle_from_window(Win32Window *window)
+win32_handle_from_window(Win32_Window *window)
 {
   Os_Handle result = {0};
   result.handle = window;
@@ -129,59 +129,59 @@ win32_push_event(Os_EventKind kind, Os_Handle window)
 }
 
 proc B32
-win32_init(void)
+win32_gfx_init(void)
 {
   Arena *arena = arena_alloc();
-  w32_state = arena_push_struct(arena, Win32State);
-  w32_state->arena = arena;
-  w32_state->h_instance = GetModuleHandle(0);
+  w32_gfx_state = arena_push_struct(arena, Win32_GfxState);
+  w32_gfx_state->arena = arena;
+  w32_gfx_state->h_instance = GetModuleHandle(0);
 
   // NOTE: register window class
   {
     WNDCLASS wnd_class = {0};
     wnd_class.lpfnWndProc = win32_window_proc;
-    wnd_class.hInstance = w32_state->h_instance;
+    wnd_class.hInstance = w32_gfx_state->h_instance;
     wnd_class.lpszClassName = (LPCSTR)w32_class_name;
     RegisterClass(&wnd_class);
   }
 
   // TODO: opengl initialization
   B32 ogl_init_result = ogl_init();
-  B32 result = (w32_state != 0) && ogl_init_result;
+  B32 result = (w32_gfx_state != 0) && ogl_init_result;
   return(result);
 }
 
-proc Win32Window*
+proc Win32_Window*
 win32_alloc_window(void)
 {
-  Win32Window *result = 0;
-  if(w32_state) {
-    if(w32_state->window_freelist) {
-      result = w32_state->window_freelist;
-      SLLStackPop(w32_state->window_freelist);
+  Win32_Window *result = 0;
+  if(w32_gfx_state) {
+    if(w32_gfx_state->window_freelist) {
+      result = w32_gfx_state->window_freelist;
+      SLLStackPop(w32_gfx_state->window_freelist);
     }else {
-      result = arena_push_struct(w32_state->arena, Win32Window);
+      result = arena_push_struct(w32_gfx_state->arena, Win32_Window);
     }
     if(result) {
-      DLLPushBack(w32_state->first_window, w32_state->last_window, result);
+      DLLPushBack(w32_gfx_state->first_window, w32_gfx_state->last_window, result);
     }
   }
   return(result);
 }
 
 proc void
-win32_destroy_window(Win32Window *window)
+win32_destroy_window(Win32_Window *window)
 {
-  if(w32_state) {
-    DLLRemove(w32_state->first_window, w32_state->last_window, window);
-    SLLStackPush(w32_state->window_freelist, window);
+  if(w32_gfx_state) {
+    DLLRemove(w32_gfx_state->first_window, w32_gfx_state->last_window, window);
+    SLLStackPush(w32_gfx_state->window_freelist, window);
   }
 }
 
-proc Win32Window*
+proc Win32_Window*
 win32_open_window(String8 name, S32 width, S32 height)
 {
-  Win32Window *window = win32_alloc_window();
+  Win32_Window *window = win32_alloc_window();
   if(window) {
     ArenaTemp scratch = arena_get_scratch(0, 0);
     String16 name_w = str16_from_str8(scratch.arena, name);
@@ -190,12 +190,12 @@ win32_open_window(String8 name, S32 width, S32 height)
     window->hwnd =
       CreateWindowEx(0, (LPCSTR)w32_class_name, (LPCSTR)name_w.string, WS_OVERLAPPEDWINDOW,
 		     CW_USEDEFAULT, CW_USEDEFAULT, width, height,
-		     0, 0, w32_state->h_instance, 0);    
+		     0, 0, w32_gfx_state->h_instance, 0);    
     {
       HDC dc = GetDC(window->hwnd);
       PIXELFORMATDESCRIPTOR pfd = {0};
-      SetPixelFormat(dc, w32_state->pf, &pfd);
-      BOOL success = wglMakeCurrent(dc, w32_state->gfx_ctxt);
+      SetPixelFormat(dc, w32_gfx_state->pf, &pfd);
+      BOOL success = wglMakeCurrent(dc, w32_gfx_state->gfx_ctxt);
       if(!success) {
 	DWORD error = GetLastError();
 	char *error_message;
@@ -214,10 +214,10 @@ win32_open_window(String8 name, S32 width, S32 height)
 }
 
 proc B32
-win32_begin_frame(Win32Window *window)
+win32_begin_frame(Win32_Window *window)
 {
   /* HDC dc = GetDC(window->hwnd); */
-  /* BOOL result = wglMakeCurrent(dc, w32_state->gfx_ctxt); */
+  /* BOOL result = wglMakeCurrent(dc, w32_gfx_state->gfx_ctxt); */
   /* if(!result) { */
   /*   DWORD error = GetLastError(); */
   /*   char *error_message; */
@@ -232,7 +232,7 @@ win32_begin_frame(Win32Window *window)
 }
 
 proc B32
-win32_end_frame(Win32Window *window)
+win32_end_frame(Win32_Window *window)
 {
   BOOL swapped = SwapBuffers(window->dc);
   Assert(swapped);
@@ -242,7 +242,7 @@ win32_end_frame(Win32Window *window)
 }
 
 proc void
-win32_close_window(Win32Window *window)
+win32_close_window(Win32_Window *window)
 {
   DestroyWindow(window->hwnd);  
   win32_destroy_window(window);
@@ -252,14 +252,14 @@ win32_close_window(Win32Window *window)
 proc B32
 os_gfx_init(void)
 {
-  B32 result = win32_init();
+  B32 result = win32_gfx_init();
   return(result);
 }
 
 proc Os_Handle
 os_open_window(String8 name, S32 width, S32 height)
 {
-  Win32Window *window = win32_open_window(name, width, height);
+  Win32_Window *window = win32_open_window(name, width, height);
   Os_Handle result = {0};
   result.handle = window;
   return(result);
@@ -300,7 +300,7 @@ os_events(Arena *arena)
 proc V2S32
 os_window_get_dim(Os_Handle window)
 {
-  Win32Window *w32_window = window.handle;
+  Win32_Window *w32_window = window.handle;
   V2S32 result = w32_window->dim;
   return(result);
 }

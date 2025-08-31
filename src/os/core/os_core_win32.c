@@ -1,3 +1,39 @@
+// NOTE: windows helpers/state management
+proc B32
+win32_init(void)
+{
+  Arena *arena = arena_alloc();
+  w32_state = arena_push_struct(arena, Win32_State);
+  B32 result = w32_state != 0;
+  return(result);
+}
+
+proc Win32_ThreadInfo*
+win32_alloc_thread_info(void)
+{
+  Assert(w32_state);
+  Win32_ThreadInfo *result = 0;
+  if(w32_state->thread_info_freelist) {
+    result = w32_state->thread_info_freelist;
+    SLLStackPop(w32_state->thread_info_freelist);
+  }else {
+    result = arena_push_struct(w32_state->arena, Win32_ThreadInfo);
+  }
+  SLLQueuePush(w32_state->first_thread_info, w32_state->last_thread_info, result);
+  ++w32_state->thread_info_count;
+
+  return(result);
+}
+
+proc DWORD WINAPI
+w32_thread_entry_point(void *param)
+{
+  Assert(param);
+  Win32_ThreadInfo *thread_info = param;
+  thread_info->procedure(thread_info->data);
+  return(0);
+}
+
 // NOTE: os memory functions
 proc void*
 os_mem_reserve(U64 size)
@@ -26,6 +62,7 @@ os_mem_release(void *mem, U64 size)
   VirtualFree(mem, size, MEM_RELEASE);
 }
 
+// NOTE: os file functions
 proc Os_Handle
 os_file_open(String8 path, Os_FileOpenFlags flags)
 {
@@ -114,7 +151,6 @@ os_file_write(Buffer file_contents, Os_Handle file)
   return(result);
 }
 
-// NOTE: os file functions
 proc String8
 os_read_entire_file(Arena *arena, String8 path)
 {  
@@ -136,5 +172,19 @@ os_write_entire_file(String8 file, String8 path)
   file_contents.mem = file.string;
   file_contents.size = file.count;
   B32 result = os_file_write(file_contents, file_handle);
+  return(result);
+}
+
+// NOTE: os thread functions
+proc Os_Handle
+os_thread_launch(Os_ThreadProc *procedure, void *data)
+{
+  Win32_ThreadInfo *thread_info = win32_alloc_thread_info();
+  thread_info->procedure = procedure;
+  thread_info->data = data;
+  thread_info->handle = CreateThread(0, 0, w32_thread_entry_point, thread_info, 0, &thread_info->id); 
+  
+  Os_Handle result = {0};
+  result.handle = thread_info;
   return(result);
 }

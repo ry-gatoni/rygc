@@ -15,6 +15,9 @@ typedef struct Os_FileAttributes
   U64 size;
 } Os_FileAttributes;
 
+#define OsThreadProc(name) void (name)(void *data);
+typedef OsThreadProc(Os_ThreadProc);
+
 #if OS_LINUX
 #  include "os_core_linux.h"
 #elif OS_WINDOWS
@@ -38,3 +41,6 @@ proc B32 os_file_write(Buffer file_contents, Os_Handle file);
 // TODO: replace file contents strings with buffers
 proc String8 os_read_entire_file(Arena *arena, String8 path);
 proc B32 os_write_entire_file(String8 file, String8 path);
+
+// NOTE: thread functions
+proc Os_Handle os_thread_launch(Os_ThreadProc *procedure, void *data);
