@@ -99,6 +99,8 @@ proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);
 
 proc Rect2 rect2_offset(Rect2 rect, V2 offset);
 
+proc V2 rect2_center(Rect2 rect);
+
 // NOTE: matrices
 typedef union Mat3
 {
@@ -118,4 +120,5 @@ proc Mat3 mat3_id(void);
 proc Mat4 mat4(V4 c0, V4 c1, V4 c2, V4 c3);
 proc Mat4 mat4_id(void);
 proc Mat4 mat4_yflip(void);
+proc Mat4 mat4_screen_transform_ndc(V2S32 dim);
 

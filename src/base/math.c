@@ -270,6 +270,13 @@ rect2_offset(Rect2 rect, V2 offset)
   return(result);
 }
 
+proc V2
+rect2_center(Rect2 rect)
+{
+  V2 result = v2_lmul(0.5f, v2_sub(rect.max, rect.min));
+  return(result);
+}
+
 // NOTE: matrices
 proc Mat3
 mat3(V3 c0, V3 c1, V3 c2)
@@ -310,4 +317,16 @@ mat4_yflip(void)
 		     v4(0,  0,  1,  0),
 		     v4(0,  0,  0,  1));
   return(result);
+}
+
+proc Mat4
+mat4_screen_transform_ndc(V2S32 dim)
+{
+  R32 a = 2.f/(R32)dim.width;
+  R32 b = 2.f/(R32)dim.height;
+  Mat4 result = mat4(v4( a,  0,  0,  0),
+		     v4( 0,  b,  0,  0),
+		     v4( 0,  0,  1,  0),
+		     v4(-1, -1,  0,  1));
+  return(result);  
 }

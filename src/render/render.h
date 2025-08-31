@@ -44,7 +44,7 @@ typedef struct R_Commands
   Os_Handle window;
 
   V2S32 window_dim;
-  V2 ndc_scale;
+  //V2 ndc_scale;
   Mat4 transform;
 
   R_Batch *first_batch;

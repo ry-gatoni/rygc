@@ -38,10 +38,10 @@ render_begin_frame(void)
   os_window_begin_frame(commands->window);
 
   commands->window_dim = os_window_get_dim(commands->window);
-  commands->ndc_scale = v2(2.f/(R32)commands->window_dim.width,
-			   2.f/(R32)commands->window_dim.height);
-  commands->transform = mat4_yflip();
+  //commands->transform = mat4_yflip();
   //commands->transform = mat4_id();
+  // TODO: different transforms for different rendering backends??
+  commands->transform = mat4_screen_transform_ndc(commands->window_dim);
 }
 
 proc void
@@ -86,29 +86,26 @@ render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color)
   // TODO: allocate a new batch if we go over capacity
   Assert(batch->vertex_count + 6 <= batch->vertex_cap);  
 
-  // TODO: do the transform in the shader
-  // NOTE: convert from pixel coords (0, window width/height) to ndc coords (-1, 1)
-  // TODO: different coordinates for different graphics backends?
-  R32 ndc_min_x = 2.f*rect.min.x/(R32)commands->window_dim.width  - 1.f;
-  R32 ndc_max_x = 2.f*rect.max.x/(R32)commands->window_dim.width  - 1.f;
-  R32 ndc_min_y = 2.f*rect.min.y/(R32)commands->window_dim.height - 1.f;
-  R32 ndc_max_y = 2.f*rect.max.y/(R32)commands->window_dim.height - 1.f;
+  R32 min_x = rect.min.x;
+  R32 max_x = rect.max.x;
+  R32 min_y = rect.min.y;
+  R32 max_y = rect.max.y;
 
   U32 color_u32 = color_u32_from_v4(color);
   R_Vertex v00 = {0};
-  v00.pos = v3(ndc_min_x, ndc_min_y, level);
+  v00.pos = v3(min_x, min_y, level);
   v00.uv = uv.min;
   v00.color = color_u32;
   R_Vertex v01 = {0};
-  v01.pos = v3(ndc_min_x, ndc_max_y, level);
+  v01.pos = v3(min_x, max_y, level);
   v01.uv = v2(uv.min.x, uv.max.y);
   v01.color = color_u32;
   R_Vertex v10 = {0};
-  v10.pos = v3(ndc_max_x, ndc_min_y, level);
+  v10.pos = v3(max_x, min_y, level);
   v10.uv = v2(uv.max.x, uv.min.y);
   v10.color = color_u32;
   R_Vertex v11 = {0};
-  v11.pos = v3(ndc_max_x, ndc_max_y, level);
+  v11.pos = v3(max_x, max_y, level);
   v11.uv = uv.max;
   v11.color = color_u32;
 

@@ -219,17 +219,21 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
 
       U16 src_pixel_size = dib.dsBm.bmBitsPixel/8;
       U32 src_stride = dib.dsBm.bmWidthBytes;
-      U8 *src = (U8*)dib.dsBm.bmBits + bounding_box.top*src_stride + bounding_box.left*src_pixel_size;
-      U8 *dest = glyph->bitmap;
+      U8 *src_row = ((U8*)dib.dsBm.bmBits +
+		     (bounding_box.top + glyph->height - 1)*src_stride +
+		     bounding_box.left*src_pixel_size);
+      U8 *dest_row = glyph->bitmap;
       for(S32 y = 0; y < glyph->height; ++y) {
 
-	U8 *src_pixel = src + y*src_stride;
-	U8 *dest_pixel = dest + y*glyph->stride;
+	U8 *src_pixel = src_row;
+	U8 *dest_pixel = dest_row;
 	for(S32 x = 0; x < glyph->width; ++x) {
 	  *dest_pixel = *src_pixel;
 	  dest_pixel += 1;
 	  src_pixel += src_pixel_size;
 	}
+	src_row -= src_stride;
+	dest_row += glyph->stride;
       }
       
       SLLQueuePush(first_glyph, last_glyph, glyph);

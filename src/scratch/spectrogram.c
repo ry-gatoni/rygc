@@ -308,13 +308,13 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 
   U32 current_freq = 0;
   U32 freq_line_thickness_px = 5;
-  R32 freq_line_thickness = render_commands->ndc_scale.x * freq_line_thickness_px;
+  //R32 freq_line_thickness = render_commands->ndc_scale.x * freq_line_thickness_px;
   R32 freq_line_space = 2.f/(R32)freq_line_count;
   V2 freq_line_pos = v2(-1, 0);
   V2 freq_label_pos = v2(-0.99f, -0.95f);
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
-    Rect2 freq_line = rect2_center_dim(freq_line_pos, v2(freq_line_thickness, 2.f));
+    Rect2 freq_line = rect2_center_dim(freq_line_pos, v2((R32)freq_line_thickness_px, 2.f));
     render_rect(0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
@@ -327,13 +327,13 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 
   U32 current_amp = 0;
   U32 amp_line_thickness_px = 5;
-  R32 amp_line_thickness = render_commands->ndc_scale.y * amp_line_thickness_px;
+  //R32 amp_line_thickness = render_commands->ndc_scale.y * amp_line_thickness_px;
   R32 amp_line_space = 2.f/(R32)amp_line_count;
   V2 amp_line_pos = v2(0, -1);
   V2 amp_label_pos = v2( -0.95f, -0.99f);
   for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
-    Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, amp_line_thickness));
+    Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, (R32)amp_line_thickness_px));
     render_rect(0, amp_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
@@ -562,6 +562,8 @@ main(int argc, char **argv)
 	  Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
 	  V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
 	  render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
+
+	  render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
 
 	  draw_spectrum_grid(spec_state, window_dim, font);
 	  /* render_rect(&font->atlas, screen_rect, rect2(v2(0, 0), v2(1, 1)), */
