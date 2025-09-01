@@ -1,3 +1,53 @@
+# TODO (September 2025)
+- os/gfx module
+  - [] smooth resizing (wayland, windows)
+  - [] drag and drop (wayland, windows)
+  - [] finish keyboard/mouse input (wayland, windows)
+  - [] generalize graphics library usage/initialization (wayland)
+  - [] clean up event handling (wayland)
+  
+- render module
+  - [] render lines/curves
+  - [] more ergonomic render functions (introduce seaparate draw module?)
+  - [] instancing
+  - [] d3d11 backend on windows
+  
+- font module
+  - [] better glyph metric extraction (windows/directwrite)
+  - [X] freetype on windows
+
+- audio module
+  - [] get sample rate from audio backend (windows/wasapi)
+  - [] support changing sample rate (wasapi, jack)
+  - [] support changing connected audio devices (and overriding defaults) (wasapi, jack)
+  - [] get/set audio device latency (wasapi, jack)
+  - [] route audio (wasapi)
+  - [] midi (wasapi)
+  - [] how to support midi sysex? (jack)
+  
+- spectrogram example
+  - [] lines instead of rectangles
+  - [] visualize phase
+  - [] add ui
+  - [] store spectra per frame, display spectrogram
+  - [] more resilient spectrum caching
+
+- [] logging system
+- [] ui layout module
+- [] plugin loading system
+- [] way of denoting which functions are implemented in another layer
+- [] input fuzzing
+- [] profiler
+- [] file format parsing/writing module
+- [] file streaming
+- [] thread pool
+- [] pseudo random number generation
+- [] clean up os include situation, come up with consistent naming scheme
+- [] macos port
+- [] port old projects (physical models, granade)
+- [] C bindings for VST3 SDK
+- [] OpenGL function loading before main
+
 # TODO (August 2025)
 - os/gfx module
     - [X] create generalization layer w/ multiple backends (Wayland, X11, Windows, Mac)

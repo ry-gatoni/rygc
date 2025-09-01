@@ -504,16 +504,6 @@ main(int argc, char **argv)
   int result = 0;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  //LooseFont loose_font = {0};  
-  
-  /* String8 font_file_path = Str8Lit("/usr/share/fonts/liberation-mono-fonts/LiberationMono-Regular.ttf"); */
-  /* String8 font_file = os_read_entire_file(scratch.arena, font_file_path); */
-  /* if(font_file.count) { */
-
-  /*   U32 pt_size = 32; */
-  /*   loose_font = font_parse(scratch.arena, font_file, pt_size); */
-  /* } */
-
   if(os_init()) {
     if(os_gfx_init()) {
 
@@ -531,7 +521,7 @@ main(int argc, char **argv)
 	}
 
 	render_init(); // TODO: should check success
-	String8 font_file_path = Str8Lit("C:\\Windows\\Fonts\\LiberationMono-Regular.ttf");
+	String8 font_file_path = Str8Lit(DATA_DIR"/font/LiberationMono-Regular.ttf");
 	U32 font_pt_size = 32;
 	LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
 	R_Font *font = render_alloc_font(&loose_font);      

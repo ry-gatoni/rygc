@@ -5,9 +5,8 @@ typedef struct Os_Handle
 
 typedef enum Os_FileOpenFlags
 {
-  Os_FileOpenFlag_read,
-  Os_FileOpenFlag_write,
-  Os_FileOpenFlag_Count,
+  Os_FileOpenFlag_read  = (1 << 0),
+  Os_FileOpenFlag_write = (1 << 1),
 } Os_FileOpenFlags;
 
 typedef struct Os_FileAttributes

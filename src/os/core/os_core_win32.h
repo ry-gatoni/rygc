@@ -32,3 +32,5 @@ proc B32 win32_init(void);
 proc Win32_ThreadInfo* win32_alloc_thread_info(void);
 
 proc DWORD WINAPI w32_thread_entry_point(void *param);
+
+#define Win32LogError(err) do { char *msg = 0; FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM, 0, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msg, 0, 0); OutputDebugStringA(msg); } while(0)

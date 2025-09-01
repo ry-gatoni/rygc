@@ -77,9 +77,12 @@ os_file_open(String8 path, Os_FileOpenFlags flags)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
   String16 pathw = str16_from_str8(scratch.arena, path);
+  DWORD attr = GetFileAttributesW(pathw.string);
+  Unused(attr);
 
   DWORD access_flags = 0;
   DWORD share_flags = 0;
+  DWORD creation_disposition = OPEN_EXISTING;
   if(flags & Os_FileOpenFlag_read) {
     access_flags |= GENERIC_READ;
     share_flags |= FILE_SHARE_READ;
@@ -87,9 +90,15 @@ os_file_open(String8 path, Os_FileOpenFlags flags)
   if(flags & Os_FileOpenFlag_write) {
     access_flags |= GENERIC_WRITE;
     share_flags |= FILE_SHARE_WRITE;
+    creation_disposition = CREATE_ALWAYS;
   }
 
-  HANDLE handle = CreateFile((LPCSTR)pathw.string, access_flags, share_flags, 0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
+  HANDLE handle = CreateFileW((LPCWSTR)pathw.string, access_flags, share_flags, 0, creation_disposition, FILE_ATTRIBUTE_NORMAL, 0);
+  /* HANDLE handle = CreateFileW((LPCWSTR)pathw.string, access_flags, share_flags, 0, creation_disposition, 0, 0); */
+  if(handle == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    Win32LogError(err);
+  }
   arena_release_scratch(scratch);
   
   Os_Handle result = {0};
@@ -111,11 +120,23 @@ os_file_attributes(Os_Handle file)
 
 proc Buffer
 os_file_read(Arena *arena, Os_Handle file, U64 size)
-{
+{  
   U8 *contents = arena_push_array(arena, U8, size + 1);
   contents[size] = 0;
 
   HANDLE handle = file.handle;
+#if 0
+  {
+    LARGE_INTEGER move = {0};
+    LARGE_INTEGER new_pointer = {0};
+    DWORD set_file_pointer_result = SetFilePointerEx(handle, move, &new_pointer, FILE_CURRENT);
+    if(set_file_pointer_result == INVALID_SET_FILE_POINTER) {
+      DWORD err = GetLastError();
+      Win32LogError(err);
+    }
+  }
+#endif
+  
   U64 bytes_to_read = size;
   U8 *contents_at = contents;
   while(bytes_to_read) {
@@ -126,6 +147,8 @@ os_file_read(Arena *arena, Os_Handle file, U64 size)
       arena_pop(arena, size + 1);
       contents = 0;
       size = 0;
+      DWORD err = GetLastError();
+      Win32LogError(err);
       break;
     }
     bytes_to_read -= bytes_read;
