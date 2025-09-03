@@ -191,6 +191,7 @@ typedef struct SpectrogramState
   RangeR32 db_rng;
 
   U32 sample_rate;
+  U32 spectrum_sample_count;
 
   ComplexBuffer cached_spectrum;
 } SpectrogramState;
@@ -217,10 +218,10 @@ spectrogram_state_alloc(Arena *arena)
 
   // TODO: make size less hacky, and handle caching multiple spectrum sizes
   //U32 cached_spectrum_count = 1024;
-  U32 cached_spectrum_count = 2048;
-  result->cached_spectrum.count = cached_spectrum_count;
-  result->cached_spectrum.re = arena_push_array(arena, R32, cached_spectrum_count);
-  result->cached_spectrum.im = arena_push_array(arena, R32, cached_spectrum_count);
+  result->spectrum_sample_count = 2048;
+  result->cached_spectrum.count = result->spectrum_sample_count;
+  result->cached_spectrum.re = arena_push_array(arena, R32, result->spectrum_sample_count);
+  result->cached_spectrum.im = arena_push_array(arena, R32, result->spectrum_sample_count);
 
   return(result);
 }
@@ -637,12 +638,18 @@ main(int argc, char **argv)
 		}
 #endif
 
-		ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
+		Assert(sample_buf.count <= spec_state->cached_spectrum.count);
+		FloatBuffer spectrum_in = {0};
+		spectrum_in.count = spec_state->cached_spectrum.count;
+		spectrum_in.mem = arena_push_array_z(frame_arena, R32, spec_state->cached_spectrum.count);
+		CopyArray(spectrum_in.mem, sample_buf.mem, R32, sample_buf.count);
+		//ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
+		ComplexBuffer spectrum_buf = fft_re(frame_arena, spectrum_in);
 		draw_spectrum(spec_state, window_dim, spectrum_buf);
 
 		// NOTE: cache spectrum
 		// TODO: handle the case when these have different lengths
-		Assert(spec_state->cached_spectrum.count == spectrum_buf.count);
+		//Assert(spec_state->cached_spectrum.count >= spectrum_buf.count);
 		CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
 		CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
 	      }
