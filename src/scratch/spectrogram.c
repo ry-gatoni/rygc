@@ -112,13 +112,15 @@ audio_process(Audio_ProcessData *data)
     for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx) {      
 
       R32 sine_sample = sine_state->volume * sinf(sine_state->phasor);
-      mix_buffer[sample_idx] += sine_sample;
+      //mix_buffer[sample_idx] += 0.5f*sine_sample;
 
       R32 step = TAU32 * freq_buffer[sample_idx] * data->sample_period;
       sine_state->phasor += step;
       if(sine_state->phasor > TAU32) {
 	sine_state->phasor -= TAU32;
       }
+
+      mix_buffer[sample_idx] += data->input[0][sample_idx];
     }
 
     // NOTE: output samples

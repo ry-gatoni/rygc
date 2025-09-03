@@ -18,8 +18,9 @@
   - [] Check dwrite glyph rasterization; it looks like some glyphs are off-by-one
 
 - audio module
-  - [] route audio (wasapi)
-  - [] get sample rate from audio backend (windows/wasapi)
+  - [X] route audio (wasapi)
+  - [X] get sample rate from audio backend (windows/wasapi)
+  - [] fix wasapi input noise
   - [] support changing sample rate (wasapi, jack)
   - [] support changing connected audio devices (and overriding defaults) (wasapi, jack)
   - [] get/set audio device latency (wasapi, jack)

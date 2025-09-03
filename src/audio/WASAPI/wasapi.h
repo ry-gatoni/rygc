@@ -110,9 +110,12 @@ typedef struct Wasapi_State
   IAudioClient *input_client;
   IAudioClient *output_client;
 
-  IAudioCaptureClient *source;
-  IAudioRenderClient  *sink;
+  WAVEFORMATEXTENSIBLE *source_fmt;
+  IAudioCaptureClient  *source;
 
+  WAVEFORMATEXTENSIBLE *sink_fmt;
+  IAudioRenderClient   *sink;
+  
   HANDLE callback_event_handle;
 
   Wasapi_Port source_port;
@@ -124,7 +127,7 @@ typedef struct Wasapi_State
   Os_Handle wasapi_process_thread_handle;
 
   B32 running;
-  U32 sample_rate;
+  //U32 sample_rate;
   U32 output_buffer_size_in_frames;
 } Wasapi_State;
 

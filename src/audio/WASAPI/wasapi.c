@@ -128,45 +128,59 @@ wasapi_init(String8 client_name)
 			       (void**)&wasapi_state->output_client);
     WasapiInitCheckErrorPtr(wasapi_state->output_client);
 
-    // NOTE: initialize input/output clients 
-    U32 source_buffer_count = 0;
-    WAVEFORMATEXTENSIBLE *source_fmt = 0;
-    error = IAudioClient_GetMixFormat(wasapi_state->input_client, &(WAVEFORMATEX*)source_fmt);
+    // NOTE: get input/output format; try to get formats to match
+    error = IAudioClient_GetMixFormat(wasapi_state->output_client,
+				      &(WAVEFORMATEX*)wasapi_state->sink_fmt);
     WasapiInitCheckError();
+    error = IAudioClient_IsFormatSupported(wasapi_state->input_client,
+					   AUDCLNT_SHAREMODE_SHARED,
+					   (WAVEFORMATEX*)wasapi_state->sink_fmt,
+					   &(WAVEFORMATEX*)wasapi_state->source_fmt);
+    if(error == S_FALSE) {
+      error = IAudioClient_IsFormatSupported(wasapi_state->output_client,
+					   AUDCLNT_SHAREMODE_SHARED,
+					   (WAVEFORMATEX*)wasapi_state->source_fmt,
+					   &(WAVEFORMATEX*)wasapi_state->sink_fmt);
+      if(error == S_FALSE) {
+	error = S_OK;
+      }
+    }
+    WasapiInitCheckError();
+
+    // NOTE: Initialize input/output streams
     error = IAudioClient_Initialize(wasapi_state->input_client,
 				    AUDCLNT_SHAREMODE_SHARED,
 				    0,
 				    100000,
 				    0,
-				    (WAVEFORMATEX*)source_fmt,
+				    (WAVEFORMATEX*)wasapi_state->source_fmt,
 				    0);
-				    //(LPCGUID)&wasapi_state->session);
-    WasapiInitCheckError();
-    error = IAudioClient_GetBufferSize(wasapi_state->input_client, &source_buffer_count);
-    WasapiInitCheckError();
-    error = IAudioClient_GetService(wasapi_state->input_client, &IID_IAudioCaptureClient,
-				    (void**)&wasapi_state->source);
-    WasapiInitCheckErrorPtr(wasapi_state->source);
-
-    U32 sink_buffer_count = 0;
-    WAVEFORMATEXTENSIBLE *sink_fmt = 0;    
-    error = IAudioClient_GetMixFormat(wasapi_state->output_client, &(WAVEFORMATEX*)sink_fmt);
     WasapiInitCheckError();
     error = IAudioClient_Initialize(wasapi_state->output_client,
 				    AUDCLNT_SHAREMODE_SHARED,
 				    AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
 				    100000,
 				    0,
-				    (WAVEFORMATEX*)sink_fmt,
+				    (WAVEFORMATEX*)wasapi_state->sink_fmt,
 				    0);
-				    //(LPCGUID)&wasapi_state->session);
     WasapiInitCheckError();
+
+    // NOTE: get input/output buffer counts:
+    U32 source_buffer_count = 0;
+    error = IAudioClient_GetBufferSize(wasapi_state->input_client, &source_buffer_count);
+    WasapiInitCheckError();            
+    U32 sink_buffer_count = 0;
     error = IAudioClient_GetBufferSize(wasapi_state->output_client, &sink_buffer_count);
     WasapiInitCheckError();
+    wasapi_state->output_buffer_size_in_frames = sink_buffer_count;
+
+    // NOTE: get source/sink
+    error = IAudioClient_GetService(wasapi_state->input_client, &IID_IAudioCaptureClient,
+				    (void**)&wasapi_state->source);
+    WasapiInitCheckErrorPtr(wasapi_state->source);
     error = IAudioClient_GetService(wasapi_state->output_client, &IID_IAudioRenderClient,
 				    (void**)&wasapi_state->sink);
-    WasapiInitCheckErrorPtr(wasapi_state->sink);
-    wasapi_state->output_buffer_size_in_frames = sink_buffer_count;
+    WasapiInitCheckErrorPtr(wasapi_state->sink);    
 
     // NOTE: set up callback event
     ArenaTemp scratch = arena_get_scratch(0, 0);
@@ -201,20 +215,20 @@ wasapi_process(void *data)
 {
   Unused(data);
   HRESULT result = 0;
-
-  R32 sample_period = 1.f/48000.f;
+#if 0
+  R32 sample_period = 1.f/(R32)wasapi_state->sink_fmt->Format.nSamplesPerSec;//48000.f;
   R32 samples[109] = {0};
   for(U32 sample_idx = 0; sample_idx < ArrayCount(samples); ++sample_idx) {
     samples[sample_idx] = 0.1f*sinf(440.f * (R32)sample_idx * TAU32 * sample_period);
   }
 
   U32 sample_idx = 0;
+#endif
 
   for(;;) {
     ArenaTemp scratch = arena_get_scratch(0, 0);
     if(wasapi_state->running) {
 
-#if 1
       WaitForSingleObject(wasapi_state->callback_event_handle, INFINITE);
 
       U32 padding_in_frames = 0;
@@ -238,87 +252,75 @@ wasapi_process(void *data)
 	Win32LogError(result);
       }
 
-      Assert(frames_to_read <= frames_available);
+      if(frames_available) {	
+	Assert(frames_to_read <= frames_available);
 
-      R32 *in    = arena_push_array_z(scratch.arena, R32, frames_available);
-      R32 *out_l = arena_push_array_z(scratch.arena, R32, frames_available);
-      R32 *out_r = arena_push_array_z(scratch.arena, R32, frames_available);
-      //CopyArray(in, src_samples, R32, frames_to_read);
+	R32 *in    = arena_push_array_z(scratch.arena, R32, frames_available);
+	R32 *out_l = arena_push_array_z(scratch.arena, R32, frames_available);
+	R32 *out_r = arena_push_array_z(scratch.arena, R32, frames_available);
 
-      global_process_data->input[0] = in;
-      global_process_data->input[1] = in;
-      global_process_data->output[0] = out_l;
-      global_process_data->output[1] = out_r;
-      global_process_data->first_midi_msg = 0;
-      global_process_data->last_midi_msg = 0;
-      global_process_data->midi_msg_count = 0;
-      global_process_data->sample_period = 1.f/48000.f; // TODO: actual sample rate!!!
-      global_process_data->sample_count = frames_available;
-
-      audio_process(global_process_data);
-
-      IAudioCaptureClient_ReleaseBuffer(wasapi_state->source, frames_to_read);
-
-      {
-#if 1
-	R32 *src_l = out_l;
-	R32 *src_r = out_r;
-	R32 *dest = (R32*)dest_samples;
-	for(U32 i = 0; i < frames_available; ++i) {
-	  *dest++ = *src_l++;
-	  *dest++ = *src_r++;
-	}
-#else
-	R32 *dest = (R32*)dest_samples;
-	for(U32 i = 0; i < frames_available; ++i) {
-	  *dest++ = samples[sample_idx];
-	  *dest++ = samples[sample_idx];
-	  ++sample_idx;
-	  sample_idx %= ArrayCount(samples);
-	}
-#endif
-      }
-
-      IAudioRenderClient_ReleaseBuffer(wasapi_state->sink, frames_available, 0);
-#else 
-
-      // NOTE: read from source
-      U32 in_cap = 4096;
-      R32 *in_l = arena_push_array(scratch.arena, R32, in_cap);
-      R32 *in_r = arena_push_array(scratch.arena, R32, in_cap);
-      U32 in_count = 0;
-
-      // TODO: we need to be sure we receive input in float format, and don't have to convert
-      U8 *samples = 0;
-      U32 frame_count = 0;
-      DWORD flags = 0;
-      U64 timestamp = 0;
-      U64 *ts_ptr = &timestamp;
-      for(result = IAudioCaptureClient_GetBuffer(wasapi_state->source,
-						 &samples, &frame_count, &flags, 0, ts_ptr);
-	  result != AUDCNT_S_EMPTY;
-	  result = IAudioCaptureClient_ReleaseBuffer(wasapi_state->source, frames_count))
+	U32 frames_to_read_at_samplerate = frames_to_read;
 	{
-	  ts_ptr = 0;
-	  Assert(in_count < in_cap);
-	  R32 *src = (R32*)samples;
-	  R32 *dest_l = in_l + in_count;
-	  R32 *dest_r = in_r + in_count;
-	  for(U32 frame_idx = 0; frame_idx < frame_count; ++frame_idx) {
-	    *dest_l++ = *src++;
-	    *dest_r++ = *src++;
+	  R32 sample_rate_ratio__src_to_dest = ((R32)wasapi_state->sink_fmt->Format.nSamplesPerSec /
+						(R32)wasapi_state->source_fmt->Format.nSamplesPerSec);
+	  R32 sample_rate_ratio__dest_to_src = 1.f/sample_rate_ratio__src_to_dest;
+	  frames_to_read_at_samplerate = (U32)(sample_rate_ratio__src_to_dest * (R32)(frames_to_read - 1) + 0.5f);
+	  Assert(frames_to_read_at_samplerate <= frames_available);
+	  R32 *src = (R32*)src_samples;
+	  R32 *dest = in;
+	  // TODO: it looks like this is working OK, but where is the noise coming from??
+#if 1
+	  for(U32 dest_idx = 0; dest_idx < frames_to_read_at_samplerate; ++dest_idx) {
+
+	    R32 src_pos = sample_rate_ratio__dest_to_src * (R32)dest_idx;
+	    U32 src_idx = (U32)src_pos;
+	    R32 src_frac = (R32)src_pos - src_idx;
+
+	    Assert(src_idx + 1 < frames_to_read);
+	    R32 dest_sample = lerp(src[src_idx], src[src_idx + 1], src_frac);
+	    dest[dest_idx] = dest_sample;
 	  }
-	  in_count += frame_count;
+#else
+	  CopyArray(dest, src, R32, frames_to_read);
+#endif
+	}      
+
+	global_process_data->input[0] = in;
+	global_process_data->input[1] = in;
+	global_process_data->output[0] = out_l;
+	global_process_data->output[1] = out_r;
+	global_process_data->first_midi_msg = 0;
+	global_process_data->last_midi_msg = 0;
+	global_process_data->midi_msg_count = 0;
+	global_process_data->sample_period = 1.f/(R32)wasapi_state->sink_fmt->Format.nSamplesPerSec;
+	global_process_data->sample_count = frames_to_read_at_samplerate;
+
+	audio_process(global_process_data);
+
+	IAudioCaptureClient_ReleaseBuffer(wasapi_state->source, frames_to_read);
+
+	{
+#if 1
+	  R32 *src_l = out_l;
+	  R32 *src_r = out_r;
+	  R32 *dest = (R32*)dest_samples;
+	  for(U32 i = 0; i < frames_to_read_at_samplerate; ++i) {
+	    *dest++ = *src_l++;
+	    *dest++ = *src_r++;
+	  }
+#else
+	  R32 *dest = (R32*)dest_samples;
+	  for(U32 i = 0; i < frames_available; ++i) {
+	    *dest++ = samples[sample_idx];
+	    *dest++ = samples[sample_idx];
+	    ++sample_idx;
+	    sample_idx %= ArrayCount(samples);
+	  }
+#endif
 	}
 
-      // NOTE: write to dest
-      U32 padding_in_frames = 0;
-      error = IAudioClient_GetCurrentPadding(wasapi_state->output_client, padding);
-      U32 frames_available = wasapi_state->output_buffer_size_in_frames - padding_in_frames;
-      U32 frames_to_write = Min(in_count, frames_available);
-      U8 *dest_samples = 0;
-      error = IAudioRenderClient_GetBuffer(wasapi_state->sink, frames_to_write, &dest_samples);      
-#endif
+	IAudioRenderClient_ReleaseBuffer(wasapi_state->sink, frames_to_read_at_samplerate, 0);
+      }
     }else {
       // TODO: sleep
     }
@@ -350,8 +352,7 @@ audio_set_user_data(void *data)
 proc U32
 audio_get_sample_rate(void)
 {
-  // TODO: actual sample rate!!!
-  U32 result = 44100;
+  U32 result = wasapi_state->sink_fmt->Format.nSamplesPerSec;
   return(result);
 }
 
