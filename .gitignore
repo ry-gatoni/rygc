@@ -3,6 +3,8 @@
 
 build
 
+data/test/liberation_mono_glyph_data__*.txt
+
 src/third_party/freetype-2.13.3/*
 !src/third_party/freetype-2.13.3/LICENSE.TXT
 !src/third_party/freetype-2.13.3/builds/

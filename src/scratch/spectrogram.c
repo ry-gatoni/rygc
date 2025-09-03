@@ -524,7 +524,34 @@ main(int argc, char **argv)
 	String8 font_file_path = Str8Lit(DATA_DIR"/font/LiberationMono-Regular.ttf");
 	U32 font_pt_size = 32;
 	LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
-	R_Font *font = render_alloc_font(&loose_font);      
+	R_Font *font = render_alloc_font(&loose_font);
+
+	// DEBUG: print glyph info
+#if 0
+	{
+	  String8List glyph_data_list = {0};
+	  str8_list_push_f(scratch.arena, &glyph_data_list, "glyph count: %u\n\n", font->glyph_count);
+
+	  U32 glyph_idx = 0;
+	  PackedGlyph *opl = font->glyphs + font->glyph_count;
+	  for(PackedGlyph *glyph = font->glyphs; glyph < opl; ++glyph, ++glyph_idx) {
+
+	    U32 cp = font_codepoint_from_glyph_index(font, glyph_idx);
+	    str8_list_push_f(scratch.arena, &glyph_data_list,
+			     "glyph %u:\n  codepoint: %u\n  "
+			     "rect_min: (%.4f, %.4f)\n  rect_max: (%.4f, %.4f)\n  "
+			     "uv_min: (%.4f, %.4f)\n  uv_max: (%.4f, %.4f)\n\n",
+			     glyph_idx, cp,
+			     glyph->rect.min.x, glyph->rect.min.y,
+			     glyph->rect.max.x, glyph->rect.max.y,
+			     glyph->uv.min.x, glyph->uv.min.y,
+			     glyph->uv.max.x, glyph->uv.max.y);
+	  }
+	  String8 glyph_data = str8_join(scratch.arena, &glyph_data_list);
+	  os_write_entire_file(glyph_data,
+			       Str8Lit(DATA_DIR"/test/liberation_mono_glyph_data__dwrite.txt"));
+	}
+#endif
 
 	B32 running = 1;
 	Arena *frame_arena = arena_alloc();

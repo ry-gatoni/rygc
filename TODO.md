@@ -13,15 +13,16 @@
   - [] d3d11 backend on windows
   
 - font module
-  - [] better glyph metric extraction (windows/directwrite)
+  - [X] better glyph metric extraction (windows/directwrite)
   - [X] freetype on windows
+  - [] Check dwrite glyph rasterization; it looks like some glyphs are off-by-one
 
 - audio module
+  - [] route audio (wasapi)
   - [] get sample rate from audio backend (windows/wasapi)
   - [] support changing sample rate (wasapi, jack)
   - [] support changing connected audio devices (and overriding defaults) (wasapi, jack)
   - [] get/set audio device latency (wasapi, jack)
-  - [] route audio (wasapi)
   - [] midi (wasapi)
   - [] how to support midi sysex? (jack)
   
@@ -36,11 +37,12 @@
 - [] ui layout module
 - [] plugin loading system
 - [] way of denoting which functions are implemented in another layer
+- [] abstract entry point
 - [] input fuzzing
 - [] profiler
 - [] file format parsing/writing module
 - [] file streaming
-- [] thread pool
+- [] thread pool/wavefront multithreading
 - [] pseudo random number generation
 - [] clean up os include situation, come up with consistent naming scheme
 - [] macos port

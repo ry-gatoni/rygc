@@ -1,5 +1,4 @@
 // NOTE: internal helpers
-//#define Win32LogError(error) do { char *msg; FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM, 0, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msg, 0, 0); OutputDebugStringA(msg); } while(0)
 proc B32
 dwrite_init(void)
 {
@@ -14,11 +13,13 @@ dwrite_init(void)
 #define DWInitCheckPtr(ptr, run) if(((ptr) == 0) || ((error) != S_OK)) { Win32LogError(error); dwrite_state = 0; result = 0; arena_release(arena); run; goto dwrite_init_end; }
     
     // NOTE: create factory
-    error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory1, (IUnknown**)&dwrite_state->factory);
+    error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory1,
+				(IUnknown**)&dwrite_state->factory);
     if(error == S_OK) {
       dwrite_state->factory_version = 1;
     }else {
-      error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory, (IUnknown**)&dwrite_state->factory);
+      error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory,
+				  (IUnknown**)&dwrite_state->factory);
       DWInitCheckPtr(dwrite_state->factory, Assert(!"factory"));
     }
 
@@ -68,7 +69,8 @@ dwrite_open_font(String8 font_path)
 
   // NOTE: create font face from file
   if(font_file) {
-    error = IDWriteFactory_CreateFontFace(dwrite_state->factory, DWRITE_FONT_FACE_TYPE_TRUETYPE, 1, &font_file, 0, DWRITE_FONT_SIMULATIONS_NONE, &font_face);
+    error = IDWriteFactory_CreateFontFace(dwrite_state->factory, DWRITE_FONT_FACE_TYPE_TRUETYPE, 1,
+					  &font_file, 0, DWRITE_FONT_SIMULATIONS_NONE, &font_face);
     if(error != S_OK) {
       Win32LogError(error);
     }
@@ -94,9 +96,10 @@ dwrite_font_metrics(DWriteFont *font, U32 font_size_pt)
   R32 pixel_per_design_unit = pixel_per_em/(R32)font_metrics.designUnitsPerEm;
   font->metrics.pixel_per_em = pixel_per_em;
   font->metrics.pixel_per_design_unit = pixel_per_design_unit;
-  font->metrics.ascender = font_metrics.ascent;
-  font->metrics.descender = font_metrics.descent;
-  font->metrics.line_height = font_metrics.lineGap;
+  font->metrics.ascender = (S32)((R32)font_metrics.ascent * pixel_per_design_unit + 0.5f);
+  font->metrics.descender = -(S32)((R32)font_metrics.descent * pixel_per_design_unit + 0.5f);
+  font->metrics.line_height = Max(font->metrics.ascender - font->metrics.descender,
+				  font_metrics.lineGap);
 }
 
 proc RangeU32
@@ -207,8 +210,8 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       glyph->width = bounding_box.right - bounding_box.left;
       glyph->height = bounding_box.bottom - bounding_box.top;
       glyph->stride = glyph->width;
-      glyph->left_bearing = bounding_box.left - (S32)baseline_x;//glyph_metrics.leftSideBearing;
-      glyph->top_bearing = bounding_box.top - (S32)baseline_y;//glyph_metrics.topSideBearing;
+      glyph->left_bearing = bounding_box.left - (S32)baseline_x;
+      glyph->top_bearing = (S32)baseline_y - bounding_box.top;//bounding_box.top - (S32)baseline_y;
       glyph->advance = (U32)(glyph_metrics.advanceWidth*font->metrics.pixel_per_design_unit);
       glyph->bitmap = arena_push_array_z(arena, U8, glyph->width*glyph->height);
 

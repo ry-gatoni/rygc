@@ -232,9 +232,9 @@ typedef struct DWriteFontMetrics
   R32 pixel_per_em;
   R32 pixel_per_design_unit;
 
-  U16 ascender;
-  U16 descender;
-  S16 line_height;
+  S32 ascender;
+  S32 descender;
+  U32 line_height;
 } DWriteFontMetrics;
 
 typedef struct DWriteFont

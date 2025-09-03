@@ -162,3 +162,22 @@ font_glyph_from_codepoint(PackedFont *font, U32 codepoint)
   PackedGlyph *result = font->glyphs + glyph_index;
   return(result);
 }
+
+proc U32
+font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx)
+{
+  U32 cp = 0;
+  B32 done = 0;
+  CodepointMapBucket *opl = font->codepoint_map + font->codepoint_map_count;
+  for(CodepointMapBucket *b = font->codepoint_map; b < opl && !done; ++b) {
+
+    for(CodepointMapNode *n = b->first; n && !done; n = n->next) {
+      if(n->glyph_index == glyph_idx) {
+	cp = n->codepoint;
+	done = 1;
+      }
+    }
+  }
+  
+  return(cp);
+}

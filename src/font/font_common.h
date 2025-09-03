@@ -86,3 +86,4 @@ typedef struct CodepointHashKey
 proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
 proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);
 proc PackedGlyph* font_glyph_from_codepoint(PackedFont *font, U32 codepoint);
+proc U32 font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx);

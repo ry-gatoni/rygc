@@ -6,7 +6,7 @@ set SRC=%CD%
 :: `clang_rt.asan_dbg_dynamic-x86_64.dll`, or a similarly named file, must be on
 :: the system PATH in order to run the programs this script compiles
 set BUILD_DEBUG=1
-set FONT_BACKEND=FONT_BACKEND_FREETYPE
+set FONT_BACKEND=FONT_BACKEND_DWRITE
 
 set CFLAGS_COMMON="-nologo -W3"
 set CFLAGS_DEBUG=" -Z7 -fsanitize=address"
