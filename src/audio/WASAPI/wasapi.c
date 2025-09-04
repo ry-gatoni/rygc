@@ -268,7 +268,7 @@ wasapi_process(void *data)
 	  Assert(frames_to_read_at_samplerate <= frames_available);
 	  R32 *src = (R32*)src_samples;
 	  R32 *dest = in;
-	  // TODO: it looks like this is working OK, but where is the noise coming from??
+	  // TODO: this is kinda working, but where is the noise coming from?? (bad SR conversion)??
 #if 1
 	  for(U32 dest_idx = 0; dest_idx < frames_to_read_at_samplerate; ++dest_idx) {
 

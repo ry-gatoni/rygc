@@ -34,6 +34,21 @@ typedef struct RingBuffer
 } RingBuffer;
 
 proc Buffer buffer_alloc(Arena *arena, U64 size);
+
+proc inline U8*
+buf_consume_size_(Buffer *buf, U64 size)
+{
+  U8 *result = 0;
+  if(size <= buf->size) {
+    result = buf->mem;
+    buf->mem += size;
+    buf->size -= size;
+  }
+  return(result);
+}
+#define buf_consume_struct(buf, type) buf_consume_size_(buf, sizeof(type))
+#define buf_consume_array(buf, type, count) buf_consume_size_(buf, (count)*sizeof(type))
+
 proc PushBuffer push_buffer_alloc(Arena *arena, U64 cap);
 
 proc String8 buf_push_str8_copy(PushBuffer *buf, String8 str);

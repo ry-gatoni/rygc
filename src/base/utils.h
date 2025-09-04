@@ -52,6 +52,8 @@
 
 #define OffsetOf(s, m) (IntFromPtr(&((s*)0)->m))
 
+#define FOURCC(str) ((U32)((str[0]<<0)|(str[1]<<8)|(str[2]<<16)|(str[3]<<24)))
+
 // NOTE: linked-list utils
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))
 #define SLLStackPush(l, n) SLLStackPush_N(l, n, next)

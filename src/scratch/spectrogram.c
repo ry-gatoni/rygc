@@ -14,6 +14,7 @@
 #include "audio/audio.h"
 #include "fourier/fourier.h"
 #include "ui/ui.h"
+#include "file_formats/wav.h"
 
 #include "base/base.c"
 #include "os/os.c"
@@ -23,6 +24,7 @@
 #include "audio/audio.c"
 #include "fourier/fourier.c"
 #include "ui/ui.c"
+#include "file_formats/wav.c"
 
 //
 // audio
