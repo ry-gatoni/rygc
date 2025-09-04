@@ -4,6 +4,7 @@
 build
 
 data/test/liberation_mono_glyph_data__*.txt
+data/test/*.wav
 
 src/third_party/freetype-2.13.3/*
 !src/third_party/freetype-2.13.3/LICENSE.TXT

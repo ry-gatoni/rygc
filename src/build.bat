@@ -34,8 +34,9 @@ set BUILD=%CD%
 set LFLAGS=%LFLAGS% -LIBPATH:%BUILD%
 echo %LFLAGS%
 
-cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
+REM cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
 REM cl %CFLAGS% %SRC%\scratch\win32_window_test.c /link %LFLAGS% /out:win32_window_test.exe
+cl %CFLAGS% %SRC%\scratch\wav_test.c /link %LFLAGS% /out:wav_test.exe
 
 :: build -> src
 popd

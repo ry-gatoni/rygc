@@ -16,11 +16,11 @@ begin_wav(U32 sample_rate, U32 channel_count, WavSampleKind sample_kind)
 proc void
 wav_push_chunk(WavWriter *writer, U64 frame_count, void *frames)
 {
-  U64 frame_count_even = AlignPow2(frame_count, 2);
+  U64 frames_size = frame_count * writer->frame_size;
   WavChunkNode *node = arena_push_struct(writer->arena, WavChunkNode);
-  node->frames_size = frame_count_even * writer->frame_size;
+  node->frames_size = AlignPow2(frames_size, 2);
   node->frames = arena_push_array(writer->arena, U8, node->frames_size);
-  CopyArray(node->frames, frames, U8, frame_count * writer->frame_size);
+  CopyArray(node->frames, frames, U8, frames_size);
   
   SLLQueuePush(writer->chunk_list.first, writer->chunk_list.last, node);
   ++writer->chunk_list.count;
@@ -30,7 +30,8 @@ wav_push_chunk(WavWriter *writer, U64 frame_count, void *frames)
 proc void
 end_wav(WavWriter *writer, String8 file_path)
 {
-  U64 wav_size = sizeof(RiffHeader) + sizeof(WaveHeader) + sizeof(WaveFormatChunk) + writer->chunk_list.count*sizeof(WaveDataChunk) + writer->chunk_list.total_frames_size;
+  U64 header_sizes = sizeof(RiffHeader) + sizeof(WaveHeader) + sizeof(WaveFormatChunk);
+  U64 wav_size = header_sizes + sizeof(WaveDataChunk) + writer->chunk_list.total_frames_size;
   PushBuffer wav_buffer = push_buffer_alloc(writer->arena, wav_size);
   
   RiffHeader *riff_header = buf_push_struct(&wav_buffer, RiffHeader);
@@ -51,13 +52,16 @@ end_wav(WavWriter *writer, String8 file_path)
   wave_fmt->bits_per_sample = 8*writer->sample_size;
   wave_fmt->cb_size = 0;
 
+  WaveDataChunk *wave_data = buf_push_struct(&wav_buffer, WaveDataChunk);
+  wave_data->chunk_id.id = RIFF("data");
+  wave_data->chunk_size = (U32)writer->chunk_list.total_frames_size;
+
+  U64 sample_data_at = 0;
+  U8 *sample_data = buf_push_array(&wav_buffer, U8, wave_data->chunk_size);
   for(WavChunkNode *chunk = writer->chunk_list.first; chunk; chunk = chunk->next) {
-    WaveDataChunk *wave_data = buf_push_struct(&wav_buffer, WaveDataChunk);
-    wave_data->chunk_id.id = RIFF("data");
-    wave_data->chunk_size = (U32)chunk->frames_size;
-    
-    U8 *sample_data = buf_push_array(&wav_buffer, U8, wave_data->chunk_size);
-    CopyArray(sample_data, chunk->frames, U8, wave_data->chunk_size);
+    U8 *dest = sample_data + sample_data_at;
+    CopyArray(dest, chunk->frames, U8, chunk->frames_size);
+    sample_data_at += chunk->frames_size;
   }
 
   Os_Handle file = os_file_open(file_path, Os_FileOpenFlag_write);

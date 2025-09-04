@@ -31,12 +31,12 @@ buf_push_str8_copy(PushBuffer *buf, String8 str)
 }
 
 proc U8*
-buf_push(PushBuffer *buf, U64 size, U64 alignment)
+buf_push(PushBuffer *buf, U64 size, U64 align)
 {
   U8 *result = 0;
-  U64 base = AlignPow2(buf->pos, alignment);
+  U64 base = align ? AlignPow2(buf->pos, align) : buf->pos;
   U64 new_pos = base + size;
-  if(new_pos < buf->cap) {
+  if(new_pos <= buf->cap) {
     result = buf->mem + base;
     buf->pos = new_pos;
   }
