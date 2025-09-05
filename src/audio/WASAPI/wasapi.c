@@ -215,14 +215,30 @@ wasapi_process(void *data)
 {
   Unused(data);
   HRESULT result = 0;
-#if 0
-  R32 sample_period = 1.f/(R32)wasapi_state->sink_fmt->Format.nSamplesPerSec;//48000.f;
+#if 1
+  R32 sample_period = 1.f/(R32)wasapi_state->sink_fmt->Format.nSamplesPerSec;
   R32 samples[109] = {0};
   for(U32 sample_idx = 0; sample_idx < ArrayCount(samples); ++sample_idx) {
     samples[sample_idx] = 0.1f*sinf(440.f * (R32)sample_idx * TAU32 * sample_period);
   }
 
   U32 sample_idx = 0;
+#endif
+
+#if 1
+  U32 input_sample_rate = wasapi_state->source_fmt->Format.nSamplesPerSec;
+  U32 input_channel_count = wasapi_state->source_fmt->Format.nChannels;
+  U32 input_sample_format = WavSampleKind_R32; // TODO: actually do the sample foramt translation
+  
+  U32 output_sample_rate = wasapi_state->sink_fmt->Format.nSamplesPerSec;
+  U32 output_channel_count = wasapi_state->sink_fmt->Format.nChannels;
+  U32 output_sample_format = WavSampleKind_R32; // TODO: actually do the sample foramt translation
+  WavWriter *wav_writer_in = begin_wav(input_sample_rate, input_channel_count, input_sample_format);
+  WavWriter *wav_writer_out = begin_wav(output_sample_rate, output_channel_count, output_sample_format);
+
+  U32 chunk_count = 0;
+  U32 chunk_cap = 500;
+  B32 wav_written = 0;
 #endif
 
   for(;;) {
@@ -255,6 +271,19 @@ wasapi_process(void *data)
       if(frames_available) {	
 	Assert(frames_to_read <= frames_available);
 
+	// DEBUG: accumulate input chunks
+#if 0
+	if(chunk_count < chunk_cap) {
+	  wav_push_chunk(wav_writer, frames_to_read, src_samples);
+	  ++chunk_count;
+	}else {
+	  if(!wav_written) {
+	    end_wav(wav_writer, Str8Lit(DATA_DIR"/test/wasapi_input_test.wav"));
+	    wav_written = 1;
+	  }
+	}
+#endif
+
 	R32 *in    = arena_push_array_z(scratch.arena, R32, frames_available);
 	R32 *out_l = arena_push_array_z(scratch.arena, R32, frames_available);
 	R32 *out_r = arena_push_array_z(scratch.arena, R32, frames_available);
@@ -268,7 +297,6 @@ wasapi_process(void *data)
 	  Assert(frames_to_read_at_samplerate <= frames_available);
 	  R32 *src = (R32*)src_samples;
 	  R32 *dest = in;
-	  // TODO: this is kinda working, but where is the noise coming from?? (bad SR conversion)??
 #if 1
 	  for(U32 dest_idx = 0; dest_idx < frames_to_read_at_samplerate; ++dest_idx) {
 
@@ -283,7 +311,20 @@ wasapi_process(void *data)
 #else
 	  CopyArray(dest, src, R32, frames_to_read);
 #endif
-	}      
+	}
+
+	// DEBUG: accumulate sample-rate-converted input chunks
+#if 0
+	if(chunk_count < chunk_cap) {
+	  wav_push_chunk(wav_writer, frames_to_read_at_samplerate, in);
+	  ++chunk_count;
+	}else {
+	  if(!wav_written) {
+	    end_wav(wav_writer, Str8Lit(DATA_DIR"/test/wasapi_input_sr_converted_test.wav"));
+	    wav_written = 1;
+	  }
+	}
+#endif
 
 	global_process_data->input[0] = in;
 	global_process_data->input[1] = in;
@@ -310,16 +351,34 @@ wasapi_process(void *data)
 	  }
 #else
 	  R32 *dest = (R32*)dest_samples;
-	  for(U32 i = 0; i < frames_available; ++i) {
+	  for(U32 i = 0; i < frames_to_read_at_samplerate; ++i) {
 	    *dest++ = samples[sample_idx];
 	    *dest++ = samples[sample_idx];
 	    ++sample_idx;
 	    sample_idx %= ArrayCount(samples);
 	  }
 #endif
+
+	  // DEBUG: accumulate output chunks
+#if 0
+	  if(chunk_count < chunk_cap) {
+	    wav_push_chunk(wav_writer_out, frames_to_read_at_samplerate, dest_samples);
+	    ++chunk_count;
+	  }else {
+	    if(!wav_written) {
+	      end_wav(wav_writer_out, Str8Lit(DATA_DIR"/test/wasapi_output_test.wav"));
+	      wav_written = 1;
+	    }
+	  }
+#endif
 	}
 
+	// TODO: WHAT IS THE CAUSE OF THE SCRATCHY NOISE?????
+
 	IAudioRenderClient_ReleaseBuffer(wasapi_state->sink, frames_to_read_at_samplerate, 0);
+      }else {
+	// TODO: use logging system
+	OutputDebugStringA("output buffer is full\n");
       }
     }else {
       // TODO: sleep

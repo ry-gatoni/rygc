@@ -8,9 +8,9 @@ set SRC=%CD%
 set BUILD_DEBUG=1
 set FONT_BACKEND=FONT_BACKEND_DWRITE
 
-set CFLAGS_COMMON="-nologo -W3"
-set CFLAGS_DEBUG=" -Z7 -fsanitize=address"
-set CFLAGS_INCLUDE=" -I%SRC% -DBUILD_DEBUG=%BUILD_DEBUG%"
+rem set CFLAGS_COMMON="-nologo -W3"
+rem set CFLAGS_DEBUG=" -Z7 -fsanitize=address"
+rem set CFLAGS_INCLUDE=" -I%SRC% -DBUILD_DEBUG=%BUILD_DEBUG%"
 set LFLAGS=-incremental:no -opt:ref
 
 REM if %BUILD_DEBUG%==1 set CFLAGS=%CFLAGS% -Z7 -fsanitize=address
@@ -34,9 +34,9 @@ set BUILD=%CD%
 set LFLAGS=%LFLAGS% -LIBPATH:%BUILD%
 echo %LFLAGS%
 
-REM cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
+cl %CFLAGS% %SRC%\scratch\spectrogram.c /link %LFLAGS% /out:spectrogram.exe
 REM cl %CFLAGS% %SRC%\scratch\win32_window_test.c /link %LFLAGS% /out:win32_window_test.exe
-cl %CFLAGS% %SRC%\scratch\wav_test.c /link %LFLAGS% /out:wav_test.exe
+REM cl %CFLAGS% %SRC%\scratch\wav_test.c /link %LFLAGS% /out:wav_test.exe
 
 :: build -> src
 popd

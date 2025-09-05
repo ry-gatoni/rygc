@@ -68,6 +68,15 @@ global AudioBufferList audio_buffer_list = {0};
 void
 audio_process(Audio_ProcessData *data)
 {
+  // DEBUG: wav logging state
+#if 1
+  U32 chunk_cap = 500;  
+  local U32 chunk_count = 0;
+  local B32 wav_written = 0;  
+  local WavWriter *wav_writer = 0;
+  if(!wav_writer) wav_writer = begin_wav(48000, 1, WavSampleKind_R32);
+#endif
+
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
   SineOscState *sine_state = data->user_data;
@@ -128,6 +137,19 @@ audio_process(Audio_ProcessData *data)
     // NOTE: output samples
     CopyArray(data->output[0], mix_buffer, R32, sample_count);
     CopyArray(data->output[1], mix_buffer, R32, sample_count);
+
+    // DEBUG: accumulate output chunks
+#if 0
+    if(chunk_count < chunk_cap) {
+      wav_push_chunk(wav_writer, sample_count, data->output[0]);
+      ++chunk_count;
+    }else {
+      if(!wav_written) {
+	end_wav(wav_writer, Str8Lit(DATA_DIR"/test/audio_process_output_test.wav"));
+	wav_written = 1;
+      }
+    }
+#endif
 
     // NOTE: queue audio buffer
     // NOTE: try to pull a node off the freelist, otherwise allocate a new one
