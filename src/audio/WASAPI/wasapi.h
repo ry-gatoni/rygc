@@ -107,6 +107,7 @@ typedef struct Wasapi_State
   IMMDevice *output_device;
   //IMMDevice *midi_device;
 
+  //U32 audio_client_version;
   IAudioClient *input_client;
   IAudioClient *output_client;
 
@@ -125,10 +126,16 @@ typedef struct Wasapi_State
   IAudioSessionControl *session;
 
   Os_Handle wasapi_process_thread_handle;
+  Arena *wasapi_process_arena;
 
   B32 running;
   //U32 sample_rate;
   U32 output_buffer_size_in_frames;
+
+  U64 input_latency_frames;
+  U64 output_latency_frames;
+
+  U64 output_buffer_minimum_frames_to_write;  
 } Wasapi_State;
 
 global Wasapi_State *wasapi_state = 0;

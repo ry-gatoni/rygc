@@ -3,6 +3,13 @@ typedef struct Os_Handle
   void *handle;
 } Os_Handle;
 
+typedef struct Os_RingBuffer
+{
+  void *mem;
+  U64 size;
+  Os_Handle handle;
+} Os_RingBuffer;
+
 typedef enum Os_FileOpenFlags
 {
   Os_FileOpenFlag_read  = (1 << 0),
@@ -32,6 +39,9 @@ proc void* os_mem_reserve(U64 size);
 proc B32 os_mem_commit(void *mem, U64 size);
 proc void os_mem_decommit(void *mem, U64 size);
 proc void os_mem_release(void *mem, U64 size);
+
+proc Os_RingBuffer os_ring_buffer_alloc(U64 min_size);
+proc void os_ring_buffer_free(Os_RingBuffer *rb);
 
 // NOTE: os file functions
 proc Os_Handle os_file_open(String8 path, Os_FileOpenFlags flags);

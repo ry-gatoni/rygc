@@ -89,7 +89,9 @@ wasapi_init(String8 client_name)
 #define WasapiInitCheckErrorPtr(ptr) if(error != S_OK || ptr == 0) { wasapi_state = 0; arena_release(arena); WasapiLogError(error); goto wasapi_init_end; }
   B32 result = 0;
   HRESULT error = 0;
-  
+
+  U64 latency_hundred_ns = 100000;
+
   Arena *arena = arena_alloc();
   wasapi_state = arena_push_struct(arena, Wasapi_State);
   if(wasapi_state) {
@@ -151,7 +153,7 @@ wasapi_init(String8 client_name)
     error = IAudioClient_Initialize(wasapi_state->input_client,
 				    AUDCLNT_SHAREMODE_SHARED,
 				    0,
-				    100000,
+				    latency_hundred_ns,
 				    0,
 				    (WAVEFORMATEX*)wasapi_state->source_fmt,
 				    0);
@@ -159,11 +161,15 @@ wasapi_init(String8 client_name)
     error = IAudioClient_Initialize(wasapi_state->output_client,
 				    AUDCLNT_SHAREMODE_SHARED,
 				    AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-				    100000,
+				    latency_hundred_ns,
 				    0,
 				    (WAVEFORMATEX*)wasapi_state->sink_fmt,
 				    0);
     WasapiInitCheckError();
+    wasapi_state->input_latency_frames =
+      latency_hundred_ns * wasapi_state->source_fmt->Format.nSamplesPerSec / 10000000;
+    wasapi_state->output_latency_frames =
+      latency_hundred_ns * wasapi_state->sink_fmt->Format.nSamplesPerSec / 10000000;
 
     // NOTE: get input/output buffer counts:
     U32 source_buffer_count = 0;
@@ -173,6 +179,20 @@ wasapi_init(String8 client_name)
     error = IAudioClient_GetBufferSize(wasapi_state->output_client, &sink_buffer_count);
     WasapiInitCheckError();
     wasapi_state->output_buffer_size_in_frames = sink_buffer_count;
+
+    // NOTE: get output latency to determine the minimum write size
+    REFERENCE_TIME output_latency__hundred_ns = 0;
+    error = IAudioClient_GetStreamLatency(wasapi_state->output_client, &output_latency__hundred_ns);
+    WasapiInitCheckError();
+    wasapi_state->output_buffer_minimum_frames_to_write =
+      output_latency__hundred_ns * wasapi_state->sink_fmt->Format.nSamplesPerSec / 10000000;
+
+    // NOTE: get output device period
+    REFERENCE_TIME output_period__default = 0;
+    REFERENCE_TIME output_period__minimum = 0;
+    error = IAudioClient_GetDevicePeriod(wasapi_state->output_client,
+					 &output_period__default, &output_period__minimum);
+    WasapiInitCheckError();
 
     // NOTE: get source/sink
     error = IAudioClient_GetService(wasapi_state->input_client, &IID_IAudioCaptureClient,
@@ -199,6 +219,7 @@ wasapi_init(String8 client_name)
     WasapiInitCheckError();
     error = IAudioClient_Start(wasapi_state->output_client);
     WasapiInitCheckError();
+    wasapi_state->wasapi_process_arena = arena_alloc();
     wasapi_state->wasapi_process_thread_handle = os_thread_launch(wasapi_process, 0);
     wasapi_state->running = 1;
 #endif
@@ -241,8 +262,19 @@ wasapi_process(void *data)
   B32 wav_written = 0;
 #endif
 
+  Arena *process_arena = wasapi_state->wasapi_process_arena;
+  Os_RingBuffer input_ring_buffer = os_ring_buffer_alloc(2048*sizeof(R32));
+  R32 *input_ring_buffer_samples = (R32*)input_ring_buffer.mem;
+  U64 input_ring_buffer_sample_count = input_ring_buffer.size/sizeof(R32);
+
+#if 0
+  U32 test_idx = 2;
+  input_ring_buffer_samples[test_idx] = 2.f;
+  Assert(input_ring_buffer_samples[test_idx] ==
+	 input_ring_buffer_samples[test_idx + input_ring_buffer_sample_count]);
+#endif
+
   for(;;) {
-    ArenaTemp scratch = arena_get_scratch(0, 0);
     if(wasapi_state->running) {
 
       WaitForSingleObject(wasapi_state->callback_event_handle, INFINITE);
@@ -256,6 +288,13 @@ wasapi_process(void *data)
 	Win32LogError(result);
       }
 
+      if(frames_available < wasapi_state->output_latency_frames) continue;
+
+      R32 *in    = arena_push_array_z(process_arena, R32, frames_available);
+      R32 *out_l = arena_push_array_z(process_arena, R32, frames_available);
+      R32 *out_r = arena_push_array_z(process_arena, R32, frames_available);
+
+      // TODO: what's the point of this?
       U32 next_packet_frames = 0;
       result = IAudioCaptureClient_GetNextPacketSize(wasapi_state->source, &next_packet_frames);
       U8 *src_samples = 0;
@@ -267,10 +306,24 @@ wasapi_process(void *data)
       if(result != S_OK) {
 	Win32LogError(result);
       }
+      switch(flags) {
+      case AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY: {
+	OutputDebugStringA("wasapi input data discontinuity\n");
+      }break;
+      case AUDCLNT_BUFFERFLAGS_SILENT: {
+	OutputDebugStringA("wasapi input silent\n");
+      }break;
+      case AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR: {
+	OutputDebugStringA("wasapi input timestamp error\n");
+      }break;
+      default: {} break;
+      }
 
       if(frames_available) {	
 	Assert(frames_to_read <= frames_available);
-
+	Assert(frames_available >= wasapi_state->output_latency_frames);
+	//Assert(frames_to_read == wasapi_state->input_latency_frames);
+	
 	// DEBUG: accumulate input chunks
 #if 0
 	if(chunk_count < chunk_cap) {
@@ -282,11 +335,7 @@ wasapi_process(void *data)
 	    wav_written = 1;
 	  }
 	}
-#endif
-
-	R32 *in    = arena_push_array_z(scratch.arena, R32, frames_available);
-	R32 *out_l = arena_push_array_z(scratch.arena, R32, frames_available);
-	R32 *out_r = arena_push_array_z(scratch.arena, R32, frames_available);
+#endif	
 
 	U32 frames_to_read_at_samplerate = frames_to_read;
 	{
@@ -374,6 +423,9 @@ wasapi_process(void *data)
 	}
 
 	// TODO: WHAT IS THE CAUSE OF THE SCRATCHY NOISE?????
+	if(frames_to_read_at_samplerate < 480) {
+	  OutputDebugStringA("wasapi: wrote too few samples\n");
+	}
 
 	IAudioRenderClient_ReleaseBuffer(wasapi_state->sink, frames_to_read_at_samplerate, 0);
       }else {
@@ -383,7 +435,7 @@ wasapi_process(void *data)
     }else {
       // TODO: sleep
     }
-    arena_release_scratch(scratch);
+    arena_clear(process_arena);
   }
 }
 

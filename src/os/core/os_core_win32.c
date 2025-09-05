@@ -2,10 +2,14 @@
 proc B32
 win32_init(void)
 {
-  Arena *arena = arena_alloc();
+  B32 result = 0;
+  Arena *arena = arena_alloc();  
   w32_state = arena_push_struct(arena, Win32_State);
-  w32_state->arena = arena;
-  B32 result = w32_state != 0;
+  if(w32_state) {
+    w32_state->arena = arena;
+    GetSystemInfo(&w32_state->sys_info);
+    result = 1;
+  }
   return(result);
 }
 
@@ -69,6 +73,69 @@ proc void
 os_mem_release(void *mem, U64 size)
 {
   VirtualFree(mem, size, MEM_RELEASE);
+}
+
+proc Os_RingBuffer
+os_ring_buffer_alloc(U64 min_size)
+{
+  void *mem = 0;
+  // NOTE: round size to multiple of os allocation granularity
+  // TOOD: report actual allocated size to the caller
+  U64 data_size = AlignPow2(min_size, w32_state->sys_info.dwAllocationGranularity);
+  U64 total_size = 2 * data_size;
+  HANDLE file_mapping = CreateFileMapping(INVALID_HANDLE_VALUE, 0, PAGE_READWRITE,
+					  (DWORD)(data_size >> 32), (DWORD)(data_size & U32_MAX), 0);
+  if(file_mapping != INVALID_HANDLE_VALUE) {
+    // TODO: use the modern `VirtualAlloc2` and `MapViewOfFile3` to create the
+    //       ring buffer mapping, when they are available
+    U32 max_attempt_count = 100;
+    for(U32 attempt_idx = 0; attempt_idx < max_attempt_count; ++attempt_idx) {
+      
+      void *base = VirtualAlloc(0, total_size, MEM_RESERVE, PAGE_NOACCESS);
+      if(base) {
+	VirtualFree(base, 0, MEM_RELEASE);
+	
+	B32 mapped = 1;
+	for(U32 rep_idx = 0; rep_idx < 2; ++rep_idx) {
+	  if(!MapViewOfFileEx(file_mapping, FILE_MAP_ALL_ACCESS, 0, 0,
+			     data_size, (U8*)base + rep_idx*data_size)) {
+	    mapped = 0;
+	    break;
+	  }
+	}
+
+	if(mapped) {
+	  mem = base;
+	  break;
+	}else {
+	  for(U32 rep_idx = 0; rep_idx < 2; ++rep_idx) {
+	    UnmapViewOfFile((U8*)base + rep_idx*data_size);
+	  }
+	}
+      }
+    }
+  }
+  
+  Os_RingBuffer result = {0};
+  result.mem = mem;
+  result.size = mem ? data_size : 0;
+  result.handle.handle = mem ? file_mapping : 0;
+  return(result);
+}
+
+proc void
+os_ring_buffer_free(Os_RingBuffer *rb)
+{
+  if(rb) {
+    HANDLE handle = rb->handle.handle;
+    if(handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(handle);
+      for(U32 rep_idx = 0; rep_idx < 2; ++rep_idx) {
+	UnmapViewOfFile((U8*)rb->mem + rep_idx*rb->size);
+      }
+    }
+    ZeroStruct(rb, Os_RingBuffer);
+  }
 }
 
 // NOTE: os file functions

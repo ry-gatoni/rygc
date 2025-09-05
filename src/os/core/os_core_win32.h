@@ -20,6 +20,8 @@ typedef struct Win32_State
 {
   Arena *arena;
 
+  SYSTEM_INFO sys_info;
+
   Win32_ThreadInfo *first_thread_info;
   Win32_ThreadInfo *last_thread_info;
   U64 thread_info_count;
