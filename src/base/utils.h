@@ -40,6 +40,9 @@
 
 #define StaticAssert(cond, var) typedef U8 Glue(var, __LINE__) [(cond)?1:-1]
 
+#define Unreachable() Assert(!"Unreachable")
+#define UnreachableDefault() default: { Unreachable(); } break;
+
 #define Max(a, b) (((a) < (b)) ? (b) : (a))
 #define Min(a, b) (((a) > (b)) ? (b) : (a))
 
@@ -53,6 +56,9 @@
 #define OffsetOf(s, m) (IntFromPtr(&((s*)0)->m))
 
 #define FOURCC(str) ((U32)((str[0]<<0)|(str[1]<<8)|(str[2]<<16)|(str[3]<<24)))
+
+#define FloorU32(f) ((U32)(f))
+#define RoundU32(f) FloorU32(f + 0.5f)
 
 // NOTE: linked-list utils
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))

@@ -116,9 +116,15 @@ typedef struct Wasapi_State
 
   WAVEFORMATEXTENSIBLE *sink_fmt;
   IAudioRenderClient   *sink;
-  
-  HANDLE callback_event_handle;
 
+  union {
+    struct {
+      HANDLE render_callback_event_handle;
+      HANDLE capture_callback_event_handle;
+    };
+    HANDLE callback_event_handles[2];
+  };
+  
   Wasapi_Port source_port;
   Wasapi_Port sink_port;
   //Wasapi_Port midi_port;
@@ -130,12 +136,23 @@ typedef struct Wasapi_State
 
   B32 running;
   //U32 sample_rate;
-  U32 output_buffer_size_in_frames;
+  U32 input_buffer_frame_count;
+  U32 output_buffer_frame_count;
+
+  R32 samplerate_conversion_factor__dest_from_src;
+  R32 samplerate_conversion_factor__src_from_dest;
 
   U64 input_latency_frames;
   U64 output_latency_frames;
 
-  U64 output_buffer_minimum_frames_to_write;  
+  U64 output_buffer_minimum_frames_to_write;
+
+  Os_RingBuffer shared_buffer;
+  R32 *shared_buffer_samples;
+  U32 shared_buffer_sample_capacity;
+  U32 shared_buffer_read_idx;
+  U32 shared_buffer_write_idx;
+  U32 shared_buffer_last_write_size_in_frames;
 } Wasapi_State;
 
 global Wasapi_State *wasapi_state = 0;
