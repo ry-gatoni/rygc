@@ -131,7 +131,7 @@ audio_process(Audio_ProcessData *data)
 	sine_state->phasor -= TAU32;
       }
 
-      //mix_buffer[sample_idx] += data->input[0][sample_idx];
+      mix_buffer[sample_idx] += data->input[0][sample_idx];
     }
 
     // NOTE: output samples

@@ -317,25 +317,35 @@ wasapi_process(void *data)
 	}
 	  
 	// NOTE: get the number of frames available in the input buffer
-	U8 *src_samples = 0;
-	U32 frames_to_read = 0;
-	DWORD flags = 0;
-	U64 timestamp = 0;
-	result = IAudioCaptureClient_GetBuffer(wasapi_state->source, &src_samples, &frames_to_read,
-					       &flags, 0, &timestamp);
+	U32 input_frames_available = 0;
+	result = IAudioClient_GetCurrentPadding(wasapi_state->input_client, &input_frames_available);
 	if(result != S_OK) { Win32LogError(result); }
 
-	{
-	  R32 *src = (R32*)src_samples;
-	  R32 *dest = wasapi_state->shared_buffer_samples + wasapi_state->shared_buffer_write_idx;
-	  CopyArray(dest, src, R32, frames_to_read);
-	  wasapi_state->shared_buffer_write_idx += frames_to_read;
-	  wasapi_state->shared_buffer_write_idx %= wasapi_state->shared_buffer_sample_capacity;
-	  wasapi_state->shared_buffer_last_write_size_in_frames = frames_to_read;
+	// NOTE: copy all samples from the input buffer to the shared buffer
+	U32 frames_read = 0;
+	while(frames_read < input_frames_available) {
+	  U8 *src_samples = 0;
+	  U32 frames_to_read = 0;
+	  DWORD flags = 0;
+	  U64 timestamp = 0;
+	  result = IAudioCaptureClient_GetBuffer(wasapi_state->source, &src_samples, &frames_to_read,
+						 &flags, 0, &timestamp);
+	  if(result != S_OK) { Win32LogError(result); }
+
+	  {
+	    R32 *src = (R32*)src_samples;
+	    R32 *dest = wasapi_state->shared_buffer_samples + wasapi_state->shared_buffer_write_idx;
+	    CopyArray(dest, src, R32, frames_to_read);
+	    
+	    frames_read += frames_to_read;
+	    wasapi_state->shared_buffer_write_idx += frames_to_read;
+	    wasapi_state->shared_buffer_write_idx %= wasapi_state->shared_buffer_sample_capacity;
+	    wasapi_state->shared_buffer_last_write_size_in_frames += frames_to_read;
+	  }
+
+	  result = IAudioCaptureClient_ReleaseBuffer(wasapi_state->source, frames_to_read);
+	  if(result != S_OK) { Win32LogError(result); }
 	}
-
-	result = IAudioCaptureClient_ReleaseBuffer(wasapi_state->source, frames_to_read);
-	if(result != S_OK) { Win32LogError(result); }
 
       }else if(signaled_handle == wasapi_state->render_callback_event_handle) {
 	++render_event_count;
@@ -354,9 +364,10 @@ wasapi_process(void *data)
 	{
 	  U32 frames_to_read = wasapi_state->shared_buffer_last_write_size_in_frames;
 	  if(frames_to_read) {
+	    B32 all_frames_read = 0;
 	    R32 *src = wasapi_state->shared_buffer_samples + wasapi_state->shared_buffer_read_idx;
 	    R32 *dest = in;
-	    for(U32 dest_idx = 0; dest_idx < frames_to_write; ++dest_idx) {
+	    for(U32 dest_idx = 0; dest_idx < frames_to_write && !all_frames_read; ++dest_idx) {
 	      R32 src_pos = (R32)dest_idx * wasapi_state->samplerate_conversion_factor__src_from_dest;
 	      U32 src_idx = FloorU32(src_pos);
 	      R32 src_frac = src_pos - (R32)src_idx;
@@ -365,7 +376,14 @@ wasapi_process(void *data)
 	      if(src_idx + 1 < frames_to_read) {
 		converted_sample = lerp(src[src_idx], src[src_idx + 1], src_frac);
 	      }else {
+		// TODO: This is a kinda hacky way of ensuring we don't read
+		//       more samples than are available in the shared buffer.
+		//       I'm not sure this is totally necessary any more, and if
+		//       it still is, there's probably a better way of doing it.
 		converted_sample = src[src_idx];
+		frames_to_write = dest_idx + 1;
+		all_frames_read = 1;
+		OutputDebugStringA("output: read all input frames\n");
 	      }
 	      dest[dest_idx] = converted_sample;
 	    }
