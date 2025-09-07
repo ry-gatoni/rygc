@@ -3,6 +3,7 @@
  * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
  * visualize phase data
  * draw lines instead of rectangles
+ * merge various pieces application state into a single structure
  */
 
 #define OS_FEATURE_GFX
@@ -25,6 +26,13 @@
 #include "fourier/fourier.c"
 #include "ui/ui.c"
 #include "file_formats/wav.c"
+
+// NOTE:
+// the audio process caches the state of its output in a list of buffer each
+// loop iteration. Each of these buffers is allocated with a size that can hold
+// a larger number of samples than the audio backend will ever request. The
+// rendering loop dequeues these buffers, computes, and renders their spectra,
+// using the maximum buffer size as the number of frequency bins.
 
 //
 // audio
@@ -56,6 +64,7 @@ typedef struct AudioBufferList
 
   U32 lock;
 
+  U32 buffer_sample_count;
   AudioBufferNode *first;
   AudioBufferNode *last;
   U64 count;
@@ -155,19 +164,21 @@ audio_process(Audio_ProcessData *data)
     // NOTE: try to pull a node off the freelist, otherwise allocate a new one
     AudioBufferNode *node = 0;    
     while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
-    {
-      U32 sample_count_pow2 = RoundUpPow2(sample_count);
+    {      
       if(audio_buffer_list.freelist) {
-
+	
 	node = audio_buffer_list.freelist;
-	Assert(node->buf.sample_count == sample_count_pow2);
+	U32 sample_count_pow2 = RoundUpPow2(sample_count);
+	Assert(audio_buffer_list.buffer_sample_count >= sample_count_pow2);
 	SLLStackPop(audio_buffer_list.freelist);
       }else {
 
-	node = arena_push_struct(audio_buffer_list.arena, AudioBufferNode);	
-	node->buf.sample_count = sample_count_pow2;
-	node->buf.samples[0] = arena_push_array_z(audio_buffer_list.arena, R32, sample_count_pow2);
-	node->buf.samples[1] = arena_push_array_z(audio_buffer_list.arena, R32, sample_count_pow2);
+	node = arena_push_struct(audio_buffer_list.arena, AudioBufferNode);
+	node->buf.sample_count = sample_count;
+	node->buf.samples[0] = arena_push_array_z(audio_buffer_list.arena,
+						  R32, audio_buffer_list.buffer_sample_count);
+	node->buf.samples[1] = arena_push_array_z(audio_buffer_list.arena,
+						  R32, audio_buffer_list.buffer_sample_count);
       }
     }
     while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
@@ -335,7 +346,6 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 
   U32 current_freq = 0;
   U32 freq_line_thickness_px = 5;
-  //R32 freq_line_thickness = render_commands->ndc_scale.x * freq_line_thickness_px;
   R32 freq_line_space = 2.f/(R32)freq_line_count;
   V2 freq_line_pos = v2(-1, 0);
   V2 freq_label_pos = v2(-0.99f, -0.95f);
@@ -354,7 +364,6 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 
   U32 current_amp = 0;
   U32 amp_line_thickness_px = 5;
-  //R32 amp_line_thickness = render_commands->ndc_scale.y * amp_line_thickness_px;
   R32 amp_line_space = 2.f/(R32)amp_line_count;
   V2 amp_line_pos = v2(0, -1);
   V2 amp_label_pos = v2( -0.95f, -0.99f);
@@ -543,6 +552,7 @@ main(int argc, char **argv)
 	if(audio_init(Str8Lit("spectrogram audio"))) {
 
 	  audio_buffer_list.arena = arena_alloc();
+	  audio_buffer_list.buffer_sample_count = spec_state->spectrum_sample_count;
 	  audio_set_user_data(spec_state->sine_osc_state);
 	  spec_state->sample_rate = audio_get_sample_rate();
 	}
@@ -642,7 +652,9 @@ main(int argc, char **argv)
 	      for(AudioBufferNode *node = first_node; node; node = 0) {
 
 		AudioBuffer *buf = &node->buf;
-		FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+		//FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
+		FloatBuffer sample_buf = {.count = audio_buffer_list.buffer_sample_count,
+					  .mem = buf->samples[0]};
 
 #if 0
 		// DEBUG:
@@ -664,18 +676,11 @@ main(int argc, char **argv)
 		}
 #endif
 
-		Assert(sample_buf.count <= spec_state->cached_spectrum.count);
-		FloatBuffer spectrum_in = {0};
-		spectrum_in.count = spec_state->cached_spectrum.count;
-		spectrum_in.mem = arena_push_array_z(frame_arena, R32, spec_state->cached_spectrum.count);
-		CopyArray(spectrum_in.mem, sample_buf.mem, R32, sample_buf.count);
-		//ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-		ComplexBuffer spectrum_buf = fft_re(frame_arena, spectrum_in);
+		Assert(sample_buf.count == spec_state->cached_spectrum.count);
+		ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
 		draw_spectrum(spec_state, window_dim, spectrum_buf);
 
 		// NOTE: cache spectrum
-		// TODO: handle the case when these have different lengths
-		//Assert(spec_state->cached_spectrum.count >= spectrum_buf.count);
 		CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
 		CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
 	      }
@@ -689,7 +694,8 @@ main(int argc, char **argv)
 	      while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 0, 1)) {}
 	      {
 		last_node->next = audio_buffer_list.freelist;
-		audio_buffer_list.freelist = last_node;	  
+		audio_buffer_list.freelist = last_node;
+		--audio_buffer_list.count;
 	      }
 	      while(!AtomicCompareAndSwap(&audio_buffer_list.lock, 1, 0)) {}
 	    }

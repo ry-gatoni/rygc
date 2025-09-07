@@ -20,7 +20,7 @@
 - audio module
   - [X] route audio (wasapi)
   - [X] get sample rate from audio backend (windows/wasapi)
-  - [] fix wasapi input noise
+  - [X] fix wasapi input noise
   - [] support changing sample rate (wasapi, jack)
   - [] support changing connected audio devices (and overriding defaults) (wasapi, jack)
   - [] get/set audio device latency (wasapi, jack)
@@ -32,7 +32,7 @@
   - [] visualize phase
   - [] add ui
   - [] store spectra per frame, display spectrogram
-  - [] more resilient spectrum caching
+  - [X] more resilient spectrum caching
 
 - [] logging system
 - [] ui layout module
