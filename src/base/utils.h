@@ -85,10 +85,10 @@
 
 // NOTE: copying/zeroing utils
 #define CopySize(dest, source, size) memcpy(dest, source, size)
-#define CopyStruct(dest, source, type) memcpy(dest, source, sizeof(type))
+#define CopyStruct(dest, source) memcpy(dest, source, sizeof(*(src)))
 #define CopyArray(dest, source, type, count) memcpy(dest, source, (count)*sizeof(type))
 #define ZeroSize(dest, size) memset(dest, 0, size)
-#define ZeroStruct(dest, type) memset(dest, 0, sizeof(type))
+#define ZeroStruct(dest) memset(dest, 0, sizeof(*(dest)))
 #define ZeroArray(dest, type, count) memset(dest, 0, (count)*sizeof(type))
 
 #define SetSize(dest, val, size) memset(dest, val, size);

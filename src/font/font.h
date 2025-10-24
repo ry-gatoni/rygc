@@ -14,7 +14,7 @@
 #endif
 
 #if FONT_BACKEND == FONT_BACKEND_FREETYPE
-#  include "font/Freetype/font_freetype.h"
+#  include "font/FreeType/font_freetype.h"
 #elif FONT_BACKEND == FONT_BACKEND_DWRITE
 #  include "font/DirectWrite/font_directwrite.h"
 #else

@@ -140,7 +140,7 @@ ui_build_box_from_key(Ui_BoxFlags flags, Ui_Key key)
     }else {
       box = arena_push_struct(ui_state->arena, Ui_Box);
     }
-    ZeroStruct(box, Ui_Box);
+    ZeroStruct(box);
 
     // NOTE: put the box in the persistent state table
     U64 slot_idx = key.hash % ui_state->box_table_count;

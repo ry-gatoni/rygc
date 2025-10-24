@@ -255,13 +255,13 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	      /* str8_list_push(codegen_arena, &request_function_list, */
 	      /* 		     Str8Lit("  socket_msg.msg_controllen = CMSG_SPACE(sizeof(fd));\n\n")); */
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);\n"));
+			     Str8Lit("  int send_size = sendmsg(wayland_state->display_socket_handle, &socket_msg, 0);\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  if(send_size == -1) {\n    result = 0;\n  }\n\n"));
 	    }
 	    else {
 	      str8_list_push(codegen_arena, &request_function_list,
-			     Str8Lit("  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);\n"));
+			     Str8Lit("  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);\n"));
 	      str8_list_push(codegen_arena, &request_function_list,
 			     Str8Lit("  if(send_size == -1) {\n    result = 0;\n  }\n\n"));
 	    }

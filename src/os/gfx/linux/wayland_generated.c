@@ -207,7 +207,7 @@ wl_display_sync(U32 wl_display_id, U32 callback)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -231,7 +231,7 @@ wl_display_get_registry(U32 wl_display_id, U32 registry)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -259,7 +259,7 @@ wl_registry_bind(U32 wl_registry_id, U32 name, String8 interface, U32 version, U
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -283,7 +283,7 @@ wl_compositor_create_surface(U32 wl_compositor_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -307,7 +307,7 @@ wl_compositor_create_region(U32 wl_compositor_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -336,7 +336,7 @@ wl_shm_pool_create_buffer(U32 wl_shm_pool_id, U32 id, S32 offset, S32 width, S32
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -359,7 +359,7 @@ wl_shm_pool_destroy(U32 wl_shm_pool_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -383,7 +383,7 @@ wl_shm_pool_resize(U32 wl_shm_pool_id, S32 size)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -420,7 +420,7 @@ wl_shm_create_pool(U32 wl_shm_id, U32 id, int fd, S32 size)
   cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+  int send_size = sendmsg(wayland_state->display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -443,7 +443,7 @@ wl_shm_release(U32 wl_shm_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -466,7 +466,7 @@ wl_buffer_destroy(U32 wl_buffer_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -492,7 +492,7 @@ wl_data_offer_accept(U32 wl_data_offer_id, U32 serial, String8 mime_type)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -529,7 +529,7 @@ wl_data_offer_receive(U32 wl_data_offer_id, String8 mime_type, int fd)
   cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+  int send_size = sendmsg(wayland_state->display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -552,7 +552,7 @@ wl_data_offer_destroy(U32 wl_data_offer_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -575,7 +575,7 @@ wl_data_offer_finish(U32 wl_data_offer_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -600,7 +600,7 @@ wl_data_offer_set_actions(U32 wl_data_offer_id, U32 dnd_actions, U32 preferred_a
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -625,7 +625,7 @@ wl_data_source_offer(U32 wl_data_source_id, String8 mime_type)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -648,7 +648,7 @@ wl_data_source_destroy(U32 wl_data_source_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -672,7 +672,7 @@ wl_data_source_set_actions(U32 wl_data_source_id, U32 dnd_actions)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -699,7 +699,7 @@ wl_data_device_start_drag(U32 wl_data_device_id, U32 source, U32 origin, U32 ico
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -724,7 +724,7 @@ wl_data_device_set_selection(U32 wl_data_device_id, U32 source, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -747,7 +747,7 @@ wl_data_device_release(U32 wl_data_device_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -771,7 +771,7 @@ wl_data_device_manager_create_data_source(U32 wl_data_device_manager_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -796,7 +796,7 @@ wl_data_device_manager_get_data_device(U32 wl_data_device_manager_id, U32 id, U3
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -821,7 +821,7 @@ wl_shell_get_shell_surface(U32 wl_shell_id, U32 id, U32 surface)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -845,7 +845,7 @@ wl_shell_surface_pong(U32 wl_shell_surface_id, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -870,7 +870,7 @@ wl_shell_surface_move(U32 wl_shell_surface_id, U32 seat, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -896,7 +896,7 @@ wl_shell_surface_resize(U32 wl_shell_surface_id, U32 seat, U32 serial, U32 edges
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -919,7 +919,7 @@ wl_shell_surface_set_toplevel(U32 wl_shell_surface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -946,7 +946,7 @@ wl_shell_surface_set_transient(U32 wl_shell_surface_id, U32 parent, S32 x, S32 y
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -972,7 +972,7 @@ wl_shell_surface_set_fullscreen(U32 wl_shell_surface_id, U32 method, U32 framera
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1001,7 +1001,7 @@ wl_shell_surface_set_popup(U32 wl_shell_surface_id, U32 seat, U32 serial, U32 pa
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1025,7 +1025,7 @@ wl_shell_surface_set_maximized(U32 wl_shell_surface_id, U32 output)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1050,7 +1050,7 @@ wl_shell_surface_set_title(U32 wl_shell_surface_id, String8 title)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1075,7 +1075,7 @@ wl_shell_surface_set_class(U32 wl_shell_surface_id, String8 class_)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1098,7 +1098,7 @@ wl_surface_destroy(U32 wl_surface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1124,7 +1124,7 @@ wl_surface_attach(U32 wl_surface_id, U32 buffer, S32 x, S32 y)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1151,7 +1151,7 @@ wl_surface_damage(U32 wl_surface_id, S32 x, S32 y, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1175,7 +1175,7 @@ wl_surface_frame(U32 wl_surface_id, U32 callback)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1199,7 +1199,7 @@ wl_surface_set_opaque_region(U32 wl_surface_id, U32 region)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1223,7 +1223,7 @@ wl_surface_set_input_region(U32 wl_surface_id, U32 region)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1246,7 +1246,7 @@ wl_surface_commit(U32 wl_surface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1270,7 +1270,7 @@ wl_surface_set_buffer_transform(U32 wl_surface_id, S32 transform)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1294,7 +1294,7 @@ wl_surface_set_buffer_scale(U32 wl_surface_id, S32 scale)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1321,7 +1321,7 @@ wl_surface_damage_buffer(U32 wl_surface_id, S32 x, S32 y, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1346,7 +1346,7 @@ wl_surface_offset(U32 wl_surface_id, S32 x, S32 y)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1370,7 +1370,7 @@ wl_seat_get_pointer(U32 wl_seat_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1394,7 +1394,7 @@ wl_seat_get_keyboard(U32 wl_seat_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1418,7 +1418,7 @@ wl_seat_get_touch(U32 wl_seat_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1441,7 +1441,7 @@ wl_seat_release(U32 wl_seat_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1468,7 +1468,7 @@ wl_pointer_set_cursor(U32 wl_pointer_id, U32 serial, U32 surface, S32 hotspot_x,
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1491,7 +1491,7 @@ wl_pointer_release(U32 wl_pointer_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1514,7 +1514,7 @@ wl_keyboard_release(U32 wl_keyboard_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1537,7 +1537,7 @@ wl_touch_release(U32 wl_touch_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1560,7 +1560,7 @@ wl_output_release(U32 wl_output_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1583,7 +1583,7 @@ wl_region_destroy(U32 wl_region_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1610,7 +1610,7 @@ wl_region_add(U32 wl_region_id, S32 x, S32 y, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1637,7 +1637,7 @@ wl_region_subtract(U32 wl_region_id, S32 x, S32 y, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1660,7 +1660,7 @@ wl_subcompositor_destroy(U32 wl_subcompositor_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1686,7 +1686,7 @@ wl_subcompositor_get_subsurface(U32 wl_subcompositor_id, U32 id, U32 surface, U3
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1709,7 +1709,7 @@ wl_subsurface_destroy(U32 wl_subsurface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1734,7 +1734,7 @@ wl_subsurface_set_position(U32 wl_subsurface_id, S32 x, S32 y)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1758,7 +1758,7 @@ wl_subsurface_place_above(U32 wl_subsurface_id, U32 sibling)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1782,7 +1782,7 @@ wl_subsurface_place_below(U32 wl_subsurface_id, U32 sibling)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1805,7 +1805,7 @@ wl_subsurface_set_sync(U32 wl_subsurface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1828,7 +1828,7 @@ wl_subsurface_set_desync(U32 wl_subsurface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1851,7 +1851,7 @@ xdg_wm_base_destroy(U32 xdg_wm_base_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1875,7 +1875,7 @@ xdg_wm_base_create_positioner(U32 xdg_wm_base_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1900,7 +1900,7 @@ xdg_wm_base_get_xdg_surface(U32 xdg_wm_base_id, U32 id, U32 surface)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1924,7 +1924,7 @@ xdg_wm_base_pong(U32 xdg_wm_base_id, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1947,7 +1947,7 @@ xdg_positioner_destroy(U32 xdg_positioner_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1972,7 +1972,7 @@ xdg_positioner_set_size(U32 xdg_positioner_id, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -1999,7 +1999,7 @@ xdg_positioner_set_anchor_rect(U32 xdg_positioner_id, S32 x, S32 y, S32 width, S
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2023,7 +2023,7 @@ xdg_positioner_set_anchor(U32 xdg_positioner_id, U32 anchor)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2047,7 +2047,7 @@ xdg_positioner_set_gravity(U32 xdg_positioner_id, U32 gravity)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2071,7 +2071,7 @@ xdg_positioner_set_constraint_adjustment(U32 xdg_positioner_id, U32 constraint_a
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2096,7 +2096,7 @@ xdg_positioner_set_offset(U32 xdg_positioner_id, S32 x, S32 y)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2119,7 +2119,7 @@ xdg_positioner_set_reactive(U32 xdg_positioner_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2144,7 +2144,7 @@ xdg_positioner_set_parent_size(U32 xdg_positioner_id, S32 parent_width, S32 pare
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2168,7 +2168,7 @@ xdg_positioner_set_parent_configure(U32 xdg_positioner_id, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2191,7 +2191,7 @@ xdg_surface_destroy(U32 xdg_surface_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2215,7 +2215,7 @@ xdg_surface_get_toplevel(U32 xdg_surface_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2241,7 +2241,7 @@ xdg_surface_get_popup(U32 xdg_surface_id, U32 id, U32 parent, U32 positioner)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2268,7 +2268,7 @@ xdg_surface_set_window_geometry(U32 xdg_surface_id, S32 x, S32 y, S32 width, S32
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2292,7 +2292,7 @@ xdg_surface_ack_configure(U32 xdg_surface_id, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2315,7 +2315,7 @@ xdg_toplevel_destroy(U32 xdg_toplevel_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2339,7 +2339,7 @@ xdg_toplevel_set_parent(U32 xdg_toplevel_id, U32 parent)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2364,7 +2364,7 @@ xdg_toplevel_set_title(U32 xdg_toplevel_id, String8 title)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2389,7 +2389,7 @@ xdg_toplevel_set_app_id(U32 xdg_toplevel_id, String8 app_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2416,7 +2416,7 @@ xdg_toplevel_show_window_menu(U32 xdg_toplevel_id, U32 seat, U32 serial, S32 x, 
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2441,7 +2441,7 @@ xdg_toplevel_move(U32 xdg_toplevel_id, U32 seat, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2467,7 +2467,7 @@ xdg_toplevel_resize(U32 xdg_toplevel_id, U32 seat, U32 serial, U32 edges)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2492,7 +2492,7 @@ xdg_toplevel_set_max_size(U32 xdg_toplevel_id, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2517,7 +2517,7 @@ xdg_toplevel_set_min_size(U32 xdg_toplevel_id, S32 width, S32 height)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2540,7 +2540,7 @@ xdg_toplevel_set_maximized(U32 xdg_toplevel_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2563,7 +2563,7 @@ xdg_toplevel_unset_maximized(U32 xdg_toplevel_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2587,7 +2587,7 @@ xdg_toplevel_set_fullscreen(U32 xdg_toplevel_id, U32 output)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2610,7 +2610,7 @@ xdg_toplevel_unset_fullscreen(U32 xdg_toplevel_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2633,7 +2633,7 @@ xdg_toplevel_set_minimized(U32 xdg_toplevel_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2656,7 +2656,7 @@ xdg_popup_destroy(U32 xdg_popup_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2681,7 +2681,7 @@ xdg_popup_grab(U32 xdg_popup_id, U32 seat, U32 serial)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2706,7 +2706,7 @@ xdg_popup_reposition(U32 xdg_popup_id, U32 positioner, U32 token)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2729,7 +2729,7 @@ zwp_linux_dmabuf_v1_destroy(U32 zwp_linux_dmabuf_v1_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2753,7 +2753,7 @@ zwp_linux_dmabuf_v1_create_params(U32 zwp_linux_dmabuf_v1_id, U32 params_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2777,7 +2777,7 @@ zwp_linux_dmabuf_v1_get_default_feedback(U32 zwp_linux_dmabuf_v1_id, U32 id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2802,7 +2802,7 @@ zwp_linux_dmabuf_v1_get_surface_feedback(U32 zwp_linux_dmabuf_v1_id, U32 id, U32
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2825,7 +2825,7 @@ zwp_linux_buffer_params_v1_destroy(U32 zwp_linux_buffer_params_v1_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2865,7 +2865,7 @@ zwp_linux_buffer_params_v1_add(U32 zwp_linux_buffer_params_v1_id, int fd, U32 pl
   cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
   *((int *)CMSG_DATA(cmsg)) = fd;
-  int send_size = sendmsg(wayland_state.display_socket_handle, &socket_msg, 0);
+  int send_size = sendmsg(wayland_state->display_socket_handle, &socket_msg, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2892,7 +2892,7 @@ zwp_linux_buffer_params_v1_create(U32 zwp_linux_buffer_params_v1_id, S32 width, 
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2920,7 +2920,7 @@ zwp_linux_buffer_params_v1_create_immed(U32 zwp_linux_buffer_params_v1_id, U32 b
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2943,7 +2943,7 @@ zwp_linux_dmabuf_feedback_v1_destroy(U32 zwp_linux_dmabuf_feedback_v1_id)
   U32 message_size = AlignPow2(buf.pos, 4);
   message_header->message_size = message_size;
 
-  int send_size = send(wayland_state.display_socket_handle, message_header, message_size, 0);
+  int send_size = send(wayland_state->display_socket_handle, message_header, message_size, 0);
   if(send_size == -1) {
     result = 0;
   }
@@ -2951,3 +2951,4 @@ zwp_linux_dmabuf_feedback_v1_destroy(U32 zwp_linux_dmabuf_feedback_v1_id)
   arena_release_scratch(scratch);
   return(result);
 }
+

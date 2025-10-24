@@ -67,5 +67,6 @@ end_wav(WavWriter *writer, String8 file_path)
   Os_Handle file = os_file_open(file_path, Os_FileOpenFlag_write);
   Buffer wav_contents = {.size = wav_buffer.pos, .mem = wav_buffer.mem};
   B32 result = os_file_write(wav_contents, file);
+  Unused(result);
   arena_release(writer->arena);
 }

@@ -11,13 +11,35 @@ typedef enum Os_EventKind
 
 typedef enum Os_Key
 {
-  // TODO: keys
+  Os_Key_null = 0,
+  
   Os_Key_mouse_left,
   Os_Key_mouse_middle,
   Os_Key_mouse_right,
+  Os_Key_mouse_side,
+  Os_Key_mouse_extra,
+  Os_Key_mouse_forward,
+  Os_Key_mouse_back,
+  Os_Key_mouse_task,
+
+  Os_Key_joystick_trigger,
+  Os_Key_joystick_thumb,
+  Os_Key_joystick_thumb2,
+  Os_Key_joystick_top,
+  Os_Key_joystick_top2,
+  Os_Key_joystick_pinkie,
+  Os_Key_joystick_base,
+  Os_Key_joystick_base2,
+  Os_Key_joystick_base3,
+  Os_Key_joystick_base4,
+  Os_Key_joystick_base5,
+  Os_Key_joystick_base6,
+
+  // TODO: keys
+  Os_Key_keyboard_backspace,
+  
   Os_Key_Count,
 } Os_Key;
-
 
 typedef struct Os_Event Os_Event;
 struct Os_Event
@@ -59,7 +81,7 @@ proc B32 os_gfx_init(void);
 proc Os_Handle os_open_window(String8 name, S32 width, S32 height);
 proc void os_close_window(Os_Handle window);
 
-proc Os_EventList os_events_from_window(Os_Handle window); // TODO: deprecate
+//proc Os_EventList os_events_from_window(Os_Handle window); // TODO: deprecate
 proc Os_EventList os_events(Arena *arena);
 
 proc V2S32 os_window_get_dim(Os_Handle window);

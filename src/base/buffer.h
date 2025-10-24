@@ -39,6 +39,7 @@ proc inline U8*
 buf_consume_size_(Buffer *buf, U64 size)
 {
   U8 *result = 0;
+  Assert(size <= buf->size);
   if(size <= buf->size) {
     result = buf->mem;
     buf->mem += size;
@@ -46,8 +47,8 @@ buf_consume_size_(Buffer *buf, U64 size)
   }
   return(result);
 }
-#define buf_consume_struct(buf, type) buf_consume_size_(buf, sizeof(type))
-#define buf_consume_array(buf, type, count) buf_consume_size_(buf, (count)*sizeof(type))
+#define buf_consume_struct(buf, type) (type*)buf_consume_size_(buf, sizeof(type))
+#define buf_consume_array(buf, type, count) (type*)buf_consume_size_(buf, (count)*sizeof(type))
 
 proc PushBuffer push_buffer_alloc(Arena *arena, U64 cap);
 

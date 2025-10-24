@@ -16,8 +16,10 @@ fi
 CFLAGS+=" -fvisibility=hidden"
 
 SRC=$PWD
+DATA=$SRC/../data
 CFLAGS+=" -I$SRC"
 CFLAGS+=" -I$SRC/third_party/freetype-2.13.3/include"
+CFLAGS+=" -DDATA_DIR=\"$DATA\""
 
 mkdir -p ../build
 pushd ../build > /dev/null
@@ -25,7 +27,9 @@ pushd ../build > /dev/null
 BUILD=$PWD
 CFLAGS+=" -L$BUILD"
 
-#clang $CFLAGS $SRC/wayland_codegen.c -o wayland_codegen
+echo $CFLAGS
+clang $CFLAGS $SRC/os/gfx/linux/wayland_codegen.c -o wayland_codegen
+./wayland_codegen
 #clang $CFLAGS $SRC/scratch/jack_test.c -ljack -o jack_test
 #clang $CFLAGS $SRC/scratch/wayland_window_test.c -lxkbcommon -lEGL -lGL -o wayland_window_test
 #clang $CFLAGS $SRC/scratch/freetype_test.c -lfreetype -lxkbcommon -lEGL -lGL -o freetype_test

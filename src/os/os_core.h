@@ -25,7 +25,7 @@ typedef struct Os_FileAttributes
 typedef OsThreadProc(Os_ThreadProc);
 
 #if OS_LINUX
-#  include "os_core_linux.h"
+#  include "os/core/os_core_linux.h"
 #elif OS_WINDOWS
 #  include "os/core/os_core_win32.h"
 #else

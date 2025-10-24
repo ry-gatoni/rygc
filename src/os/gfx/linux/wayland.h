@@ -22,17 +22,15 @@ typedef struct WaylandMessageHeader
 } WaylandMessageHeader;
 #pragma pack(pop)
 
-typedef struct WaylandIdBucket
+typedef struct WaylandId WaylandId;
+struct WaylandId
 {
-  String8 interface_name;
+  WaylandId *next;
+  WaylandId *prev;
+  
+  struct WaylandWindow *window;
   U32 id;
-} WaylandIdBucket;
-
-typedef struct WaylandHashKey
-{
-  U64 hash;
-  String8 string;
-} WaylandHashKey;
+};
 
 typedef struct WaylandTempId WaylandTempId;
 struct WaylandTempId
@@ -73,22 +71,32 @@ typedef struct WaylandWindow WaylandWindow;
 struct WaylandWindow
 {
   WaylandWindow *next;
+  WaylandWindow *prev;
   
-  U32 wl_keyboard_id;
-  U32 wl_pointer_id;
+  /* U32 wl_keyboard_id; */
+  /* U32 wl_pointer_id; */
 
-  U32 wl_surface_id;
-  U32 xdg_surface_id;
-  U32 xdg_toplevel_id;
-  U32 wl_shm_pool_id;
+  /* U32 wl_surface_id; */
+  /* U32 xdg_surface_id; */
+  /* U32 xdg_toplevel_id; */
+  /* U32 wl_shm_pool_id; */
 
-  U32 zwp_linux_buffer_params_v1_id;  
+  /* U32 zwp_linux_buffer_params_v1_id;   */
+  WaylandId *wl_surface;
+  WaylandId *xdg_surface;
+  WaylandId *xdg_toplevel;
+  WaylandId *wl_shm_pool;
 
-  WaylandTempId *buffer_id[2];
+  WaylandId *zwp_linux_buffer_params_v1;  
+
+  /* WaylandTempId *buffer_id[2]; */
+  WaylandId *buffers[2];
   U32 backbuffer_index;
-  WaylandTempId *gl_buffer_id;  
+  /* WaylandTempId *gl_buffer_id;   */
+  WaylandId *gl_buffer;
 
-  WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback
+  /* WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback */
+  WaylandId *frame_callback;
   U32 last_frame_timestamp;
   U32 last_frame_ms_elapsed;
 
@@ -97,10 +105,7 @@ struct WaylandWindow
 
   GlFramebuffer gl_framebuffer[2];
 
-  struct xkb_keymap *xkb_keymap;
-  struct xkb_state *xkb_state;
-
-  Arena *event_arena; // NOTE: cleared each frame
+  //Arena *event_arena; // NOTE: cleared each frame
 
   RenderTarget render_target;
 
@@ -110,82 +115,140 @@ struct WaylandWindow
   S32 height;
 };
 
-// TODO: make an easier to use abstraction for the kind of events a user wants to respond to
-typedef struct WaylandEvent
-{
-  U32 object_id;
-  U32 opcode;
-  Buffer body;
-} WaylandEvent;
+// NOTE: from `linux/input-event-codes.h`
+#define WAYLAND_BUTTON_MOUSE_MASK	(0x110)
+#define WAYLAND_BUTTON_JOYSTICK_MASK	(0x120)
+#define WAYLAND_BUTTON_GAMEPAD_MASK	(0x130)
+// NOTE: from `xkbcommon/xkbcommon-keysyms.h`
+#define WAYLAND_BUTTON_KEY_MASK		(0xFF00)
 
-typedef enum EventKind
-{
-  EventKind_null,
-  EventKind_Press,
-  EventKind_Release,
-  EventKind_Move,
-  EventKind_Close,
-  
-  EventKind_Count,
-} EventKind;
+typedef enum Wayland_Key
+{  
+  Wayland_Key_mouse_left,
+  Wayland_Key_mouse_right,
+  Wayland_Key_mouse_middle,
+  Wayland_Key_mouse_side,
+  Wayland_Key_mouse_extra,
+  Wayland_Key_mouse_forward,
+  Wayland_Key_mouse_back,
+  Wayland_Key_mouse_task,
 
-typedef enum EventButton
-{
-  EventButton_none = 1,
-  EventButton_MouseLeft = 1,
-  EventButton_MouseMiddle = 2,
-  EventButton_MouseRight = 3,
-  EventButton_KeySpace = XKB_KEY_space,
-  
-  EventButton_Count,
-} EventButton;
+  Wayland_Key_joystick_trigger,
+  Wayland_Key_joystick_thumb,
+  Wayland_Key_joystick_thumb2,
+  Wayland_Key_joystick_top,
+  Wayland_Key_joystick_top2,
+  Wayland_Key_joystick_pinkie,
+  Wayland_Key_joystick_base,
+  Wayland_Key_joystick_base2,
+  Wayland_Key_joystick_base3,
+  Wayland_Key_joystick_base4,
+  Wayland_Key_joystick_base5,
+  Wayland_Key_joystick_base6,
 
-typedef struct Event
-{
-  EventKind kind;
+  Wayland_Key_keyboard_backspace,
 
-  EventButton button;
-  V2 position;
-} Event;
+  Wayland_Key_Count,
+} Wayland_Key;
 
-typedef struct EventNode EventNode;
-struct EventNode
-{
-  EventNode *next;
-  EventNode *prev;
-  Event event;
+global Os_Key os_key_from_wayland_key[Wayland_Key_Count] = {
+  [Wayland_Key_mouse_left] = Os_Key_mouse_left,
+  [Wayland_Key_mouse_right] = Os_Key_mouse_right,
+  [Wayland_Key_mouse_middle] = Os_Key_mouse_middle,
+  [Wayland_Key_mouse_side] = Os_Key_mouse_side,
+  [Wayland_Key_mouse_extra] = Os_Key_mouse_extra,
+  [Wayland_Key_mouse_forward] = Os_Key_mouse_forward,
+  [Wayland_Key_mouse_back] = Os_Key_mouse_back,
+  [Wayland_Key_mouse_task] = Os_Key_mouse_task,
+
+  [Wayland_Key_joystick_trigger] = Os_Key_joystick_trigger,
+  [Wayland_Key_joystick_thumb] = Os_Key_joystick_thumb,
+  [Wayland_Key_joystick_thumb2] = Os_Key_joystick_thumb2,
+  [Wayland_Key_joystick_top] = Os_Key_joystick_top,
+  [Wayland_Key_joystick_top2] = Os_Key_joystick_top2,
+  [Wayland_Key_joystick_pinkie] = Os_Key_joystick_pinkie,
+  [Wayland_Key_joystick_base] = Os_Key_joystick_base,
+  [Wayland_Key_joystick_base2] = Os_Key_joystick_base2,
+  [Wayland_Key_joystick_base3] = Os_Key_joystick_base3,
+  [Wayland_Key_joystick_base4] = Os_Key_joystick_base4,
+  [Wayland_Key_joystick_base5] = Os_Key_joystick_base5,
+  [Wayland_Key_joystick_base6] = Os_Key_joystick_base6,
+
+  [Wayland_Key_keyboard_backspace] = Os_Key_keyboard_backspace,
 };
-
-typedef struct EventList
-{
-  EventNode *first;
-  EventNode *last;
-  U64 count;
-} EventList;
 
 typedef struct WaylandState
 {
-  int display_socket_handle;
-
   Arena *arena;
   
   WaylandWindow *first_window;
   WaylandWindow *last_window;
+  U64 window_count;
 
-  U32 wl_display_id;
-  U32 wl_registry_id;
+  WaylandWindow *focused_window;
+
+  int display_socket_handle;
+
+  // NOTE: global ids
+  /* U32 wl_display_id; */
+  /* U32 wl_registry_id; */
+  WaylandId *wl_display;
+  WaylandId *wl_registry;
   
-  U32 wl_shm_id;
-  U32 zwp_linux_dmabuf_v1_id;
-  U32 wl_compositor_id;
-  U32 xdg_wm_base_id;
-  U32 wl_seat_id;
-  U32 zwp_linux_dmabuf_feedback_v1_id;
+  /* U32 wl_shm_id; */
+  /* U32 zwp_linux_dmabuf_v1_id; */
+  /* U32 wl_compositor_id; */
+  /* U32 xdg_wm_base_id; */
+  /* U32 wl_seat_id; */
+  /* U32 zwp_linux_dmabuf_feedback_v1_id; */
+  WaylandId *wl_shm;
+  WaylandId *zwp_linux_dmabuf_v1;
+  WaylandId *wl_compositor;
+  WaylandId *xdg_wm_base;
+  WaylandId *wl_seat;
+  WaylandId *wl_keyboard;
+  WaylandId *wl_pointer;
+  WaylandId *zwp_linux_dmabuf_feedback_v1;
 
-  WaylandTempId *sync_id;
+  /* WaylandTempId *sync_id; */
+  WaylandId *sync;
+
+  // NOTE: window id lists
+  WaylandId *first_wl_surface;
+  WaylandId *last_wl_surface;
+  U64 wl_surface_count;
+  
+  WaylandId *first_xdg_surface;
+  WaylandId *last_xdg_surface;
+  U64 xdg_surface_count;
+  
+  WaylandId *first_xdg_toplevel;
+  WaylandId *last_xdg_toplevel;
+  U64 xdg_toplevel_count;
+  
+  WaylandId *first_wl_shm_pool;
+  WaylandId *last_wl_shm_pool;
+  U64 wl_shm_pool_count;
+  
+  WaylandId *first_zwp_linux_buffer_params_v1;
+  WaylandId *last_zwp_linux_buffer_params_v1;
+  U64 zwp_linux_buffer_params_v1_count;
+  
+  WaylandId *first_wl_buffer;
+  WaylandId *last_wl_buffer;
+  U64 wl_buffer_count;
+  
+  WaylandId *first_gl_buffer;
+  WaylandId *last_gl_buffer;
+  U64 gl_buffer_count;
+  
+  WaylandId *first_frame_callback;
+  WaylandId *last_frame_callback;
+  U64 frame_callback_count;
 
   U32 next_id;
-  WaylandTempId *id_freelist;
+  /* WaylandTempId *id_freelist; */
+  WaylandId *id_freelist;
 
   void *dmabuf_format_table;
   U64 dmabuf_format_table_size;
@@ -195,10 +258,12 @@ typedef struct WaylandState
 
   String8List error_list;
 
-  struct xkb_context *xkb_context;  
+  struct xkb_context *xkb_context;
+  struct xkb_keymap *xkb_keymap;
+  struct xkb_state *xkb_state;
 } WaylandState;
 
-global WaylandState wayland_state;
+global WaylandState *wayland_state;
 
 #define WAYLAND_MAX_CLIENT_OBJECT_ID 0xFEFFFFFF
 
@@ -208,11 +273,11 @@ global PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC eglExportDMABUFImageQueryMESA;
 global PFNEGLEXPORTDMABUFIMAGEMESAPROC eglExportDMABUFImageMESA;
 
 // NOTE: functions
-proc WaylandHashKey wayland_hash(String8 s);
 
-proc U32 wayland_new_id(void);
-proc WaylandTempId* wayland_temp_id(void);
-proc void wayland_release_id(WaylandTempId *id);
+proc WaylandId* wayland_new_id(WaylandWindow *window);
+//proc WaylandTempId* wayland_temp_id(void);
+proc void wayland_release_id(WaylandId *id);
+proc WaylandId* wayland_id_from_list(WaylandId *ids, U32 id);
 
 // NOTE: initialization helpers
 // TODO: mark these inline, and don't have them here
@@ -220,9 +285,9 @@ proc B32 wayland_display_connect(void);
 proc B32 wayland_display_get_registry(void);
 proc B32 wayland_registry_bind_globals(void);
 proc B32 wayland_get_capabilities(void);
+proc B32 wayland_initialize_input(void);
 proc B32 wayland_gl_init(void);
 
-proc B32 wayland_initialize_input(WaylandWindow *window);
 proc B32 wayland_create_surface(WaylandWindow *window, String8 name);
 proc B32 wayland_allocate_shared_memory(WaylandWindow *window, U64 size);
 proc B32 wayland_allocate_textures(WaylandWindow *window);
