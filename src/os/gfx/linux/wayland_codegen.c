@@ -190,13 +190,17 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	    // NOTE: message body
 	    for(String8Node *arg_name_node = arg_name_list.first, *arg_type_node = arg_type_list.first;
 		arg_name_node && arg_type_node;
-		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next) {
+		arg_name_node = arg_name_node->next, arg_type_node = arg_type_node->next)
+	    {
 	      String8 arg_name = arg_name_node->string;
 	      String8 arg_type = rygc_type_from_wayland_type(arg_temp.arena, arg_type_node->string);
 
 	      String8 arg_name_prefix = prefix_from_string(arg_name, '_');
 	      B32 prefix_is_ignored = 0;
-	      for(String8Node *prefix_node = ignored_prefixes.first; prefix_node; prefix_node = prefix_node->next) {
+	      for(String8Node *prefix_node = ignored_prefixes.first;
+		  prefix_node;
+		  prefix_node = prefix_node->next)
+	      {
 		if(str8s_are_equal(prefix_node->string, arg_name_prefix)) {
 		  prefix_is_ignored = 1;
 		  break;
@@ -207,17 +211,17 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
 	      
 	      if(str8s_are_equal(arg_type, Str8Lit("U32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *buf_push_struct(&buf, U32) = %.*s;\n",
+				 "  *buf_push_struct_a(&buf, U32, sizeof(U32)) = %.*s;\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("S32"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *buf_push_struct(&buf, S32) = %.*s;\n",
+				 "  *buf_push_struct_a(&buf, S32, sizeof(U32)) = %.*s;\n",
 				 (int)arg_name.count, arg_name.string);
 	      }
 	      else if(str8s_are_equal(arg_type, Str8Lit("String8"))) {
 		str8_list_push_f(codegen_arena, &request_function_list,
-				 "  *buf_push_struct(&buf, U32) = %.*s.count + 1;\n",
+				 "  *buf_push_struct_a(&buf, U32, sizeof(U32)) = %.*s.count + 1;\n",
 				 (int)arg_name.count, arg_name.string);
 		str8_list_push_f(codegen_arena, &request_function_list,
 				 "  buf_push_str8_copy(&buf, %.*s);\n",

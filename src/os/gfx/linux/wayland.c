@@ -258,6 +258,7 @@ wayland_get_capabilities(void)
 	else if(object_id == wayland_state->sync->id &&
 		opcode == wl_callback_done_opcode) {
 	  sync_received = 1;
+	  wayland_release_id(wayland_state->sync);
 	}
 	else if(object_id == wayland_state->zwp_linux_dmabuf_feedback_v1->id &&
 		opcode == zwp_linux_dmabuf_feedback_v1_format_table_opcode) {
@@ -278,6 +279,7 @@ wayland_get_capabilities(void)
       }
     }
   }
+  wayland_state->sync = 0;
 
   if(dmabuf_format_table_fd != -1) {
     if(dmabuf_format_table_size) {
@@ -373,12 +375,33 @@ wayland_init(void)
   wayland_state->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
   if(!wayland_display_connect()) goto wayland_display_connect_failure;
+  
   if(!wayland_display_get_registry()) goto wayland_display_get_registry_failure;
+  
   if(!wayland_registry_bind_globals()) goto wayland_registry_bind_globals_failure;
-  // TODO: dmabuf feedback
+  
+  WaylandId *feedback = wayland_new_id(0);
+  if(zwp_linux_dmabuf_v1_get_default_feedback(wayland_state->zwp_linux_dmabuf_v1->id, feedback->id)) {
+    wayland_state->zwp_linux_dmabuf_feedback_v1 = feedback;
+  }
+
+  WaylandId *sync = wayland_new_id(0);
+  if(wl_display_sync(wayland_state->wl_display->id, sync->id)) {
+    wayland_state->sync = sync;
+  }
+  
   if(!wayland_get_capabilities()) goto wayland_get_capabilities_failure;
+  
   if(!wayland_initialize_input()) goto wayland_initialize_input_failure;
+  
   if(!wayland_gl_init()) goto wayland_gl_init_failure;
+
+  eglCreateImageKHR =
+    (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+  eglExportDMABUFImageQueryMESA =
+    (PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC)eglGetProcAddress("eglExportDMABUFImageQueryMESA");
+  eglExportDMABUFImageMESA =
+    (PFNEGLEXPORTDMABUFIMAGEMESAPROC)eglGetProcAddress("eglExportDMABUFImageMESA");
 
   if(0)
   {
@@ -568,14 +591,20 @@ wayland_create_surface(WaylandWindow *window, String8 title)
   WaylandId *wl_surface = wayland_new_id(window);
   if(wl_compositor_create_surface(wayland_state->wl_compositor->id, wl_surface->id)) {
     window->wl_surface = wl_surface;
+    DLLPushBack(wayland_state->first_wl_surface, wayland_state->last_wl_surface, wl_surface);
+    ++wayland_state->wl_surface_count;
 
     WaylandId *xdg_surface = wayland_new_id(window);
     if(xdg_wm_base_get_xdg_surface(wayland_state->xdg_wm_base->id, xdg_surface->id, wl_surface->id)) {
       window->xdg_surface = xdg_surface;
+      DLLPushBack(wayland_state->first_xdg_surface, wayland_state->last_xdg_surface, xdg_surface);
+      ++wayland_state->xdg_surface_count;
 
       WaylandId *toplevel = wayland_new_id(window);
       if(xdg_surface_get_toplevel(window->xdg_surface->id, toplevel->id)) {
-	window->xdg_toplevel = toplevel;	
+	window->xdg_toplevel = toplevel;
+	DLLPushBack(wayland_state->first_xdg_toplevel, wayland_state->last_xdg_toplevel, toplevel);
+	++wayland_state->xdg_toplevel_count;
 	
 	if(!xdg_toplevel_set_title(window->xdg_toplevel->id, title)) {
 	  fprintf(stderr, "ERROR: xdg_toplevel_set_title failed\n");
@@ -632,6 +661,9 @@ wayland_allocate_shared_memory(WaylandWindow *window, U64 size)
 	  WaylandId *wl_shm_pool = wayland_new_id(window);
 	  if(wl_shm_create_pool(wayland_state->wl_shm->id, wl_shm_pool->id, shared_memory_handle, size)) {
 	    window->wl_shm_pool = wl_shm_pool;
+	    DLLPushBack(wayland_state->first_wl_shm_pool, wayland_state->last_wl_shm_pool, wl_shm_pool);
+	    ++wayland_state->wl_shm_pool_count;
+
 	    close(shared_memory_handle);
 	  } else {
 	    // NOTE: create pool failed
@@ -678,6 +710,8 @@ wayland_create_shm_buffer(WaylandWindow *window)
 			       window->backbuffer_index*window->shared_memory_size/2,
 			       window->width, window->height, stride, format)) {
     window->buffers[window->backbuffer_index] = buffer;
+    DLLPushBack(wayland_state->first_wl_buffer, wayland_state->last_wl_buffer, buffer);
+    ++wayland_state->wl_buffer_count;
   } else {
     // NOTE: buffer creation failed
     result = 0;
@@ -771,7 +805,9 @@ wayland_create_gl_buffer(WaylandWindow *window)
 
   WaylandId *params = wayland_new_id(window);
   if(zwp_linux_dmabuf_v1_create_params(wayland_state->zwp_linux_dmabuf_v1->id, params->id)) {
-    window->zwp_linux_buffer_params_v1 = params;        
+    window->zwp_linux_buffer_params_v1 = params;
+    DLLPushBack(wayland_state->first_zwp_linux_buffer_params_v1, wayland_state->last_zwp_linux_buffer_params_v1, params);
+    ++wayland_state->zwp_linux_buffer_params_v1_count;
 
     GlFramebuffer gl_framebuffer = window->gl_framebuffer[window->backbuffer_index];
     if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1->id,
@@ -782,11 +818,13 @@ wayland_create_gl_buffer(WaylandWindow *window)
 				      gl_framebuffer.modifier_hi,
 				      gl_framebuffer.modifier_lo)) {
 
-      /* WaylandTempId *buffer_id = wayland_temp_id(); */
       WaylandId *buffer = wayland_new_id(window);
       if(zwp_linux_buffer_params_v1_create_immed(window->zwp_linux_buffer_params_v1->id, buffer->id,
 						 window->width, window->height, gl_framebuffer.fourcc, 0)) {
-	window->buffers[window->backbuffer_index] = buffer; 
+	window->buffers[window->backbuffer_index] = buffer;
+	// TODO: do we really need separate lists for gl and non-gl buffers?
+	DLLPushBack(wayland_state->first_gl_buffer, wayland_state->last_gl_buffer, buffer);
+	++wayland_state->gl_buffer_count;
       } else {
 	result = 0;
       }

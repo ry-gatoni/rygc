@@ -42,9 +42,13 @@ arena_alloc(void)
 proc void
 arena_release(Arena *arena)
 {
-  for(Arena *current = arena->current; current; current = current->prev) {
-    // TODO: address sanitizer memory unpoisoning
-    os_mem_release(current, current->capacity);
+  Arena *ptr = arena->current;
+  for(;ptr;) {
+    Arena *prev = ptr->prev;
+    U64 capacity = ptr->capacity;
+    AsanPoison(ptr, capacity);
+    os_mem_release(ptr, capacity);
+    ptr = prev;
   }
 }
 
