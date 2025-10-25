@@ -41,9 +41,6 @@ struct WaylandTempId
 
 typedef struct GlFramebuffer
 {
-  /* GLuint color_texture; */
-  /* GLuint depth_texture; */
-  /* GLuint fbo; */
   U32 color_texture;
   U32 depth_texture;
   U32 fbo;
@@ -73,15 +70,6 @@ struct WaylandWindow
   WaylandWindow *next;
   WaylandWindow *prev;
   
-  /* U32 wl_keyboard_id; */
-  /* U32 wl_pointer_id; */
-
-  /* U32 wl_surface_id; */
-  /* U32 xdg_surface_id; */
-  /* U32 xdg_toplevel_id; */
-  /* U32 wl_shm_pool_id; */
-
-  /* U32 zwp_linux_buffer_params_v1_id;   */
   WaylandId *wl_surface;
   WaylandId *xdg_surface;
   WaylandId *xdg_toplevel;
@@ -89,13 +77,10 @@ struct WaylandWindow
 
   WaylandId *zwp_linux_buffer_params_v1;  
 
-  /* WaylandTempId *buffer_id[2]; */
   WaylandId *buffers[2];
   U32 backbuffer_index;
-  /* WaylandTempId *gl_buffer_id;   */
   WaylandId *gl_buffer;
 
-  /* WaylandTempId *frame_callback_id; // NOTE: id to check for frame callback */
   WaylandId *frame_callback;
   U32 last_frame_timestamp;
   U32 last_frame_ms_elapsed;
@@ -104,8 +89,6 @@ struct WaylandWindow
   U64 shared_memory_size;
 
   GlFramebuffer gl_framebuffer[2];
-
-  //Arena *event_arena; // NOTE: cleared each frame
 
   RenderTarget render_target;
 
@@ -122,6 +105,7 @@ struct WaylandWindow
 // NOTE: from `xkbcommon/xkbcommon-keysyms.h`
 #define WAYLAND_BUTTON_KEY_MASK		(0xFF00)
 
+// TODO: the key mapping table needs work. We may need to resort to codegen
 typedef enum Wayland_Key
 {  
   Wayland_Key_mouse_left,
@@ -185,22 +169,16 @@ typedef struct WaylandState
   WaylandWindow *last_window;
   U64 window_count;
 
+  WaylandWindow *window_freelist;
+
   WaylandWindow *focused_window;
 
   int display_socket_handle;
 
   // NOTE: global ids
-  /* U32 wl_display_id; */
-  /* U32 wl_registry_id; */
   WaylandId *wl_display;
   WaylandId *wl_registry;
-  
-  /* U32 wl_shm_id; */
-  /* U32 zwp_linux_dmabuf_v1_id; */
-  /* U32 wl_compositor_id; */
-  /* U32 xdg_wm_base_id; */
-  /* U32 wl_seat_id; */
-  /* U32 zwp_linux_dmabuf_feedback_v1_id; */
+ 
   WaylandId *wl_shm;
   WaylandId *zwp_linux_dmabuf_v1;
   WaylandId *wl_compositor;
@@ -210,7 +188,6 @@ typedef struct WaylandState
   WaylandId *wl_pointer;
   WaylandId *zwp_linux_dmabuf_feedback_v1;
 
-  /* WaylandTempId *sync_id; */
   WaylandId *sync;
 
   // NOTE: window id lists
@@ -247,7 +224,6 @@ typedef struct WaylandState
   U64 frame_callback_count;
 
   U32 next_id;
-  /* WaylandTempId *id_freelist; */
   WaylandId *id_freelist;
 
   void *dmabuf_format_table;
@@ -275,7 +251,6 @@ global PFNEGLEXPORTDMABUFIMAGEMESAPROC eglExportDMABUFImageMESA;
 // NOTE: functions
 
 proc WaylandId* wayland_new_id(WaylandWindow *window);
-//proc WaylandTempId* wayland_temp_id(void);
 proc void wayland_release_id(WaylandId *id);
 proc WaylandId* wayland_id_from_list(WaylandId *ids, U32 id);
 

@@ -78,7 +78,7 @@ void
 audio_process(Audio_ProcessData *data)
 {
   // DEBUG: wav logging state
-#if 1
+#if 0
   U32 chunk_cap = 500;  
   local U32 chunk_count = 0;
   local B32 wav_written = 0;  
