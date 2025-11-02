@@ -33,6 +33,16 @@ typedef struct String8List
   U64 total_count;
 } String8List;
 
+typedef struct String8Array
+{
+  String8 *strings;
+  U64 count;
+  U64 total_size;
+} String8Array;
+
+proc String8 str8(U8 *chars, U64 count);
+proc String8 str8_range(U8 *first, U8 *opl);
+
 proc String8 str8_push_f(Arena *arena, char *fmt, ...);
 proc String8 str8_push_fv(Arena *arena, char *fmt, va_list args);
 // TODO: we can get rid of this hacky thing with the next alignment now.
@@ -42,6 +52,7 @@ proc String8 arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alig
 
 proc B32 str8s_are_equal(String8 s1, String8 s2);
 proc B32 str8_contains(String8 s1, String8 s2);
+
 proc String8 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep);
 
 proc void str8_list_push_ex(String8List *list, String8 string, String8Node *node);
@@ -51,6 +62,8 @@ proc void str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list 
 
 proc String8 str8_join(Arena *arena, String8List *list);
 proc String8List str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count);
+
+proc String8Array str8_array_from_list(Arena *arena, String8List *list);
 
 proc String16 str16_from_str8(Arena *arena, String8 str8);
 

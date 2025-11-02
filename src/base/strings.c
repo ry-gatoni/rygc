@@ -12,6 +12,21 @@ cstr_get_count(char *cstr)
 }
 
 proc String8
+str8(U8 *chars, U64 count)
+{
+  String8 result = {.string = chars, .count = count};
+  return(result);
+}
+
+proc String8
+str8_range(U8 *first, U8 *opl)
+{
+  U64 count = IntFromPtr(opl) - IntFromPtr(first);
+  String8 result = str8(first, count);
+  return(result);
+}
+
+proc String8
 str8_push_f(Arena *arena, char *fmt, ...)
 {
   va_list args;
@@ -161,28 +176,74 @@ str8_join(Arena *arena, String8List *list)
   return(result);
 }
 
+// NOTE: updated 2025-11-02 to split at _any appearance_ of a character in
+//       `split_chars`, and no longer look for exact matches
 proc String8List
 str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count)
 {
   String8List result = {0};
-  U8 *string_start, *string_at = string.string;
-  U64 counter = 0;
-  for(U64 i = 0; i < string.count; ++i) {    
-    if(str8s_are_equal((String8){string_at, count},
-		       (String8){split_chars, count})) {
-      String8 new_string = {string_start, counter};
-      str8_list_push(arena, &result, new_string);
-      
-      counter = 0;
-      string_at += count;
-      string_start = string_at;
-      continue;
+
+  U8 *at = string.string;
+  U8 *opl = string.string + string.count;
+  for(;at < opl;)
+  {
+    U8 *first = at;
+    for(;at < opl; ++at)
+    {
+      U8 c = *at;
+      B32 is_split = 0;
+      for(U64 i = 0; i < count; ++i)
+      {
+	if(split_chars[i] == c)
+	{
+	  is_split = 1;
+	  break;
+	}
+      }
+      if(is_split) break;
     }
-    
-    ++string_at;
-    ++counter;
+
+    String8 new_string = str8_range(first, at);
+    str8_list_push(arena, &result, new_string);
+    ++at;
   }
 
+  /* U8 *string_start = string.string; */
+  /* U8 *string_at = string.string; */
+  /* U64 counter = 0; */
+  /* for(U64 i = 0; i < string.count; ++i) { */
+  /*   if(str8s_are_equal((String8){string_at, count}, */
+  /* 		       (String8){split_chars, count})) { */
+  /*     String8 new_string = {string_start, counter}; */
+  /*     str8_list_push(arena, &result, new_string); */
+      
+  /*     counter = 0; */
+  /*     string_at += count; */
+  /*     string_start = string_at; */
+  /*     continue; */
+  /*   } */
+    
+  /*   ++string_at; */
+  /*   ++counter; */
+  /* } */
+
+  return(result);
+}
+
+proc String8Array
+str8_array_from_list(Arena *arena, String8List *list)
+{
+  String8Array result = {};
+  result.count = list->node_count;
+  result.total_size = list->total_count;
+  result.strings = arena_push_array(arena, String8, result.count);
+  
+  U64 idx = 0;
+  for(String8Node *n = list->first; n; n = n->next, ++idx)
+  {
+    result.strings[idx] = n->string;
+  }
+  
   return(result);
 }
 
