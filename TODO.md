@@ -1,3 +1,32 @@
+# TODO (November 2025)
+- os/gfx module
+  - [] finish input abstraction (wayland, windows)
+  - [] drag and drop (wayland, windows)
+  - [] opengl/egl runtime linking (wayland)
+  - [] smooth resizing (wayland, windows)
+
+- render module
+  - [] render lines/curves
+  - [] better sorting
+  - [] more ergonomic render functions (introduce seaparate draw module?)
+  - [] instancing
+  - [] d3d11 backend on windows
+
+- font module
+  - [] check dwrite glyph rasterization (d3d instead of gdi?)
+  
+- audio module
+  - [] sample rate conversion
+  - [] midi (wasapi)
+  - [] support changing samplerate, audiodevices (wasapi, jack)
+  - [] lower latency (wasapi, jack)
+  
+- spectrogram example
+  - [] lines instead of rectangles
+  - [] visualize phase
+  - [] add ui
+  - [] spectra per frame, display spectrogram
+
 # TODO (September 2025)
 - os/gfx module
   - [] smooth resizing (wayland, windows)

@@ -77,8 +77,9 @@ global AudioBufferList audio_buffer_list = {0};
 void
 audio_process(Audio_ProcessData *data)
 {
+#define WAVE_DEBUG 1
   // DEBUG: wav logging state
-#if 0
+#if WAVE_DEBUG
   U32 chunk_cap = 500;  
   local U32 chunk_count = 0;
   local B32 wav_written = 0;  
@@ -148,7 +149,7 @@ audio_process(Audio_ProcessData *data)
     CopyArray(data->output[1], mix_buffer, R32, sample_count);
 
     // DEBUG: accumulate output chunks
-#if 0
+#if WAVE_DEBUG
     if(chunk_count < chunk_cap) {
       wav_push_chunk(wav_writer, sample_count, data->output[0]);
       ++chunk_count;
@@ -198,6 +199,7 @@ audio_process(Audio_ProcessData *data)
   }
   
   arena_release_scratch(scratch);
+#undef WAVE_DEBUG
 }
 
 //

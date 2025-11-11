@@ -134,7 +134,7 @@ os_ring_buffer_free(Os_RingBuffer *rb)
 	UnmapViewOfFile((U8*)rb->mem + rep_idx*rb->size);
       }
     }
-    ZeroStruct(rb, Os_RingBuffer);
+    ZeroStruct(rb);
   }
 }
 

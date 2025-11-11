@@ -84,6 +84,262 @@ wasapi_port_get_buffer(Wasapi_Port *port, U32 request_frame_count, U64 *timestam
 proc B32
 wasapi_init(String8 client_name)
 {
+  #if 1
+
+  B32 reuslt = 0;
+  HRESULT error = 0;
+
+  U64 latency_hundred_ns = 100000;
+
+  Arena *arena = arena_alloc();
+  Wasapi_State *wasapi = arena_push_struct(arena, Wasapi_State);
+  if(wasapi == 0) goto wasapi_alloc_failure;
+
+  IMMDeviceEnumerator *device_enumerator = 0;
+  error = CoCreateInstance(&CLSID_MMDeviceEnumerator, 0, CLSCTX_ALL, &IID_IMMDeviceEnumerator,
+			   (void**)&device_enumerator);
+  if(error != S_OK) goto wasapi_create_device_enumerator_failure;
+  Assert(device_enumerator != 0);
+
+  IMMDeviceCollection *input_endpoints = 0;
+  IMMDeviceCollection *output_endpoints = 0;
+  error = IMMDeviceEnumerator_EnumAudioEndpoints(device_enumerator, eCapture, DEVICE_STATEMASK_ALL,
+						 &input_endpoints);
+  if(error != S_OK) goto wasapi_enum_input_endpoints_failure;
+  error = IMMDeviceEnumerator_EnumAudioEndpoints(device_enumerator, eRender, DEVICE_STATEMASK_ALL,
+						 &output_endpoints);
+  if(error != S_OK) goto wasapi_enum_output_endpoints_failure;
+  Assert(input_endpoints != 0);
+  Assert(output_endpoints != 0);
+
+  IMMDevice *input_device = 0;
+  IMMDevice *output_device = 0;
+  error = IMMDeviceEnumerator_GetDefaultAudioEndpoint(device_enumerator, eCapture, eMultimedia,
+						      &input_device);
+  if(error != S_OK) goto wasapi_get_default_input_device_failure;
+  error = IMMDeviceEnumerator_GetDefaultAudioEndpoint(device_enumerator, eRender, eMultimedia,
+						      &output_device);
+  if(error != S_OK) goto wasapi_get_default_output_device_failure;
+  Assert(input_device != 0);
+  Assert(output_device != 0);
+
+  IAudioClient *input_client = 0;
+  IAudioClient *output_client = 0;
+  error = IMMDevice_Activate(input_device, &IID_IAudioClient, CLSCTX_ALL, 0,
+			     (void**)&input_client);
+  if(error != S_OK) goto wasapi_activate_input_client_failure;
+  error = IMMDevice_Activate(output_device, &IID_IAudioClient, CLSCTX_ALL, 0,
+			     (void**)&output_client);
+  if(error != S_OK) goto wasapi_activate_output_client_failure;
+  Assert(input_client != 0);
+  Assert(output_client != 0);
+
+  WAVEFORMATEXTENSIBLE *sink_fmt = 0;
+  WAVEFORMATEXTENSIBLE *source_fmt = 0;
+  {
+    // NOTE: we're trying to get compatible source and sink formats. we first
+    //       get the default sink format, then check if the same format is
+    //       supported by the source. if not, we check if the closest-matching
+    //       source format is supported by the sink. if not, we have no choice
+    //       but to deal with the discrepancy
+    error = IAudioClient_GetMixFormat(output_client, &(WAVEFORMATEX*)sink_fmt);
+    if(error != S_OK) goto wasapi_get_sink_fmt_failure;
+    error = IAudioClient_IsFormatSupported(input_client, AUDCLNT_SHAREMODE_SHARED,
+					   (WAVEFORMATEX*)sink_fmt,
+					   &(WAVEFORMATEX*)source_fmt);
+    if(error == S_OK) {
+      source_fmt = sink_fmt;
+    }else if(error == S_FALSE) {
+      error = IAudioClient_IsFormatSupported(output_client, AUDCLNT_SHAREMODE_SHARED,
+					     (WAVEFORMATEX*)source_fmt,
+					     &(WAVEFORMATEX*)sink_fmt);
+      if(error == S_OK) {
+	sink_fmt = source_fmt;
+      }else if(error == S_FALSE) {
+	// TODO: log somehow that there's a sample format discrepancy to deal with
+	error = S_OK;
+      }else if(error != S_OK) {
+	goto wasapi_get_matching_sink_fmt_failure;
+      }
+    }else if(error != S_OK) {
+      goto wasapi_get_matching_source_fmt_failure;
+    }
+  }
+  Assert(sink_fmt != 0);
+  Assert(source_fmt != 0);
+
+  error = IAudioClient_Initialize(input_client,
+				  AUDCLNT_SHAREMODE_SHARED,
+				  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+				  latency_hundred_ns,
+				  0,
+				  (WAVEFORMATEX*)source_fmt,
+				  0);
+  if(error != S_OK) goto wasapi_initialize_input_client_failure;
+
+  error = IAudioClient_Initialize(output_client,
+				  AUDCLNT_SHAREMODE_SHARED,
+				  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+				  latency_hundred_ns,
+				  0,
+				  (WAVEFORMATEX*)sink_fmt,
+				  0);
+  if(error != S_OK) goto wasapi_initialize_output_client_failure;
+
+  U64 input_latency_frames = latency_hundred_ns * source_fmt->Format.nSamplesPerSec / 10000000;
+  U64 output_latency_frames = latency_hundred_ns * sink_fmt->Format.nSamplesPerSec / 10000000;
+
+  U32 source_buffer_count = 0;
+  U32 sink_buffer_count = 0;
+  error = IAudioClient_GetBufferSize(input_client, &source_buffer_count);
+  if(error != S_OK) goto wasapi_get_source_buffer_count_failure;
+  error = IAudioClient_GetBufferSize(output_client, &sink_buffer_count);
+  if(error != S_OK) goto wasapi_get_sink_buffer_count_failure;
+
+  R32 samplerate_conversion_factor__dest_from_src = ((R32)sink_fmt->Format.nSamplesPerSec/
+						     (R32)source_fmt->Format.nSamplesPerSec);
+  R32 samplerate_conversion_factor__src_from_dest = ((R32)source_fmt->Format.nSamplesPerSec/
+						     (R32)sink_fmt->Format.nSamplesPerSec);
+
+  REFERENCE_TIME output_latency__hundred_ns = 0;
+  error = IAudioClient_GetStreamLatency(output_client, &output_latency__hundred_ns);
+  if(error != S_OK) goto wasapi_get_output_stream_latency_failure;
+  U64 output_buffer_minimum_frames_to_write =
+    output_latency__hundred_ns * sink_fmt->Format.nSamplesPerSec / 10000000;
+  
+  REFERENCE_TIME output_period__default = 0;
+  REFERENCE_TIME output_period__minimum = 0;
+  error = IAudioClient_GetDevicePeriod(output_client,
+				       &output_period__default, &output_period__minimum);
+  if(error != S_OK) goto wasapi_get_output_period_failure;
+
+  IAudioCaptureClient *source = 0;
+  IAudioRenderClient *sink = 0;
+  {
+    error = IAudioClient_GetService(input_client, &IID_IAudioCaptureClient,
+				    (void**)&source);
+    if(error != S_OK) goto wasapi_get_capture_client_failure;
+    error = IAudioClient_GetService(output_client, &IID_IAudioRenderClient,
+				    (void**)&sink);
+    if(error != S_OK) goto wasapi_get_render_client_failure;
+  }
+  Assert(source != 0);
+  Assert(sink != 0);
+
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+  String8 render_event_name_8 = str8_concat(scratch.arena,
+					    client_name, Str8Lit("render"), Str8Lit("_"));
+  String8 capture_event_name_8 = str8_concat(scratch.arena,
+					     client_name, Str8Lit("capture"), Str8Lit("_"));
+  String16 render_event_name = str16_from_str8(scratch.arena, render_event_name_8);
+  String16 capture_event_name = str16_from_str8(scratch.arena, capture_event_name_8);
+
+  HANDLE render_callback_event_handle = CreateEventW(0 ,0, 0, (LPCWSTR)render_event_name.string);
+  HANDLE capture_callback_event_handle = CreateEventW(0 ,0, 0, (LPCWSTR)capture_event_name.string);
+  arena_release_scratch(scratch);
+
+  error = IAudioClient_SetEventHandle(output_client, render_callback_event_handle);
+  if(error != S_OK) goto wasapi_set_render_event_handle_failure;
+  error = IAudioClient_SetEventHandle(input_client, capture_callback_event_handle);
+  if(error != S_OK) goto wasapi_set_capture_event_handle_failure;
+
+  // NOTE: shared ring buffer setup
+  Os_RingBuffer shared_buffer = os_ring_buffer_alloc(2048*sizeof(R32));
+  R32 *shared_buffer_samples = (R32*)shared_buffer.mem;
+  U32 shared_buffer_sample_capacity = (U32)(shared_buffer.size / sizeof(R32));
+  U32 shared_buffer_read_idx = 0;
+  U32 shared_buffer_write_idx = 0;
+  U32 shared_buffer_last_write_size_in_frames = 0;
+
+  // NOTE: launch process thread
+  global_process_data = arena_push_struct(arena, Audio_ProcessData);
+  error = IAudioClient_Start(input_client);
+  if(error != S_OK) goto wasapi_input_start_failure;
+  error = IAudioClient_Start(output_client);
+  if(error != S_OK) goto wasapi_output_start_failure;
+  
+  Arena *process_arena = arena_alloc();
+  Os_Handle process_thread_handle = os_thread_launch(wasapi_process, 0);
+
+  if(0) {
+    // TODO: put cleanup stuff in here
+  wasapi_output_start_failure:
+  wasapi_input_start_failure:
+
+  wasapi_set_capture_event_handle_failure:
+  wasapi_set_render_event_handle_failure:
+
+  wasapi_get_render_client_failure:
+  wasapi_get_capture_client_failure:
+
+  wasapi_get_output_period_failure:
+
+  wasapi_get_output_stream_latency_failure:
+
+  wasapi_get_sink_buffer_count_failure:
+  wasapi_get_source_buffer_count_failure:
+
+  wasapi_initialize_output_client_failure:
+  wasapi_initialize_input_client_failure:
+    
+  wasapi_get_matching_sink_fmt_failure:
+  wasapi_get_matching_source_fmt_failure:
+    
+  wasapi_get_sink_fmt_failure:
+    
+  wasapi_activate_output_client_failure:
+  wasapi_activate_input_client_failure:
+    
+  wasapi_get_default_output_device_failure:
+  wasapi_get_default_input_device_failure:
+    
+  wasapi_enum_output_endpoints_failure:
+  wasapi_enum_input_endpoints_failure:
+    
+  wasapi_create_device_enumerator_failure:
+    
+  wasapi_alloc_failure:
+    return(0);
+  }
+
+  wasapi->arena = arena;
+  wasapi->device_enumerator = device_enumerator;
+  wasapi->input_endpoints = input_endpoints;
+  wasapi->output_endpoints = output_endpoints;
+  wasapi->input_device = input_device;
+  wasapi->output_device = output_device;
+  wasapi->input_client = input_client;
+  wasapi->output_client = output_client;
+  wasapi->sink_fmt = sink_fmt;
+  wasapi->source_fmt = source_fmt;
+  wasapi->sink = sink;
+  wasapi->source = source;
+  wasapi->input_latency_frames = input_latency_frames;
+  wasapi->output_latency_frames = output_latency_frames;
+  wasapi->input_buffer_frame_count = source_buffer_count;
+  wasapi->output_buffer_frame_count = sink_buffer_count;
+  wasapi->samplerate_conversion_factor__dest_from_src = samplerate_conversion_factor__dest_from_src;
+  wasapi->samplerate_conversion_factor__src_from_dest = samplerate_conversion_factor__src_from_dest;
+  /* wasapi->output_lantency__hundred_ns = output_lantency__hundred_ns; */
+  /* wasapi->output_period__default = output_period__default; */
+  /* wasapi->output_period__minimum = output_period__minimum; */
+  wasapi->output_buffer_minimum_frames_to_write = output_buffer_minimum_frames_to_write;
+  wasapi->render_callback_event_handle = render_callback_event_handle;
+  wasapi->capture_callback_event_handle = capture_callback_event_handle;
+  wasapi->shared_buffer = shared_buffer;
+  wasapi->shared_buffer_samples = shared_buffer_samples;
+  wasapi->shared_buffer_sample_capacity = shared_buffer_sample_capacity;
+  wasapi->shared_buffer_read_idx = shared_buffer_read_idx;
+  wasapi->shared_buffer_write_idx = shared_buffer_write_idx;
+  wasapi->shared_buffer_last_write_size_in_frames = shared_buffer_last_write_size_in_frames;
+  wasapi->wasapi_process_arena = process_arena;
+  wasapi->wasapi_process_thread_handle = process_thread_handle;
+  wasapi->running = 1;
+  wasapi_state = wasapi;
+  return(1);
+
+  #else
+  
 #define WasapiLogError(error) do { char* msg; FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM, 0, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msg, 0, 0); OutputDebugStringA(msg); } while(0)
 #define WasapiInitCheckError() if(error != S_OK) { wasapi_state = 0; arena_release(arena); WasapiLogError(error);  goto wasapi_init_end; }
 #define WasapiInitCheckErrorPtr(ptr) if(error != S_OK || ptr == 0) { wasapi_state = 0; arena_release(arena); WasapiLogError(error); goto wasapi_init_end; }
@@ -263,6 +519,7 @@ wasapi_init(String8 client_name)
   
  wasapi_init_end:
   return(result);
+#endif
 }
 
 proc void
