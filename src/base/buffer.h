@@ -59,6 +59,8 @@ proc U8* buf_push(PushBuffer *buf, U64 size, U64 align);
 #define buf_push_array(buf, type, count) (type*)buf_push(buf, (count)*sizeof(type), 0)
 #define buf_push_array_a(buf, type, count, align) (type*)buf_push(buf, (count)*sizeof(type), align)
 
+proc Buffer buf_from_push_buffer(PushBuffer pb);
+
 proc B32 ring_buf_read_size(U8 *dest, RingBuffer *rb, U64 size);
 proc B32 ring_buf_write_size(RingBuffer *rb, U8 *src, U64 size);
 #define ring_buf_read_struct(dest, rb, type) ring_buf_read_size((U8 *)dest, rb, sizeof(type))

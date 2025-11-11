@@ -1,84 +1,95 @@
-proc B32
-wasapi_init_port(Wasapi_PortKind kind, IMMDevice *device, Wasapi_Port *port, IAudioSessionControl **session)
+/** TODO:
+ - get midi message sample index from timestamp
+ - after using the pitch bend wheel, the sound fluctuates in pitch again
+   a second or two later even though no new interaction happened, as if not all
+   the messages are being cleared from the queue, or are somehow getting back on
+   without new messages being sent.
+ */
+
+proc void
+wasapi_midi_in_process(HMIDIIN midi, UINT msg, DWORD_PTR instance, DWORD_PTR param1, DWORD_PTR param2)
 {
-  B32 result = 0;
-  HRESULT err = 0;
+  Arena *arena = wasapi_state->arena;
+  switch(msg)
+  {
+    case MIM_DATA:
+    {
+      while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 0, 1)) {}
+      
+      DWORD timestamp = (DWORD)param2;
 
-  err = IMMDevice_Activate(device, &IID_IAudioClient, CLSCTX_ALL, 0, (void**)&port->client);
-  if(err == S_OK && port->client != 0) {
-    err = IAudioClient_GetMixFormat(port->client, &port->fmt);
-    if(err == S_OK) {
-      err = IAudioClient_Initialize(port->client, AUDCLNT_SHAREMODE_SHARED, 0, 100000, 0,
-				      port->fmt, (LPCGUID)session);
-      if(err == S_OK) {
-	err = IAudioClient_GetBufferSize(port->client, &port->buffer_count);
-	if(err == S_OK) {
-	  switch(kind) {
-	  case Wasapi_PortKind_source:
-	    {
-	      err = IAudioClient_GetService(port->client, &IID_IAudioCaptureClient,
-					    (void**)&port->source);
-	    }break;
-	  case Wasapi_PortKind_sink:
-	    {
-	      err = IAudioClient_GetService(port->client, &IID_IAudioRenderClient,
-					    (void**)&port->sink);
-	    }break;
-	  default: { result = 0; } break;
-	  }
-	  if(err == S_OK && port->service != 0) {
-	    result = 1;
-	  }
-	}
+      DWORD data = (DWORD)param1;
+      U8 opcode  = (U8)((data >> 0*8) & 0xF0);
+      U8 channel = (U8)((data >> 0*8) & 0x0F);
+      U8 data1   = (U8)((data >> 1*8) & 0xFF);
+      U8 data2   = (U8)((data >> 2*8) & 0xFF);
+
+      PushBuffer data_buffer = push_buffer_alloc(arena, 2);
+      *buf_push_struct(&data_buffer, U8) = data1;
+      *buf_push_struct(&data_buffer, U8) = data2;
+
+      Audio_MidiMessage *new_midi_msg = wasapi_state->midi_msg_freelist;
+      if(new_midi_msg != 0) {
+	SLLStackPop(wasapi_state->midi_msg_freelist);
+	ZeroStruct(new_midi_msg);
+      }else {
+	new_midi_msg = arena_push_struct(arena, Audio_MidiMessage);
       }
-    }
-  }
+      Assert(new_midi_msg != 0);
 
-  return(result);
+      // TODO: translate the timestamp to a sample index somehow
+      new_midi_msg->opcode = opcode;
+      new_midi_msg->channel = channel;
+      new_midi_msg->body = buf_from_push_buffer(data_buffer);
+
+      SLLQueuePush(wasapi_state->first_midi_msg, wasapi_state->last_midi_msg, new_midi_msg);
+      ++wasapi_state->midi_msg_count;
+
+      while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 1, 0)) {}
+    }break;
+
+    // TODO: handle sysex, errors
+    default:
+    {} break;
+  }
 }
 
-// TODO: Is the idea of a "port" a worthwhile generalization for WASAPI?
-//       Source and sink are handled quite differently here...
-proc Buffer
-wasapi_port_get_buffer(Wasapi_Port *port, U32 request_frame_count, U64 *timestamp)
+proc B32
+wasapi_midi_init(Wasapi_State *wasapi)
 {
-  HRESULT err = 0;
+  MMRESULT result = 0;
+  U64 pos = arena_pos(wasapi->arena);
 
-  U8 *mem = 0;
-  U32 size = 0;
+  U32 midi_in_count = midiInGetNumDevs();
+  String8List midi_input_device_names = {0};
+  for(U32 midi_in_device_id = 0; midi_in_device_id < midi_in_count; ++midi_in_device_id)
+  {
+    MIDIINCAPS midi_in_capabilities = {0};
+    result = midiInGetDevCaps(midi_in_device_id, &midi_in_capabilities, sizeof(midi_in_capabilities));
+    if(result != MMSYSERR_NOERROR) goto wasapi_midi_in_get_caps_failure;
 
-  DWORD flags = 0;
-  switch(port->kind) {
-  case Wasapi_PortKind_source:
-    {
-      // TODO: do we need the buffer position?
-      U32 frames_to_read = 0;
-      err = IAudioCaptureClient_GetBuffer(port->source, &mem, &frames_to_read, &flags, 0, timestamp);
-      Unused(flags); // TODO: maybe do something with the flags if they are nonzero?
-      if(err == S_OK) {
-	size = frames_to_read * port->fmt->nBlockAlign;
-      }else {
-	mem = 0;
-	size = 0;
-      }
-    }
-  case Wasapi_PortKind_sink:
-    {
-      err = IAudioRenderClient_GetBuffer(port->sink, request_frame_count, &mem);
-      if(err == S_OK) {
-	size = request_frame_count * port->fmt->nBlockAlign;
-      }else {
-	mem = 0;
-	size = 0;
-      }
-    }
-  default: {} break;
+    str8_list_push(wasapi->arena, &midi_input_device_names, Str8Cstr(midi_in_capabilities.szPname));
   }
 
-  Buffer result = {0};
-  result.size = size;
-  result.mem = mem;
-  return(result);
+  HMIDIIN midi_input_handle = 0;
+  U32 midi_device_id = 1; // TODO: make this variable/overrideable
+  result = midiInOpen(&midi_input_handle, midi_device_id, (DWORD_PTR)wasapi_midi_in_process, 0, CALLBACK_FUNCTION);
+  if(result != MMSYSERR_NOERROR) goto wasapi_midi_in_open_failure;
+
+  result = midiInStart(midi_input_handle);
+  if(result != MMSYSERR_NOERROR) goto wasapi_midi_in_start_failure;
+
+  if(0) {
+  wasapi_midi_in_start_failure:
+  wasapi_midi_in_open_failure:
+  wasapi_midi_in_get_caps_failure:
+    arena_pop_to(wasapi->arena, pos);
+    return(0);
+  }
+
+  wasapi->midi_input_device_names = midi_input_device_names;
+  wasapi->midi_input_handle = midi_input_handle;
+  return(1);
 }
 
 proc B32
@@ -94,6 +105,7 @@ wasapi_init(String8 client_name)
   Arena *arena = arena_alloc();
   Wasapi_State *wasapi = arena_push_struct(arena, Wasapi_State);
   if(wasapi == 0) goto wasapi_alloc_failure;
+  wasapi->arena = arena;
 
   IMMDeviceEnumerator *device_enumerator = 0;
   error = CoCreateInstance(&CLSID_MMDeviceEnumerator, 0, CLSCTX_ALL, &IID_IMMDeviceEnumerator,
@@ -302,7 +314,6 @@ wasapi_init(String8 client_name)
     return(0);
   }
 
-  wasapi->arena = arena;
   wasapi->device_enumerator = device_enumerator;
   wasapi->input_endpoints = input_endpoints;
   wasapi->output_endpoints = output_endpoints;
@@ -334,8 +345,10 @@ wasapi_init(String8 client_name)
   wasapi->shared_buffer_last_write_size_in_frames = shared_buffer_last_write_size_in_frames;
   wasapi->wasapi_process_arena = process_arena;
   wasapi->wasapi_process_thread_handle = process_thread_handle;
-  wasapi->running = 1;
+  
   wasapi_state = wasapi;
+  wasapi_midi_init(wasapi_state);
+  wasapi_state->running = 1;
   return(1);
 
   #else
@@ -654,14 +667,33 @@ wasapi_process(void *data)
 	  }
 	}
 
+	// NOTE: pull midi messages off of queue
+	Audio_MidiMessage *first_midi_msg = 0;
+	Audio_MidiMessage *last_midi_msg = 0;
+	U64 midi_msg_count = 0;
+	{
+	  while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 0, 1)) {}
+
+	  first_midi_msg = wasapi_state->first_midi_msg;
+	  wasapi_state->first_midi_msg = 0;
+
+	  last_midi_msg = wasapi_state->last_midi_msg;
+	  wasapi_state->last_midi_msg = 0;
+
+	  midi_msg_count = wasapi_state->midi_msg_count;
+	  wasapi_state->midi_msg_count = 0;
+
+	  while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 1, 0)) {}
+	}
+
 	// NOTE: call audio process
 	global_process_data->input[0] = in;
 	global_process_data->input[1] = in;
 	global_process_data->output[0] = out_l;
 	global_process_data->output[1] = out_r;
-	global_process_data->first_midi_msg = 0;
-	global_process_data->last_midi_msg = 0;
-	global_process_data->midi_msg_count = 0;
+	global_process_data->first_midi_msg = first_midi_msg;
+	global_process_data->last_midi_msg = last_midi_msg;
+	global_process_data->midi_msg_count = midi_msg_count;
 	global_process_data->sample_period = 1.f/(R32)wasapi_state->sink_fmt->Format.nSamplesPerSec;
 	global_process_data->sample_count = frames_to_write;
 
@@ -685,6 +717,18 @@ wasapi_process(void *data)
 	result = IAudioRenderClient_ReleaseBuffer(wasapi_state->sink, frames_to_write, 0);
 	if(result != S_OK) { Win32LogError(result); }
 
+	// NOTE: put midi messages on freelist
+	{
+	  while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 0, 1)) {}
+
+	  if(first_midi_msg != 0 && last_midi_msg != 0) {
+	    last_midi_msg->next = wasapi_state->midi_msg_freelist;
+	    wasapi_state->midi_msg_freelist = first_midi_msg;
+	  }
+
+	  while(AtomicCompareAndSwap(&wasapi_state->midi_lock, 1, 0)) {}
+	}
+	
 	arena_clear(process_arena);
       }else {
 	Unreachable();

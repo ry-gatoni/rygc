@@ -44,6 +44,15 @@ buf_push(PushBuffer *buf, U64 size, U64 align)
   return(result);
 }
 
+proc Buffer
+buf_from_push_buffer(PushBuffer pb)
+{
+  Buffer result = {0};
+  result.size = pb.pos;
+  result.mem = pb.mem;
+  return(result);
+}
+
 proc B32
 ring_buf_read_size(U8 *dest, RingBuffer *rb, U64 size)
 {
