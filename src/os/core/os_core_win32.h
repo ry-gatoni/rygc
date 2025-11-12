@@ -30,6 +30,14 @@ typedef struct Win32_State
 
 global Win32_State *w32_state = 0;
 
+// NOTE: helpers
+proc HANDLE win32_handle_from_os_handle(Os_Handle handle);
+proc Os_Handle os_handle_from_win32_handle(HANDLE handle);
+
+proc Win32_ThreadInfo *win32_thread_info_from_os_handle(Os_Handle handle);
+proc Os_Handle os_handle_from_win32_thread_info(Win32_ThreadInfo *info);
+
+// NOTE: core functions
 proc B32 win32_init(void);
 proc Win32_ThreadInfo* win32_alloc_thread_info(void);
 

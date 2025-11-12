@@ -31,6 +31,20 @@ DEFINE_GUID(IID_IAudioRenderClient,
 DEFINE_GUID(IID_IAudioCaptureClient,
 	    0xc8adbd64, 0xe71e, 0x48a0, 0xa4, 0xde, 0x18, 0x5c, 0x39, 0x5c, 0xd3, 0x17);
 
+/* typedef struct Win32_MidiData */
+/* { */
+/*   U32 timestamp; */
+/*   union { */
+/*     struct { */
+/*       U8 opcode_channel; */
+/*       U8 data_1; */
+/*       U8 data_2; */
+/*       U8 _reserved_; */
+/*     }; */
+/*     U32 data; */
+/*   }; */
+/* } Win32_MidiData; */
+
 typedef struct Wasapi_State
 {
   Arena *arena;
@@ -56,6 +70,7 @@ typedef struct Wasapi_State
     struct {
       HANDLE render_callback_event_handle;
       HANDLE capture_callback_event_handle;
+      //HANDLE midi_callback_event_handle;
     };
     HANDLE callback_event_handles[2];
   };
@@ -65,11 +80,9 @@ typedef struct Wasapi_State
   String8List midi_input_device_names;
   HMIDIIN midi_input_handle;  
 
-  volatile U32 midi_lock;
   Audio_MidiMessage *first_midi_msg;
   Audio_MidiMessage *last_midi_msg;
   U64 midi_msg_count;
-  Audio_MidiMessage *midi_msg_freelist;
 
   Os_Handle wasapi_process_thread_handle;
   Arena *wasapi_process_arena;
@@ -93,15 +106,16 @@ typedef struct Wasapi_State
   U32 shared_buffer_read_idx;
   U32 shared_buffer_write_idx;
   U32 shared_buffer_last_write_size_in_frames;
+
 } Wasapi_State;
 
 global Wasapi_State *wasapi_state = 0;
 global Audio_ProcessData *global_process_data = 0;
 
-proc B32 wasapi_midi_init(Wasapi_State *wasapi);
+proc B32 wasapi_midi_init(void);
 proc B32 wasapi_init(String8 client_name);
 
-#define WinMidiInProc(name) void CALLBACK (name)(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2);
+//#define WinMidiInProc(name) void CALLBACK (name)(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2);
 
 //proc void wasapi_process(void *data);
 proc OsThreadProc(wasapi_process);

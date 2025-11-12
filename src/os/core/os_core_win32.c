@@ -39,6 +39,36 @@ w32_thread_entry_point(void *param)
   return(0);
 }
 
+proc HANDLE
+win32_handle_from_os_handle(Os_Handle handle)
+{
+  HANDLE result = (HANDLE)handle.handle;
+  return(result);
+}
+
+proc Os_Handle
+os_handle_from_win32_handle(HANDLE handle)
+{
+  Os_Handle result = {0};
+  result.handle = handle;
+  return(result);
+}
+
+proc Win32_ThreadInfo*
+win32_thread_info_from_os_handle(Os_Handle handle)
+{
+  Win32_ThreadInfo *result = (Win32_ThreadInfo*)handle.handle;
+  return(result);
+}
+
+proc Os_Handle
+os_handle_from_win32_thread_info(Win32_ThreadInfo *info)
+{
+  Os_Handle result = {0};
+  result.handle = info;
+  return(result);
+}
+
 // NOTE: os functions
 proc B32
 os_init(void)
