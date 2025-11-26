@@ -74,15 +74,15 @@ render_batch_for_texture(R_Texture *texture)
     batch = commands->batch_freelist;
     if(batch)
     {
-      batch->vertex_count = 0;
+      batch->quad_count = 0;
       SLLStackPop(commands->batch_freelist);
     }
     else
     {
       // NOTE: push a new batch onto the arena
       batch = arena_push_struct_z(commands->arena, R_Batch);
-      batch->vertex_cap = KB(64);
-      batch->vertex_buffer = arena_push_array_z(commands->arena, R_Vertex, batch->vertex_cap);
+      batch->quad_cap = KB(4);
+      batch->quads = arena_push_array_z(commands->arena, R_Quad, batch->quad_cap);
     }
     batch->texture = texture;
     SLLQueuePush(commands->first_batch, commands->last_batch, batch);
@@ -99,45 +99,20 @@ proc void
 render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V4 color)
 {
   R_Batch *batch = render_batch_for_texture(texture);
+
   // TODO: allocate a new batch if we go over capacity
-  Assert(batch->vertex_count + 6 <= batch->vertex_cap);
+  Assert(batch->quad_count < batch->quad_cap);
 
-  R32 min_x = rect.min.x;
-  R32 max_x = rect.max.x;
-  R32 min_y = rect.min.y;
-  R32 max_y = rect.max.y;
+  R_Quad *quad = batch->quads + batch->quad_count++;
+  quad->p_min = rect.min;
+  quad->p_max = rect.max;
+  quad->uv_min = uv.min;
+  quad->uv_max = uv.max;
+  quad->color = color_u32_from_v4(color);
+  quad->angle = angle;
+  quad->level = level;
 
-  U32 color_u32 = color_u32_from_v4(color);
-  R_Vertex v00 = {0};
-  v00.pos = v3(min_x, min_y, level);
-  v00.uv = uv.min;
-  v00.color = color_u32;
-  v00.angle = angle;
-  R_Vertex v01 = {0};
-  v01.pos = v3(min_x, max_y, level);
-  v01.uv = v2(uv.min.x, uv.max.y);
-  v01.color = color_u32;
-  v01.angle = angle;
-  R_Vertex v10 = {0};
-  v10.pos = v3(max_x, min_y, level);
-  v10.uv = v2(uv.max.x, uv.min.y);
-  v10.color = color_u32;
-  v10.angle = angle;
-  R_Vertex v11 = {0};
-  v11.pos = v3(max_x, max_y, level);
-  v11.uv = uv.max;
-  v11.color = color_u32;
-  v11.angle = angle;
-
-  // TODO: different vertex layouts for different graphics backends?
-  R_Vertex *verts = batch->vertex_buffer + batch->vertex_count;
-  verts[0] = v00;
-  verts[1] = v10;
-  verts[2] = v11;
-  verts[3] = v00;
-  verts[4] = v11;
-  verts[5] = v01;
-  batch->vertex_count += 6;
+  ++render_commands->total_quad_count;
 }
 
 proc void

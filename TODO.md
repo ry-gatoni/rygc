@@ -1,4 +1,14 @@
 # TODO (November 2025)
+- base layer
+  - [] finish text logging system
+  - [] improve audio logging system
+  - [] add profiler
+  - [] replace crt math usage
+
+- os/core module
+  - [X] read/write files at position (linux)
+  - [] read/write files at position (windows)
+
 - os/gfx module
   - [] finish input abstraction (wayland, windows)
   - [] drag and drop (wayland, windows)
@@ -9,18 +19,20 @@
   - [] render lines/curves
   - [] better sorting
   - [] more ergonomic render functions (introduce seaparate draw module?)
-  - [] instancing
+  - [X] instancing
   - [] d3d11 backend on windows
 
 - font module
   - [] check dwrite glyph rasterization (d3d instead of gdi?)
-  
+
 - audio module
   - [] sample rate conversion
-  - [] midi (wasapi)
+  - [X] midi (wasapi)
+  - [] midi sysex (wasapi, jack)
   - [] support changing samplerate, audiodevices (wasapi, jack)
-  - [] lower latency (wasapi, jack)
-  
+  - [] support configuring latency (wasapi, jack)
+  - [] expose more granular interface that allows manual audio thread creation (instead of callback)
+
 - spectrogram example
   - [] lines instead of rectangles
   - [] visualize phase

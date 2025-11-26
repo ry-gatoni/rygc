@@ -12,13 +12,20 @@ typedef enum R_PixelFormat
   R_PixelFormat_Count,
 } R_PixelFormat;
 
-typedef struct R_Vertex
+typedef struct R_Quad
 {
-  V3 pos;
-  V2 uv;
+  V2 p_min;
+  V2 p_max;
+
+  V2 uv_min;
+  V2 uv_max;
+
   U32 color;
+
   R32 angle;
-} R_Vertex;
+  // TODO: stop doing sorting via the z buffer. it's not a great idea
+  R32 level;
+} R_Quad;
 
 typedef struct R_Texture
 {
@@ -31,9 +38,9 @@ struct R_Batch
 {
   R_Batch *next;
 
-  U32 vertex_cap;
-  U32 vertex_count;
-  R_Vertex *vertex_buffer;
+  U32 quad_cap;
+  U32 quad_count;
+  R_Quad *quads;
 
   R_Texture *texture;
 };
@@ -50,6 +57,7 @@ typedef struct R_Commands
   R_Batch *first_batch;
   R_Batch *last_batch;
   U32 batch_count;
+  U32 total_quad_count;
 
   R_Texture white_texture;
 

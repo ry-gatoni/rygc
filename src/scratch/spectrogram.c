@@ -632,7 +632,15 @@ main(int argc, char **argv)
           V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
           render_rect(screen_rect, 0, RenderLevel(background), background_color);
 
+#if 0
+          // DEBUG:
+          local R32 angle = PI32/2.f;
+          V2 base_pt = v2_sub(rect2_center(screen_rect), v2(100.f, 100.f));
+          V2 end_pt = v2_add(base_pt, v2_polar(200.f, angle));
+          //angle += 0.1f;
+          render_line_segment(base_pt, end_pt, 5, RenderLevel(top), v4(1, 1, 0, 1));
           render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
+#endif
 
           draw_spectrum_grid(spec_state, window_dim, font);
 
@@ -643,7 +651,7 @@ main(int argc, char **argv)
             AudioBufferNode *first_node = 0;
             AudioBufferNode *last_node = 0;
             U32 buffer_count = 0;
-            TakeLock(&buffer_list->lock)
+            TakeLock(&buffer_list->lock);
             {
               first_node = buffer_list->first;
               last_node = buffer_list->last;
@@ -652,7 +660,7 @@ main(int argc, char **argv)
               buffer_list->last = 0;
               buffer_list->count = 0;
             }
-            ReleaseLock(&buffer_list->lock)
+            ReleaseLock(&buffer_list->lock);
 
             fprintf(stderr, "dequeued %u buffers\n", buffer_count);
 
@@ -697,12 +705,12 @@ main(int argc, char **argv)
             // NOTE: if we dequeued buffers, put them on the freelist
             if(last_node)
             {
-              TakeLock(&buffer_list->lock)
+              TakeLock(&buffer_list->lock);
               {
                 last_node->next = buffer_list->freelist;
                 buffer_list->freelist = last_node;
               }
-              ReleaseLock(&buffer_list->lock)
+              ReleaseLock(&buffer_list->lock);
             }
           }
 

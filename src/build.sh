@@ -3,7 +3,7 @@
 BUILD_DEBUG=1
 
 ## TODO: it would be nice to enable -Wconversion, but it produces far too many warnings to be useful
-CFLAGS="-Wall -Wextra -Wshadow -Wno-unused-function -Wno-initializer-overrides -Wno-unused-local-typedef"
+CFLAGS="-Wall -Wextra -Wshadow -Wno-unused-function -Wno-initializer-overrides -Wno-unused-local-typedef -Wno-missing-braces"
 if [[ $BUILD_DEBUG == 1 ]]; then
     CFLAGS+=" -g -fsanitize=address"
 fi

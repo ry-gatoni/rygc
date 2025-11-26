@@ -158,41 +158,76 @@ proc void
 render_end_frame(void)
 {
   R_Commands *commands = render_commands;
+
+  glBindVertexArray(ogl_renderer->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, ogl_renderer->vbo);
+  glUseProgram(ogl_renderer->shader_prog.handle);
+
+  // NOTE: pattern
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(R_Vertex),
-                        PtrFromInt(OffsetOf(R_Vertex, pos)));
+  glVertexAttribDivisor(0, 0);
+  glVertexAttribPointer(0, 4, GL_FLOAT, 0, 0, 0);
 
+  U64 pattern_size = sizeof(quad_pattern);
+
+  // TODO: use an xlist for the shader attributes?
+  // NOTE: p_min_max
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(R_Vertex),
-                        PtrFromInt(OffsetOf(R_Vertex, uv)));
+  glVertexAttribDivisor(1, 1);
+  glVertexAttribPointer(1, 4, GL_FLOAT, 0, sizeof(R_Quad),
+                        PtrFromInt(pattern_size + OffsetOf(R_Quad, p_min)));
 
+  // NOTE: uv_min_max
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
-                        PtrFromInt(OffsetOf(R_Vertex, color)));
+  glVertexAttribDivisor(2, 1);
+  glVertexAttribPointer(2, 4, GL_FLOAT, 0, sizeof(R_Quad),
+                        PtrFromInt(pattern_size + OffsetOf(R_Quad, uv_min)));
 
+  // NOTE: color
   glEnableVertexAttribArray(3);
-  glVertexAttribPointer(3, 1, GL_FLOAT, 0, sizeof(R_Vertex),
-                        PtrFromInt(OffsetOf(R_Vertex, angle)));
+  glVertexAttribDivisor(3, 1);
+  glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Quad),
+                        PtrFromInt(pattern_size + OffsetOf(R_Quad, color)));
+
+  // NOTE: angle
+  glEnableVertexAttribArray(4);
+  glVertexAttribDivisor(4, 1);
+  glVertexAttribPointer(4, 1, GL_FLOAT, 0, sizeof(R_Quad),
+                        PtrFromInt(pattern_size + OffsetOf(R_Quad, angle)));
+
+  // NOTE: level
+  glEnableVertexAttribArray(5);
+  glVertexAttribDivisor(5, 1);
+  glVertexAttribPointer(5, 1, GL_FLOAT, 0, sizeof(R_Quad),
+                        PtrFromInt(pattern_size + OffsetOf(R_Quad, level)));
 
   glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 0, (GLfloat*)commands->transform.v);
 
   glViewport(0, 0, commands->window_dim.width, commands->window_dim.height);
-  glClearColor(0, 0, 0, 1);
+  glClearColor(0.2, 0.2, 0.2, 1);
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   // NOTE: render all batches
-  for(R_Batch *batch = commands->first_batch; batch; batch = batch->next) {
+  U64 data_size = pattern_size + commands->total_quad_count*sizeof(R_Quad);
+  glBufferData(GL_ARRAY_BUFFER, data_size, 0, GL_STREAM_DRAW);
 
-    glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, pattern_size, quad_pattern);
+
+  for(R_Batch *batch = commands->first_batch; batch; batch = batch->next)
+  {
+    U64 size = batch->quad_count*sizeof(R_Quad);
+    glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);
+
+    //glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
 
-    glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
   }
 
-  // NOTE: push all batches onto the freelist
+  // NOTE: move all batches onto the freelist
   commands->last_batch->next = commands->batch_freelist;
   commands->batch_freelist = commands->first_batch;
   commands->first_batch = 0;

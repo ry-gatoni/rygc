@@ -117,6 +117,13 @@ v4(R32 x, R32 y, R32 z, R32 w)
   return(result);
 }
 
+proc V2
+v2_polar(R32 mag, R32 angle)
+{
+  V2 result = v2_lmul(mag, v2(rygc_cos(angle), rygc_sin(angle)));
+  return(result);
+}
+
 // -----------------------------------------------------------------------------
 // casts
 
