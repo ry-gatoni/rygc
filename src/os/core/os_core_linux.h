@@ -13,10 +13,10 @@ typedef struct Linux_ThreadInfo Linux_ThreadInfo;
 struct Linux_ThreadInfo
 {
   Linux_ThreadInfo *next;
-  
+
   Os_ThreadProc *procedure;
   void *data;
-  
+
   pthread_t handle;
 };
 
@@ -36,3 +36,12 @@ proc B32 linux_init(void);
 proc Linux_ThreadInfo *linux_alloc_thread_info(void);
 
 proc void* linux_thread_entry_point(void *param);
+
+// -----------------------------------------------------------------------------
+// helpers
+
+proc Os_Handle linux_os_handle_from_file_handle(int fd);
+proc int linux_file_handle_from_os_handle(Os_Handle file);
+
+proc Os_Handle linux_os_handle_from_thread_handle(pthread_t handle);
+proc pthread_t linux_thread_handle_from_os_handle(Os_Handle handle);

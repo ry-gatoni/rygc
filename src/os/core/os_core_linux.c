@@ -14,7 +14,7 @@ os_mem_reserve(U64 size)
     result = 0;
     // TODO: log "ERROR: mmap failed: <ERROR STRING>"
   }
-  
+
   return(result);
 }
 
@@ -33,7 +33,7 @@ os_mem_commit(void *mem, U64 size)
 
 proc void
 os_mem_decommit(void *mem, U64 size)
-{  
+{
   int success = madvise(mem, size, MADV_DONTNEED);
   if(success == 0) {
     success = mprotect(mem, size, PROT_NONE);
@@ -43,7 +43,7 @@ os_mem_decommit(void *mem, U64 size)
   }
   else {
     // TODO: log "ERROR: madvise failed: <ERROR STRING>"
-  } 
+  }
 }
 
 proc void
@@ -80,18 +80,18 @@ os_file_open(String8 path, Os_FileOpenFlags flags)
   {
     open_flags |= O_WRONLY;
     open_flags |= O_CREAT;
-    
+
     mode |= S_IRUSR;
     mode |= S_IWUSR;
     mode |= S_IRGRP;
-    mode |= S_IROTH;    
+    mode |= S_IROTH;
   }
-  
+
   int handle = open((char*)path_cstr.string, open_flags, mode);
   if(handle == -1) {
     // TODO: log error
   }
-  
+
   Os_Handle result = {0};
   result.handle = PtrFromInt(handle);
   return(result);
@@ -137,7 +137,41 @@ os_file_read(Arena *arena, Os_Handle file, U64 size)
   if(mem) {
     mem[size] = 0; // NOTE: null termination
   }
-  
+
+  Buffer result = {0};
+  result.size = size;
+  result.mem = mem;
+  return(result);
+}
+
+proc Buffer
+os_file_read_from(Arena *arena, Os_Handle file, U64 pos, U64 size)
+{
+  U64 arena_pos_pre = arena_pos(arena);
+  U8 *mem = arena_push_array(arena, U8, size + 1);
+
+  int fd = linux_file_handle_from_os_handle(file);
+  U64 bytes_remaining = size;
+  U8 *dest = mem;
+  for(;bytes_remaining;)
+  {
+    U32 bytes_to_read = Min(bytes_remaining, LINUX_MAX_BYTES_TO_READ);
+    int bytes_read = pread(fd, dest, bytes_to_read, pos);
+    if(bytes_read == -1)
+    {
+      size = 0;
+      mem = 0;
+      arena_pop_to(arena, arena_pos_pre);
+      // TODO: log error
+      break;
+    }
+
+    bytes_remaining -= bytes_read;
+    dest += bytes_read;
+    pos += bytes_read;
+  }
+  if(mem) mem[size] = 0; // NOTE: null termination
+
   Buffer result = {0};
   result.size = size;
   result.mem = mem;
@@ -166,6 +200,32 @@ os_file_write(Buffer file_contents, Os_Handle file)
   return(result);
 }
 
+proc B32
+os_file_write_to(Buffer file_contents, U64 pos, Os_Handle file)
+{
+  B32 result = 1;
+  int handle = linux_file_handle_from_os_handle(file);
+  U64 bytes_remaining = file_contents.size;
+  U8 *src = file_contents.mem;
+  for(;bytes_remaining;)
+  {
+    U32 bytes_to_write = Min(bytes_remaining, LINUX_MAX_BYTES_TO_WRITE);
+    int bytes_written = pwrite(handle, src, bytes_to_write, pos);
+    if(bytes_written == -1)
+    {
+      result = 0;
+      // TODO: log error
+      break;
+    }
+
+    bytes_remaining -= bytes_written;
+    src += bytes_written;
+    pos += bytes_written;
+  }
+
+  return(result);
+}
+
 proc String8
 os_read_entire_file(Arena *arena, String8 path)
 {
@@ -181,28 +241,28 @@ os_read_entire_file(Arena *arena, String8 path)
       U64 arena_pre_pos = arena_pos(arena);
       result.count = file_status.st_size;
       result.string = arena_push_array(arena, U8, result.count);
-      
+
       U64 bytes_remaining = result.count;
       U8 *dest = result.string;
       while(bytes_remaining) {
-	U32 bytes_to_read = Min(bytes_remaining, LINUX_MAX_BYTES_TO_READ);
-	int bytes_read = read(handle, dest, bytes_to_read);
-	if(bytes_read == -1) {
-	  // TODO: log "ERROR: read failed: <ERROR STRING>"
-	  result.string = 0;
-	  result.count = 0;
-	  arena_pop_to(arena, arena_pre_pos);
-	  break;
-	}
-	
-	dest += bytes_read;
-	bytes_remaining -= bytes_read;
+        U32 bytes_to_read = Min(bytes_remaining, LINUX_MAX_BYTES_TO_READ);
+        int bytes_read = read(handle, dest, bytes_to_read);
+        if(bytes_read == -1) {
+          // TODO: log "ERROR: read failed: <ERROR STRING>"
+          result.string = 0;
+          result.count = 0;
+          arena_pop_to(arena, arena_pre_pos);
+          break;
+        }
+
+        dest += bytes_read;
+        bytes_remaining -= bytes_read;
       }
     }
     else {
       // TODO: log "ERROR: fstat failed: <ERROR STRING>"
     }
-      
+
     close(handle);
   }
   else {
@@ -229,9 +289,9 @@ os_write_entire_file(String8 file, String8 path)
       U32 bytes_to_write = Min(bytes_remaining, LINUX_MAX_BYTES_TO_WRITE);
       int bytes_written = write(handle, src, bytes_to_write);
       if(bytes_written == -1) {
-	result = 0;
-	break;
-	// TODO: log "ERROR: write failed: <ERROR STRING>"
+        result = 0;
+        break;
+        // TODO: log "ERROR: write failed: <ERROR STRING>"
       }
 
       bytes_remaining -= bytes_written;
@@ -241,7 +301,7 @@ os_write_entire_file(String8 file, String8 path)
   else {
     result = 0;
     // TODO: log "ERROR: open failed: <ERROR STRING>"
-  }    
+  }
 
   arena_release_scratch(scratch);
   return(result);
@@ -260,8 +320,9 @@ os_thread_launch(Os_ThreadProc *procedure, void *data)
     thread_info->handle = handle;
   }
 
-  Os_Handle result = {0};
-  result.handle = PtrFromInt(handle);
+  /* Os_Handle result = {0}; */
+  /* result.handle = PtrFromInt(handle); */
+  Os_Handle result = linux_os_handle_from_thread_handle(handle);
   return(result);
 }
 
@@ -297,7 +358,7 @@ cpu_get_cycle_count(void)
 {
   U64 result = 0;
 #if CPU_X86 || CPU_X64
-  result = __rdtsc();    
+  result = __rdtsc();
 #else // TODO: arm
 #  error not implemented for this architecture
 #endif
@@ -323,14 +384,14 @@ linux_alloc_thread_info(void)
 {
   Linux_ThreadInfo *result = 0;
   if(linux_state) {
-    
+
     result = linux_state->thread_info_freelist;
     if(result) {
       SLLStackPop(linux_state->thread_info_freelist);
     }else {
       result = arena_push_struct(linux_state->arena, Linux_ThreadInfo);
     }
-    
+
     Assert(result);
     SLLQueuePush(linux_state->first_thread_info, linux_state->last_thread_info, result);
     ++linux_state->thread_info_count;
@@ -344,4 +405,34 @@ linux_thread_entry_point(void *param)
   Linux_ThreadInfo *thread_info = (Linux_ThreadInfo*)param;
   thread_info->procedure(thread_info->data);
   return(0);
+}
+
+proc Os_Handle
+linux_os_handle_from_file_handle(int fd)
+{
+  Os_Handle result = {0};
+  result.handle = PtrFromInt(fd);
+  return(result);
+}
+
+proc int
+linux_file_handle_from_os_handle(Os_Handle file)
+{
+  int result = IntFromPtr(file.handle);
+  return(result);
+}
+
+proc Os_Handle
+linux_os_handle_from_thread_handle(pthread_t handle)
+{
+  Os_Handle result = {0};
+  result.handle = PtrFromInt(handle);
+  return(result);
+}
+
+proc pthread_t
+linux_thread_handle_from_os_handle(Os_Handle handle)
+{
+  pthread_t result = IntFromPtr(handle.handle);
+  return(result);
 }

@@ -21,14 +21,18 @@
 #define Glue_(a, b) a##b
 #define Glue(a, b) Glue_(a, b)
 
+#if COMPILER_CLANG || COMPILER_GCC
+#  define AssertAlways(cond) if(!(cond)) __builtin_trap()
+#elif COMPILER_MSVC
+#  define AssertAlways(cond) if(!(cond)) __debugbreak()
+#else
+#  waringing "WARNING: unsupported compiler"
+#  define AssertAlways(cond) if(!(cond)) *(void*)0
+#endif
+
 #if BUILD_DEBUG == 1
-#  if COMPILER_CLANG || COMPILER_GCC
-#    define Assert(cond) if(!(cond)) __builtin_trap()
-#  elif COMPILER_MSVC
-#    define Assert(cond) if(!(cond)) __debugbreak()
-#  else
-#    define Assert(cond) if(!(cond)) *(void *)0
-#  endif
+#  define Assert(cond) AssertAlways(cond)
+
 #  include <sanitizer/asan_interface.h>
 #  define AsanPoison(addr, size)   __asan_poison_memory_region((addr), (size))
 #  define AsanUnpoison(addr, size) __asan_unpoison_memory_region((addr), (size))
@@ -47,7 +51,8 @@
 #define Min(a, b) (((a) > (b)) ? (b) : (a))
 
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
-#define AlignPow2(n, a) (((n) + (a - 1)) & ~(a - 1))
+#define AlignPow2(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
+#define TruncPow2(n, a) ((n) & ~((a) - 1))
 #define RoundUpPow2(n) (1 << (MSB(n) + 1))
 
 #define IntFromPtr(p) (U64)((U8*)(p))
@@ -77,9 +82,9 @@
 #define DLLPushBack(f, l, n) DLLPushBack_NP(f, l, n, next, prev)
 
 #define DLLRemove_NP(f, l, n, next, prev)\
-  ((((n)==(f)) ? (f)=(n)->next : (0)),				\
-   (((n)==(l)) ? (l)=(n)->prev : (0)),				\
-   (((n)->prev==0) ? (0) : ((n)->prev->next=(n)->next)),		\
+  ((((n)==(f)) ? (f)=(n)->next : (0)),                          \
+   (((n)==(l)) ? (l)=(n)->prev : (0)),                          \
+   (((n)->prev==0) ? (0) : ((n)->prev->next=(n)->next)),                \
    (((n)->next==0) ? (0) : ((n)->next->prev=(n)->prev)))
 #define DLLRemove(f, l, n) DLLRemove_NP(f, l, n, next, prev)
 
