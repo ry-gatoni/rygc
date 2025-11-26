@@ -320,8 +320,6 @@ os_thread_launch(Os_ThreadProc *procedure, void *data)
     thread_info->handle = handle;
   }
 
-  /* Os_Handle result = {0}; */
-  /* result.handle = PtrFromInt(handle); */
   Os_Handle result = linux_os_handle_from_thread_handle(handle);
   return(result);
 }
