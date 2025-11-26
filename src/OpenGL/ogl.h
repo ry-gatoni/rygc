@@ -26,7 +26,7 @@ typedef struct Ogl_Renderer
   GLuint sampler;
   GLint sampler_loc;
   GLint transform_loc;
-  
+
   Ogl_Shader vert_shader;
   Ogl_Shader frag_shader;
   Ogl_Shader shader_prog;
@@ -39,13 +39,20 @@ global char vert_shader_src[] =
   "layout (location = 0) in vec3 v_p;\n"
   "layout (location = 1) in vec2 v_uv;\n"
   "layout (location = 2) in vec4 v_c;\n"
+  "layout (location = 3) in float angle;\n"
+
   "uniform mat4 transform;\n"
+
   "out vec2 f_uv;\n"
   "out vec4 f_c;\n"
+
   "void main() {\n"
-  "gl_Position = transform * vec4(v_p, 1);\n"
-  "f_uv = v_uv;\n"
-  "f_c = v_c;\n"  
+  "  float cosa = cos(angle);\n"
+  "  float sina = sin(angle);\n"
+  "  vec2 rot_v = vec2(cosa*v_p.x - sina*v_p.y, sina*v_p.x + cosa*v_p.y);\n"
+  "  gl_Position = transform * vec4(rot_v, v_p.z, 1);\n"
+  "  f_uv = v_uv;\n"
+  "  f_c = v_c;\n"
   "}\n";
 
 global char frag_shader_src[] =

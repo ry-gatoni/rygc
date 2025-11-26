@@ -4,7 +4,7 @@
 
 proc Ogl_Shader
 ogl_make_shader(Arena *arena, char *src, GLenum kind)
-{  
+{
   GLuint shader_id = glCreateShader(kind);
   glShaderSource(shader_id, 1, (const GLchar*const*)&src, 0);
   glCompileShader(shader_id);
@@ -13,7 +13,7 @@ ogl_make_shader(Arena *arena, char *src, GLenum kind)
   GLint info_log_length;
   glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
   if(info_log_length) {
-    
+
     char *buffer = arena_push_array(arena, char, info_log_length + 1);
     GLint len = 0;
     glGetShaderInfoLog(shader_id, info_log_length + 1, &len, buffer);
@@ -46,7 +46,7 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
   GLint info_log_length;
   glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
   if(info_log_length) {
-    
+
     char *buffer = arena_push_array(arena, char, info_log_length + 1);
     GLint len = 0;
     glGetProgramInfoLog(program_id, info_log_length + 1, &len, buffer);
@@ -59,7 +59,7 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
   if(link_status == 0) {
     glDeleteProgram(program_id);
     program_id = 0;
-  }  
+  }
 
   Ogl_Shader result = {0};
   result.handle = program_id;
@@ -98,9 +98,9 @@ render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 h
 
 proc R_Handle
 render_backend_init(Arena *arena)
-{  
-  ogl_renderer = arena_push_struct(arena, Ogl_Renderer); 
-      
+{
+  ogl_renderer = arena_push_struct(arena, Ogl_Renderer);
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -113,13 +113,13 @@ render_backend_init(Arena *arena)
   ogl_renderer->vert_shader = ogl_make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);
   if(ogl_renderer->vert_shader.log.count) {
     fprintf(stderr, "ERROR: vert_shader: %.*s\n",
-	    (int)ogl_renderer->vert_shader.log.count, ogl_renderer->vert_shader.log.string);
+            (int)ogl_renderer->vert_shader.log.count, ogl_renderer->vert_shader.log.string);
   }
-  
+
   ogl_renderer->frag_shader = ogl_make_shader(scratch.arena, frag_shader_src, GL_FRAGMENT_SHADER);
   if(ogl_renderer->frag_shader.log.count) {
     fprintf(stderr, "ERROR: frag_shader: %.*s\n",
-	    (int)ogl_renderer->frag_shader.log.count, ogl_renderer->frag_shader.log.string);
+            (int)ogl_renderer->frag_shader.log.count, ogl_renderer->frag_shader.log.string);
   }
 
   GLuint shaders[] = {
@@ -129,7 +129,7 @@ render_backend_init(Arena *arena)
   ogl_renderer->shader_prog = ogl_make_program(scratch.arena, shaders, ArrayCount(shaders));
   if(ogl_renderer->shader_prog.log.count) {
     fprintf(stderr, "ERROR: shader_program: %.*s\n",
-	    (int)ogl_renderer->shader_prog.log.count, ogl_renderer->shader_prog.log.string);
+            (int)ogl_renderer->shader_prog.log.count, ogl_renderer->shader_prog.log.string);
   }
 
   glUseProgram(ogl_renderer->shader_prog.handle);
@@ -145,12 +145,12 @@ render_backend_init(Arena *arena)
   ogl_renderer->sampler_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "atlas");
   glUniform1i(ogl_renderer->sampler_loc, 0);
 
-  ogl_renderer->transform_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "transform");  
+  ogl_renderer->transform_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "transform");
 
   arena_release_scratch(scratch);
 
   R_Handle result = {0};
-  result.handle = ogl_renderer;  
+  result.handle = ogl_renderer;
   return(result);
 }
 
@@ -160,13 +160,19 @@ render_end_frame(void)
   R_Commands *commands = render_commands;
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, pos)));
+                        PtrFromInt(OffsetOf(R_Vertex, pos)));
+
   glEnableVertexAttribArray(1);
   glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, uv)));
+                        PtrFromInt(OffsetOf(R_Vertex, uv)));
+
   glEnableVertexAttribArray(2);
   glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(R_Vertex),
-			PtrFromInt(OffsetOf(R_Vertex, color)));
+                        PtrFromInt(OffsetOf(R_Vertex, color)));
+
+  glEnableVertexAttribArray(3);
+  glVertexAttribPointer(3, 1, GL_FLOAT, 0, sizeof(R_Vertex),
+                        PtrFromInt(OffsetOf(R_Vertex, angle)));
 
   glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 0, (GLfloat*)commands->transform.v);
 
@@ -177,7 +183,7 @@ render_end_frame(void)
 
   // NOTE: render all batches
   for(R_Batch *batch = commands->first_batch; batch; batch = batch->next) {
-    
+
     glBufferData(GL_ARRAY_BUFFER, batch->vertex_count*sizeof(R_Vertex), batch->vertex_buffer, GL_STREAM_DRAW);
 
     glActiveTexture(GL_TEXTURE0);

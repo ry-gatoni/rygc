@@ -17,6 +17,7 @@ typedef struct R_Vertex
   V3 pos;
   V2 uv;
   U32 color;
+  R32 angle;
 } R_Vertex;
 
 typedef struct R_Texture
@@ -33,7 +34,7 @@ struct R_Batch
   U32 vertex_cap;
   U32 vertex_count;
   R_Vertex *vertex_buffer;
-  
+
   R_Texture *texture;
 };
 
@@ -44,7 +45,6 @@ typedef struct R_Commands
   Os_Handle window;
 
   V2S32 window_dim;
-  //V2 ndc_scale;
   Mat4 transform;
 
   R_Batch *first_batch;
@@ -60,9 +60,14 @@ typedef struct R_Commands
 
 global R_Commands *render_commands = 0;
 
-// NOTE: interface
+// -----------------------------------------------------------------------------
+// initializers
+
 proc B32 render_init(void);
 proc R_Handle render_backend_init(Arena *arena);
+
+// -----------------------------------------------------------------------------
+// font
 
 // TODO: these forward declarations are kinda weird. Maybe include font before
 //       render, and only have to forward declare the atlas texture
@@ -70,14 +75,26 @@ struct LooseFont;
 typedef struct PackedFont R_Font;
 proc R_Font* render_alloc_font(struct LooseFont *loose_font);
 
+// -----------------------------------------------------------------------------
+// windowing
+
 proc void render_equip_window(Os_Handle window);
 
 proc void render_begin_frame(void);
 proc void render_end_frame(void);
 
+// -----------------------------------------------------------------------------
+// textures
+
 proc R_Texture render_create_texture(S32 width, S32 height, R_PixelFormat internal_fmt, R_PixelFormat pixel_fmt, void *pixels);
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
+proc R_Batch* render_batch_for_texture(R_Texture *texture);
+
+// -----------------------------------------------------------------------------
+// drawing
 
 // TODO: separate drawing layer?
-proc void render_rect(R_Texture *texture, Rect2 rect, Rect2 uv, R32 level, V4 color);
+proc void render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V4 color);
+proc void render_rect(Rect2 rect, R32 angle, R32 level, V4 color);
 proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
+proc void render_line_segment(V2 p0, V2 p1, R32 thickness, R32 level, V4 color);

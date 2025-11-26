@@ -304,7 +304,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, V2S32 window_dim, R_Font
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, freq_line_dim);
-    render_rect(0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(freq_line, 0, RenderLevel(grid), v4(1, 1, 1, 1));
 
     if(freq_line_idx < freq_line_count - 1) {
 
@@ -315,7 +315,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, V2S32 window_dim, R_Font
         R32 offset = freq_line_major_advance*log10f(((R32)current_freq + sep*(R32)minor_line_idx)/(R32)current_freq);
         V2 minor_line_pos = v2(freq_line_pos.x + offset, freq_line_pos.y);
         Rect2 minor_line = rect2_center_dim(minor_line_pos, freq_line_minor_dim);
-        render_rect(0, minor_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+        render_rect(minor_line, 0, RenderLevel(grid), v4(1, 1, 1, 1));
       }
     }
 
@@ -335,7 +335,7 @@ draw_spectrum_grid_log_db(SpectrogramState *spec_state, V2S32 window_dim, R_Font
   for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx) {
 
     Rect2 db_line = rect2_center_dim(db_line_pos, db_line_dim);
-    render_rect(0, db_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(db_line, 0, RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 db_label = str8_push_f(scratch.arena, "%d", current_db);
     render_string(font, db_label, db_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
@@ -369,7 +369,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
   for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx) {
 
     Rect2 freq_line = rect2_center_dim(freq_line_pos, v2((R32)freq_line_thickness_px, 2.f));
-    render_rect(0, freq_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(freq_line, 0, RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 freq_label = str8_push_f(scratch.arena, "%u", current_freq);
     render_string(font, freq_label, freq_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
@@ -387,7 +387,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
   for(U32 amp_line_idx = 0; amp_line_idx < amp_line_count; ++amp_line_idx) {
 
     Rect2 amp_line = rect2_center_dim(amp_line_pos, v2(2.f, (R32)amp_line_thickness_px));
-    render_rect(0, amp_line, rect2_invalid(), RenderLevel(grid), v4(1, 1, 1, 1));
+    render_rect(amp_line, 0, RenderLevel(grid), v4(1, 1, 1, 1));
 
     String8 amp_label = str8_push_f(scratch.arena, "%u", current_amp);
     render_string(font, amp_label, amp_label_pos, RenderLevel(label), v4(1, 1, 1, 1));
@@ -428,7 +428,7 @@ draw_spectrum_log_db(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuff
     R32 width = next_pos_x - pos.x;
 
     Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(0, bin, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(bin, 0, RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
 
 #  if 0
     // NOTE: debug
@@ -504,7 +504,7 @@ draw_spectrum_lin(SpectrogramState *spec_state, ComplexBuffer spec_buf)
     R32 bin_height = 2.f*bin_power/2400.f;
 
     Rect2 bin_rect = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(0, bin_rect, rect2_invalid(), RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
+    render_rect(bin_rect, 0, RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
 
     pos.x += width;
   }
@@ -630,7 +630,7 @@ main(int argc, char **argv)
           V2S32 window_dim = os_window_get_dim(window);
           Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
           V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
-          render_rect(0, screen_rect, rect2_invalid(), RenderLevel(background), background_color);
+          render_rect(screen_rect, 0, RenderLevel(background), background_color);
 
           render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
 

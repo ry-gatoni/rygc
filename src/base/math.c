@@ -41,7 +41,7 @@ rygc_log2(U32 num)
     { 4, 0xF0      },
     { 2, 0xC       },
     { 1, 0x2       },
-  };  
+  };
 
   U32 result = 0;
   for(U32 i = 0; i < ArrayCount(ms); ++i) {
@@ -57,6 +57,32 @@ rygc_log2(U32 num)
   return(result);
 }
 
+// TODO: stop depending on crt
+
+proc R32
+rygc_sqrt(R32 num)
+{
+  return(sqrtf(num));
+}
+
+proc R32
+rygc_cos(R32 num)
+{
+  return(cosf(num));
+}
+
+proc R32
+rygc_sin(R32 num)
+{
+  return(sinf(num));
+}
+
+proc R32
+rygc_atan2(R32 x, R32 y)
+{
+  return(atan2f(y, x));
+}
+
 proc R32
 lerp(R32 val0, R32 val1, R32 t)
 {
@@ -64,7 +90,12 @@ lerp(R32 val0, R32 val1, R32 t)
   return(result);
 }
 
-// NOTE: vectors
+// -----------------------------------------------------------------------------
+// vectors
+
+// -----------------------------------------------------------------------------
+// constructors
+
 proc V2
 v2(R32 x, R32 y)
 {
@@ -86,6 +117,9 @@ v4(R32 x, R32 y, R32 z, R32 w)
   return(result);
 }
 
+// -----------------------------------------------------------------------------
+// casts
+
 proc V2S32
 v2s32(S32 x, S32 y)
 {
@@ -99,7 +133,10 @@ v2_from_v2s32(V2S32 v)
   V2 result = {.x = (R32)v.x, .y = (R32)v.y};
   return(result);
 }
-     
+
+// -----------------------------------------------------------------------------
+// binops
+
 proc V2
 v2_add(V2 v, V2 w)
 {
@@ -153,6 +190,23 @@ proc V2
 v2_hadamard(V2 v, V2 w)
 {
   V2 result = {.x = v.x * w.x, .y = v.y *w .y};
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// scalar from vector
+
+proc R32
+v2_length(V2 v)
+{
+  R32 result = rygc_sqrt(v.x*v.x + v.y*v.y);
+  return(result);
+}
+
+proc R32
+v2_angle(V2 v)
+{
+  R32 result = rygc_atan2(v.x, v.y);
   return(result);
 }
 
@@ -227,7 +281,12 @@ ranger32_map_01(R32 val, RangeR32 rng)
   return(result);
 }
 
-// NOTE: rects
+// -----------------------------------------------------------------------------
+// rects
+
+// -----------------------------------------------------------------------------
+// construction
+
 proc Rect2
 rect2(V2 min, V2 max)
 {
@@ -263,12 +322,18 @@ rect2_center_halfdim(V2 center, V2 halfdim)
   return(result);
 }
 
+// -----------------------------------------------------------------------------
+// modification
+
 proc Rect2
 rect2_offset(Rect2 rect, V2 offset)
 {
   Rect2 result = {.min = v2_add(rect.min, offset), .max = v2_add(rect.max, offset)};
   return(result);
 }
+
+// -----------------------------------------------------------------------------
+// vector from rect
 
 proc V2
 rect2_center(Rect2 rect)
@@ -277,7 +342,19 @@ rect2_center(Rect2 rect)
   return(result);
 }
 
-// NOTE: matrices
+proc V2
+rect_dim(Rect2 rect)
+{
+  V2 result = v2_sub(rect.max, rect.min);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// matrices
+
+// -----------------------------------------------------------------------------
+// construction
+
 proc Mat3
 mat3(V3 c0, V3 c1, V3 c2)
 {
@@ -303,9 +380,9 @@ proc Mat4
 mat4_id(void)
 {
   Mat4 result = mat4(v4(1, 0, 0, 0),
-		     v4(0, 1, 0, 0),
-		     v4(0, 0, 1, 0),
-		     v4(0, 0, 0, 1));
+                     v4(0, 1, 0, 0),
+                     v4(0, 0, 1, 0),
+                     v4(0, 0, 0, 1));
   return(result);
 }
 
@@ -313,9 +390,9 @@ proc Mat4
 mat4_yflip(void)
 {
   Mat4 result = mat4(v4(1,  0,  0,  0),
-		     v4(0, -1,  0,  0),
-		     v4(0,  0,  1,  0),
-		     v4(0,  0,  0,  1));
+                     v4(0, -1,  0,  0),
+                     v4(0,  0,  1,  0),
+                     v4(0,  0,  0,  1));
   return(result);
 }
 
@@ -325,8 +402,8 @@ mat4_screen_transform_ndc(V2S32 dim)
   R32 a = 2.f/(R32)dim.width;
   R32 b = 2.f/(R32)dim.height;
   Mat4 result = mat4(v4( a,  0,  0,  0),
-		     v4( 0,  b,  0,  0),
-		     v4( 0,  0,  1,  0),
-		     v4(-1, -1,  0,  1));
-  return(result);  
+                     v4( 0,  b,  0,  0),
+                     v4( 0,  0,  1,  0),
+                     v4(-1, -1,  0,  1));
+  return(result);
 }
