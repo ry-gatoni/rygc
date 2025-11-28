@@ -10,7 +10,8 @@
   - [] read/write files at position (windows)
 
 - os/gfx module
-  - [] finish input abstraction (wayland, windows)
+  - [X] support key/button presses in input abstraction
+  - []  implement keyboard/mouse event handling (windows)
   - [] drag and drop (wayland, windows)
   - [] opengl/egl runtime linking (wayland)
   - [] smooth resizing (wayland, windows)
