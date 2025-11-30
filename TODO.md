@@ -4,6 +4,7 @@
   - [] improve audio logging system
   - [] add profiler
   - [] replace crt math usage
+  - [] printf-like function attributes
 
 - os/core module
   - [X] read/write files at position (linux)

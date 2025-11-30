@@ -614,6 +614,8 @@ main(int argc, char **argv)
         Arena *frame_arena = arena_alloc();
         while(running)
         {
+          log_begin_scope(Str8Lit("main loop"));
+
           // NOTE: handle events
           Os_EventList events = os_events(frame_arena);
           for(Os_Event *event = events.first; event; event = event->next)
@@ -678,7 +680,8 @@ main(int argc, char **argv)
             }
             ReleaseLock(&buffer_list->lock);
 
-            fprintf(stderr, "dequeued %u buffers\n", buffer_count);
+            //fprintf(stderr, "dequeued %u buffers\n", buffer_count);
+            log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
 
             // NOTE: if we dequeued buffers, draw their spectra.
             //       otherwise draw the cached spectrum
@@ -732,6 +735,12 @@ main(int argc, char **argv)
 
           render_end_frame();
           arena_clear(frame_arena);
+
+          LogScopeResult render_loop_log = log_end_scope();
+          String8 log_error_string = render_loop_log.msgs[LogMessageKind_error];
+          String8 log_info_string = render_loop_log.msgs[LogMessageKind_info];
+          fprintf(stderr, "%.*s", (int)log_error_string.count, log_error_string.string);
+          fprintf(stdout, "%.*s", (int)log_info_string.count, log_info_string.string);
         }
 
         audio_uninit();

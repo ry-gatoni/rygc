@@ -73,10 +73,11 @@ log_end_scope(void)
     ArenaTemp scratch = arena_get_scratch(0, 0);
     {
       StringJoin joiner = {0};
-      joiner.pre = str8_push_f(scratch.arena, "%.*s%.*s",
+      joiner.pre = str8_push_f(scratch.arena, "%*s%.*s\n%*s",
                                2*scope->depth, "",
-                               (int)scope->name.count, scope->name.string);
-      joiner.sep = str8_push_f(scratch.arena, "\n%.*s",
+                               (int)scope->name.count, scope->name.string,
+                               2*(scope->depth + 1), "");
+      joiner.sep = str8_push_f(scratch.arena, "\n%*s",
                                2*(scope->depth + 1), "");
       joiner.post = Str8Lit("\n");
 
