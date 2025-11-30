@@ -50,6 +50,8 @@
 #define Max(a, b) (((a) < (b)) ? (b) : (a))
 #define Min(a, b) (((a) > (b)) ? (b) : (a))
 
+#define ClampToRange(n, min, max) Min(Max(n, min), max)
+
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
 #define AlignPow2(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
 #define TruncPow2(n, a) ((n) & ~((a) - 1))

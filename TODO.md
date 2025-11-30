@@ -11,13 +11,14 @@
 
 - os/gfx module
   - [X] support key/button presses in input abstraction
-  - []  implement keyboard/mouse event handling (windows)
+  - [] implement keyboard/mouse event handling (windows)
   - [] drag and drop (wayland, windows)
   - [] opengl/egl runtime linking (wayland)
   - [] smooth resizing (wayland, windows)
 
 - render module
-  - [] render lines/curves
+  - [X] render lines
+  - [] render curves
   - [] better sorting
   - [] more ergonomic render functions (introduce seaparate draw module?)
   - [X] instancing

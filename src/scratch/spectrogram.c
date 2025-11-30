@@ -634,11 +634,21 @@ main(int argc, char **argv)
 
 #if 0
           // DEBUG:
-          local R32 angle = PI32/2.f;
-          V2 base_pt = v2_sub(rect2_center(screen_rect), v2(100.f, 100.f));
-          V2 end_pt = v2_add(base_pt, v2_polar(200.f, angle));
-          //angle += 0.1f;
-          render_line_segment(base_pt, end_pt, 5, RenderLevel(top), v4(1, 1, 0, 1));
+          {
+            local R32 angle = PI32/2.f;
+            V2 base_pt = v2_sub(rect2_center(screen_rect), v2(100.f, 100.f));
+            V2 end_pt = v2_add(base_pt, v2_polar(200.f, angle));
+
+            Rect2 base_rect = rect2_center_dim(base_pt, v2(10.f, 10.f));
+            Rect2 end_rect = rect2_center_dim(end_pt, v2(10.f, 10.f));
+            render_rect(base_rect, 0, RenderLevel(top), v4(0, 1, 1, 1));
+            render_rect(end_rect, 0, RenderLevel(top), v4(1, 0, 1, 1));
+
+            render_line_segment(base_pt, end_pt, 5, RenderLevel(top), v4(1, 1, 0, 1));
+
+            angle += 0.02f;
+          }
+
           render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
 #endif
 

@@ -60,11 +60,12 @@ global char vert_shader_src[] =
   "  vec2 uv_min = uv_min_max.xy;\n"
   "  vec2 uv_dim = uv_min_max.zw - uv_min_max.xy;\n"
 
+  "  vec2 scaled_pattern = quad_half_dim*pattern_p;\n"
   "  float cosa = cos(angle);\n"
   "  float sina = sin(angle);\n"
-  "  vec2 rot_pattern = vec2(cosa*pattern_p.x - sina*pattern_p.y, sina*pattern_p.x + cosa*pattern_p.y);\n"
+  "  vec2 rot_pattern = vec2(cosa*scaled_pattern.x - sina*scaled_pattern.y, sina*scaled_pattern.x + cosa*scaled_pattern.y);\n"
 
-  "  vec2 pos = quad_center + quad_half_dim*rot_pattern;\n"
+  "  vec2 pos = quad_center + rot_pattern;\n"
   "  gl_Position = transform * vec4(pos, level, 1.0);\n"
 
   "  f_uv = uv_min + uv_dim*pattern_uv;\n"
