@@ -9,6 +9,9 @@ typedef struct PushBuffer
   U64 cap;
   U64 pos;
   U8 *mem;
+
+  U32 alignment;              // NOTE: per-push alignment
+  B32 null_terminate_strings; // NOTE: if we null-terminate every pushed string or not
 } PushBuffer;
 
 typedef struct BufferU32
@@ -27,39 +30,37 @@ typedef struct RingBuffer
 {
   U64 size;
   U8 *mem;
-  
+
   U64 read_pos;
   U64 write_pos;
   U64 separation;
 } RingBuffer;
 
+// -----------------------------------------------------------------------------
+// buffer
+
 proc Buffer buffer_alloc(Arena *arena, U64 size);
 
-proc inline U8*
-buf_consume_size_(Buffer *buf, U64 size)
-{
-  U8 *result = 0;
-  Assert(size <= buf->size);
-  if(size <= buf->size) {
-    result = buf->mem;
-    buf->mem += size;
-    buf->size -= size;
-  }
-  return(result);
-}
-#define buf_consume_struct(buf, type) (type*)buf_consume_size_(buf, sizeof(type))
-#define buf_consume_array(buf, type, count) (type*)buf_consume_size_(buf, (count)*sizeof(type))
+#define buf_consume_struct(buf, type) (type*)buf_consume_size(buf, sizeof(type))
+#define buf_consume_array(buf, type, count) (type*)buf_consume_size(buf, (count)*sizeof(type))
+proc U8* buf_consume_size(Buffer *buf, U64 size);
 
-proc PushBuffer push_buffer_alloc(Arena *arena, U64 cap);
+// -----------------------------------------------------------------------------
+// push buffer
 
+#define push_buffer_alloc(arena, cap) push_buffer_alloc_ex(arena, cap, 0, 0)
+proc PushBuffer push_buffer_alloc_ex(Arena *arena, U64 cap, U32 alignment, B32 null_terminate_strings);
+
+#define buf_push_struct(buf, type) (type*)buf_push(buf, sizeof(type))
+#define buf_push_array(buf, type, count) (type*)buf_push(buf, (count)*sizeof(type))
+proc U8* buf_push(PushBuffer *buf, U64 size);
 proc String8 buf_push_str8_copy(PushBuffer *buf, String8 str);
-proc U8* buf_push(PushBuffer *buf, U64 size, U64 align);
-#define buf_push_struct(buf, type) (type*)buf_push(buf, sizeof(type), 0)
-#define buf_push_struct_a(buf, type, align) (type*)buf_push(buf, sizeof(type), align)
-#define buf_push_array(buf, type, count) (type*)buf_push(buf, (count)*sizeof(type), 0)
-#define buf_push_array_a(buf, type, count, align) (type*)buf_push(buf, (count)*sizeof(type), align)
 
 proc Buffer buf_from_push_buffer(PushBuffer pb);
+proc String8 str8_from_push_buffer(PushBuffer pb);
+
+// -----------------------------------------------------------------------------
+// ring buffer
 
 proc B32 ring_buf_read_size(U8 *dest, RingBuffer *rb, U64 size);
 proc B32 ring_buf_write_size(RingBuffer *rb, U8 *src, U64 size);

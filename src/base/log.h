@@ -10,6 +10,8 @@ struct LogScope
 {
   LogScope *next;
   U64 arena_pos;
+  String8 name;
+  U64 depth;
   String8List msgs[LogMessageKind_Count];
 };
 
@@ -26,10 +28,15 @@ typedef struct Log
 
 thread_var Log *active_log = 0;
 
-// NOTE: interface
+// -----------------------------------------------------------------------------
+// allocate, release, selection
+
 proc Log* log_alloc(void);
 proc void log_release(Log *log);
 proc void log_select(Log *log);
+
+// -----------------------------------------------------------------------------
+// messaging
 
 proc void log_msg(LogMessageKind msg_kind, String8 msg);
 proc void log_msgf(LogMessageKind msg_kind, char *fmt, ...);
@@ -39,5 +46,8 @@ proc void log_msgf(LogMessageKind msg_kind, char *fmt, ...);
 #define log_error(msg) log_msg(LogMessageKind_error, msg)
 #define log_errorf(fmt, ...) log_msgf(LogMessageKind_error, fmt, __VA_ARGS__)
 
-proc void log_begin_scope(void);
+// -----------------------------------------------------------------------------
+// scope management
+
+proc void log_begin_scope(String8 scope_name);
 proc LogScopeResult log_end_scope(void);

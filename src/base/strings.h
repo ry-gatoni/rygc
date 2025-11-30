@@ -33,6 +33,13 @@ typedef struct String8List
   U64 total_count;
 } String8List;
 
+typedef struct StringJoin
+{
+  String8 pre;
+  String8 sep;
+  String8 post;
+} StringJoin;
+
 typedef struct String8Array
 {
   String8 *strings;
@@ -40,8 +47,14 @@ typedef struct String8Array
   U64 total_size;
 } String8Array;
 
+// -----------------------------------------------------------------------------
+// constructors
+
 proc String8 str8(U8 *chars, U64 count);
 proc String8 str8_range(U8 *first, U8 *opl);
+
+// -----------------------------------------------------------------------------
+// push functions
 
 proc String8 str8_push_f(Arena *arena, char *fmt, ...);
 proc String8 str8_push_fv(Arena *arena, char *fmt, va_list args);
@@ -50,20 +63,35 @@ proc String8 str8_push_fv(Arena *arena, char *fmt, va_list args);
 proc String8 arena_push_str8_copy_ex(Arena *arena, String8 string, U64 next_alignment);
 #define arena_push_str8_copy(arena, string) arena_push_str8_copy_ex(arena, string, 0)
 
+// -----------------------------------------------------------------------------
+// bool from string pair
+
 proc B32 str8s_are_equal(String8 s1, String8 s2);
 proc B32 str8_contains(String8 s1, String8 s2);
 
+// -----------------------------------------------------------------------------
+// concat strings
+
 proc String8 str8_concat(Arena *arena, String8 s1, String8 s2, String8 sep);
+
+// -----------------------------------------------------------------------------
+// string list push functions
 
 proc void str8_list_push_ex(String8List *list, String8 string, String8Node *node);
 proc void str8_list_push(Arena *arena, String8List *list, String8 string);
 proc void str8_list_push_f(Arena *arena, String8List *list, char *fmt, ...);
 proc void str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list args);
 
-proc String8 str8_join(Arena *arena, String8List *list);
+// -----------------------------------------------------------------------------
+// string list conversion functions
+
+proc String8 str8_join(Arena *arena, String8List *list, StringJoin *opt_join);
 proc String8List str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count);
 
 proc String8Array str8_array_from_list(Arena *arena, String8List *list);
+
+// -----------------------------------------------------------------------------
+// string16 conversion
 
 proc String16 str16_from_str8(Arena *arena, String8 str8);
 
@@ -104,9 +132,11 @@ typedef struct UnicodeDecode
   U32 cp;
 } UnicodeDecode;
 
+// -----------------------------------------------------------------------------
+// unicode helpers
+
 proc UnicodeDecode utf8_decode(U8 *str, U64 count);
 proc UnicodeDecode utf16_decode(U16 *str, U64 count);
 
 proc U32 utf8_encode(U8 *str, U32 cp);
 proc U32 utf16_encode(U16 *str, U32 cp);
-

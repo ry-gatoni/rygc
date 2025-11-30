@@ -7,7 +7,7 @@ cstr_get_count(char *cstr)
     ++count;
     ++at;
   }
-  
+
   return(count);
 }
 
@@ -51,7 +51,7 @@ str8_push_fv(Arena *arena, char *fmt, va_list args)
     // NOTE: if failure, retry with real count
     arena_pop(arena, count);
     buffer = arena_push_array(arena, U8, count + 1);
-    count = vsnprintf((char *)buffer, count + 1, fmt, args);    
+    count = vsnprintf((char *)buffer, count + 1, fmt, args);
   }
 
   String8 result = {.string = buffer, .count = count};
@@ -87,8 +87,8 @@ str8s_are_equal(String8 s1, String8 s2)
     U8 *at2 = s2.string;
     for(U64 i = 0; i < s1.count; ++i, ++at1, ++at2) {
       if(*at1 != *at2) {
-	result = 0;
-	break;
+        result = 0;
+        break;
       }
     }
   }
@@ -100,7 +100,7 @@ proc B32
 str8_contains(String8 s1, String8 s2)
 {
   B32 result = 0;
-  
+
   U8 *at1 = s1.string;
   for(U64 i = 0; i < s1.count && !result; ++i, ++at1) {
     result = 1;
@@ -146,11 +146,8 @@ str8_list_push_f(Arena *arena, String8List *list, char *fmt, ...)
 {
   va_list args;
   va_start(args, fmt);
-  //String8 string = str8_push_fv(arena, fmt, args);
   str8_list_push_fv(arena, list, fmt, args);
   va_end(args);
-
-  //str8_list_push(arena, list, string);
 }
 
 proc void
@@ -160,20 +157,45 @@ str8_list_push_fv(Arena *arena, String8List *list, char *fmt, va_list args) {
 }
 
 proc String8
-str8_join(Arena *arena, String8List *list)
+str8_join(Arena *arena, String8List *list, StringJoin *opt_join)
 {
-  String8 result = {0};
-  result.string = arena_push_array(arena, U8, list->total_count);
-  result.count = list->total_count;
+  if(opt_join != 0)
+  {
+    U64 count = list->total_count;
+    count += opt_join->pre.count;
+    count += list->node_count ? opt_join->sep.count*(list->node_count - 1) : 0;
+    count += opt_join->post.count;
+    count += 1; // null terminator
+    PushBuffer pb = push_buffer_alloc(arena, count);
 
-  U8 *string_at = result.string;
-  for(String8Node *node = list->first; node; node = node->next) {
-    U64 node_string_count = node->string.count;
-    CopySize(string_at, node->string.string, node_string_count);
-    string_at += node_string_count;
+    buf_push_str8_copy(&pb, opt_join->pre);
+    if(list->first != 0)
+    {
+      buf_push_str8_copy(&pb, list->first->string);
+      for(String8Node *node = list->first->next; node != 0; node = node->next)
+      {
+        buf_push_str8_copy(&pb, opt_join->sep);
+        buf_push_str8_copy(&pb, node->string);
+      }
+    }
+    buf_push_str8_copy(&pb, opt_join->post);
+
+    String8 result = str8_from_push_buffer(pb);
+    return(result);
   }
+  else
+  {
+    U64 count = list->total_count;
+    PushBuffer pb = push_buffer_alloc(arena, count);
 
-  return(result);
+    for(String8Node *node = list->first; node != 0; node = node->next)
+    {
+      buf_push_str8_copy(&pb, node->string);
+    }
+
+    String8 result = str8_from_push_buffer(pb);
+    return(result);
+  }
 }
 
 // NOTE: updated 2025-11-02 to split at _any appearance_ of a character in
@@ -194,11 +216,11 @@ str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count)
       B32 is_split = 0;
       for(U64 i = 0; i < count; ++i)
       {
-	if(split_chars[i] == c)
-	{
-	  is_split = 1;
-	  break;
-	}
+        if(split_chars[i] == c)
+        {
+          is_split = 1;
+          break;
+        }
       }
       if(is_split) break;
     }
@@ -213,16 +235,16 @@ str8_split(Arena *arena, String8 string, U8 *split_chars, U64 count)
   /* U64 counter = 0; */
   /* for(U64 i = 0; i < string.count; ++i) { */
   /*   if(str8s_are_equal((String8){string_at, count}, */
-  /* 		       (String8){split_chars, count})) { */
+  /*                   (String8){split_chars, count})) { */
   /*     String8 new_string = {string_start, counter}; */
   /*     str8_list_push(arena, &result, new_string); */
-      
+
   /*     counter = 0; */
   /*     string_at += count; */
   /*     string_start = string_at; */
   /*     continue; */
   /*   } */
-    
+
   /*   ++string_at; */
   /*   ++counter; */
   /* } */
@@ -237,19 +259,19 @@ str8_array_from_list(Arena *arena, String8List *list)
   result.count = list->node_count;
   result.total_size = list->total_count;
   result.strings = arena_push_array(arena, String8, result.count);
-  
+
   U64 idx = 0;
   for(String8Node *n = list->first; n; n = n->next, ++idx)
   {
     result.strings[idx] = n->string;
   }
-  
+
   return(result);
 }
 
 proc String16
 str16_from_str8(Arena *arena, String8 str8)
-{  
+{
   U64 cap = 2*str8.count;
   U16 *string = arena_push_array(arena, U16, cap + 1);
   U64 count = 0;
@@ -257,7 +279,7 @@ str16_from_str8(Arena *arena, String8 str8)
     U8 *start = str8.string;
     U8 *opl = start + str8.count;
     U16 *dest = string;
-    UnicodeDecode decode;    
+    UnicodeDecode decode;
     for(U8 *src = start; src < opl; src += decode.inc) {
       decode = utf8_decode(src, opl - src);
       count += utf16_encode(dest + count, decode.cp);
@@ -265,7 +287,7 @@ str16_from_str8(Arena *arena, String8 str8)
   }
   string[count] = 0;
   arena_pop(arena, (cap - count)*2);
-  
+
   String16 result = {0};
   result.string = string;
   result.count = count;
@@ -294,38 +316,38 @@ utf8_decode(U8 *str, U64 count)
     switch(class) {
     case 1: {
       cp = byte_1 & 0x7F;
-    } break;    
+    } break;
     case 2: {
       if(count > 1) {
-	U8 byte_2 = str[1];
-	Assert(utf8_class[byte_2 >> 4] == 0);
-	cp = (((byte_1 & 0x1F) << 6) |
-	      (byte_2 & 0x3F));
+        U8 byte_2 = str[1];
+        Assert(utf8_class[byte_2 >> 4] == 0);
+        cp = (((byte_1 & 0x1F) << 6) |
+              (byte_2 & 0x3F));
       }
     } break;
     case 3: {
       if(count > 2) {
-	U8 byte_2 = str[1];
-	U8 byte_3 = str[2];
-	Assert(utf8_class[byte_2 >> 4] == 0);
-	Assert(utf8_class[byte_3 >> 4] == 0);
-	cp = (((byte_1 & 0xF) << 12) |
-	      ((byte_2 & 0x3F) << 6) |
-	      (byte_3 & 0x3F));
+        U8 byte_2 = str[1];
+        U8 byte_3 = str[2];
+        Assert(utf8_class[byte_2 >> 4] == 0);
+        Assert(utf8_class[byte_3 >> 4] == 0);
+        cp = (((byte_1 & 0xF) << 12) |
+              ((byte_2 & 0x3F) << 6) |
+              (byte_3 & 0x3F));
       }
     } break;
     case 4: {
       if(count > 3) {
-	U8 byte_2 = str[1];
-	U8 byte_3 = str[2];
-	U8 byte_4 = str[3];
-	Assert(utf8_class[byte_2 >> 4] == 0);      
-	Assert(utf8_class[byte_3 >> 4] == 0);
-	Assert(utf8_class[byte_4 >> 4] == 0);
-	cp = (((byte_1 & 0x7) << 18) |
-	      ((byte_2 & 0x3F) << 12) |
-	      ((byte_3 & 0x3F) << 6) |
-	      (byte_4 & 0x3F));
+        U8 byte_2 = str[1];
+        U8 byte_3 = str[2];
+        U8 byte_4 = str[3];
+        Assert(utf8_class[byte_2 >> 4] == 0);
+        Assert(utf8_class[byte_3 >> 4] == 0);
+        Assert(utf8_class[byte_4 >> 4] == 0);
+        cp = (((byte_1 & 0x7) << 18) |
+              ((byte_2 & 0x3F) << 12) |
+              ((byte_3 & 0x3F) << 6) |
+              (byte_4 & 0x3F));
       }
     } break;
     default: {
@@ -334,7 +356,7 @@ utf8_decode(U8 *str, U64 count)
     }
     inc = class;
   }
-  
+
   UnicodeDecode result = {0};
   result.inc = inc;
   result.cp = cp;
@@ -353,12 +375,12 @@ utf16_decode(U16 *str, U64 count)
       cp = word_1;
     }else {
       if(count > 1) {
-	U16 word_2 = str[1];
-	Assert((word_1 >> 10) == 0b110110);
-	Assert((word_2 >> 10) == 0b110111);
-	cp = (((word_1 & 0x3FF) << 10) |
-	      (word_2 & 0x3FF)) + 0x10000;
-	inc = 2;
+        U16 word_2 = str[1];
+        Assert((word_1 >> 10) == 0b110110);
+        Assert((word_2 >> 10) == 0b110111);
+        cp = (((word_1 & 0x3FF) << 10) |
+              (word_2 & 0x3FF)) + 0x10000;
+        inc = 2;
       }
     }
   }
@@ -390,7 +412,7 @@ utf8_encode(U8 *str, U32 cp)
   if(cp < 0x110000) {
     str[0] = (0x80 | (cp & 0x3F));
     str[1] = (0x80 | ((cp >> 6) & 0x3F));
-    str[2] = (0x80 | ((cp >> 12) & 0x3F));    
+    str[2] = (0x80 | ((cp >> 12) & 0x3F));
     str[3] = (0xE0 | ((cp >> 18) & 0x7));
     count = 4;
   }else {

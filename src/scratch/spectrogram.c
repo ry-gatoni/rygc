@@ -557,12 +557,18 @@ main(int argc, char **argv)
   int result = 0;
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  if(os_init()) {
-    if(os_gfx_init()) {
+  Log *spectrogram_log = log_alloc();
+  log_select(spectrogram_log);
+
+  if(os_init())
+  {
+    if(os_gfx_init())
+    {
+      log_begin_scope(Str8Lit("os is inited"));
 
       Os_Handle window = os_open_window(Str8Lit("spectrogram"), 640, 480);
-      if(window.handle) {
-
+      if(window.handle)
+      {
         SpectrogramState *spec_state = spectrogram_state_alloc();
 
         if(audio_init(Str8Lit("spectrogram audio")))
@@ -731,6 +737,11 @@ main(int argc, char **argv)
         audio_uninit();
         os_close_window(window);
       }
+      LogScopeResult os_init_log = log_end_scope();
+      String8 log_error_string = os_init_log.msgs[LogMessageKind_error];
+      String8 log_info_string = os_init_log.msgs[LogMessageKind_info];
+      fprintf(stderr, "%.*s", (int)log_error_string.count, log_error_string.string);
+      fprintf(stdout, "%.*s", (int)log_info_string.count, log_info_string.string);
     }
   }
 

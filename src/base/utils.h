@@ -67,7 +67,9 @@
 #define FloorU32(f) ((U32)(f))
 #define RoundU32(f) FloorU32(f + 0.5f)
 
-// NOTE: linked-list utils
+// -----------------------------------------------------------------------------
+// linked list utils
+
 #define SLLStackPush_N(l, n, next) ((n)->next = (l), (l) = (n))
 #define SLLStackPush(l, n) SLLStackPush_N(l, n, next)
 
@@ -90,7 +92,9 @@
    (((n)->next==0) ? (0) : ((n)->next->prev=(n)->prev)))
 #define DLLRemove(f, l, n) DLLRemove_NP(f, l, n, next, prev)
 
-// NOTE: copying/zeroing utils
+// -----------------------------------------------------------------------------
+// memory copying/zeroing/setting
+
 #define CopySize(dest, source, size) memcpy(dest, source, size)
 #define CopyStruct(dest, source) memcpy(dest, source, sizeof(*(src)))
 #define CopyArray(dest, source, type, count) memcpy(dest, source, (count)*sizeof(type))
