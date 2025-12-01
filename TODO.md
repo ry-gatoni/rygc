@@ -1,3 +1,52 @@
+# TODO (December 2025)
+- base layer
+  - [] make logging system more ergonomic; support different destinations (console, file, ui, popup)
+  - [] add profiler (hook into logging system?)
+  - [] replace crt math
+  - [] add printf-like function attributes to relevent functions
+
+- os/core
+  - [] (windows) read/write files at position
+  - [] run-time linking/loading abstraction
+
+- os/gfx
+  - [] (linux/wayland) opengl & egl runtime linking
+  - [] drag and drop support
+  - [] smooth resizing
+  - [] (windows) implement keyboard & mouse event handling
+
+- render
+  - [] render curves
+  - [] better sorting (not with z buffer)
+  - [] (windows) d3d11 backend
+
+- font
+  - [] (windows/dwrite) check dwrite rasterization (replace gdi with d3d?)
+
+- audio
+  - [] sample rate conversion
+  - [] get/set client latency
+  - [] midi sysex
+  - [] device selection
+  - [] set client sample rate
+  - [] expose more granular interface, allowing manual audio thread creation (instead of callback)
+
+- spectrogram example
+  - [] lines instead of rectangles
+  - [] visualize phase
+  - [] add ui
+  - [] spectra per frame, display spectrogram
+
+- misc
+  - [] abstract entry point
+  - [] multi-core by default
+  - [] clang on windows
+  - [] mac support
+  - [] static executable on linux (with detour-like ld-linux api loading)
+  - [] vst3, audio unit, aax, and vcv rack targets
+  - [] build configuration via script arguments
+  - [] self-image parsing
+
 # TODO (November 2025)
 - base layer
   - [] finish text logging system
