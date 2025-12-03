@@ -49,6 +49,12 @@ typedef union Value64
   U64 uint;
 } Value64;
 
+typedef struct RangePtr
+{
+  U8 *first;
+  U8 *opl;
+} RangePtr;
+
 #define proc static
 #define local static
 #define global static

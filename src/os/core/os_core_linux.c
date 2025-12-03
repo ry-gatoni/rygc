@@ -324,6 +324,24 @@ os_thread_launch(Os_ThreadProc *procedure, void *data)
   return(result);
 }
 
+proc void*
+os_this_image(void)
+{
+  void *result = 0;
+  Dl_info info = {0};
+  extern int main(int, char **);
+  int success = dladdr((void*)main, &info);
+  if(success != 0)
+  {
+    result = info.dli_fbase;
+  }
+  else
+  {
+    // TODO: log error
+  }
+  return(result);
+}
+
 // NOTE: intrinsics
 proc U64
 cpu_get_cycle_count_fixed(void)

@@ -1,5 +1,7 @@
 #include <fcntl.h>
 #include <unistd.h>
+#define __USE_GNU
+#include <dlfcn.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

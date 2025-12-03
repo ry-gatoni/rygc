@@ -7,3 +7,5 @@
 #include "log.h"
 #include "buffer.h"
 #include "math.h"
+#include "symbol_set.h"
+/* #include "profile.h" */

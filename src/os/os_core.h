@@ -62,3 +62,8 @@ proc B32 os_write_entire_file(String8 file, String8 path);
 // threads
 
 proc Os_Handle os_thread_launch(Os_ThreadProc *procedure, void *data);
+
+// -----------------------------------------------------------------------------
+// modules
+
+proc void* os_this_image(void);

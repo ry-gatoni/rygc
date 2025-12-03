@@ -2,6 +2,9 @@
 #include <stdarg.h>
 #include <stdio.h> // TODO: eliminate
 
+// -----------------------------------------------------------------------------
+// units
+
 #define KB(n) (1024ULL * n)
 #define MB(n) (1024ULL * KB(n))
 #define GB(n) (1024ULL * MB(n))
@@ -15,18 +18,58 @@
 #define ArrayCount(arr) (sizeof((arr))/sizeof(*(arr)))
 #define Unused(v) (void)(v)
 
+// -----------------------------------------------------------------------------
+// macro helpers
+
 #define Statement(expr) do {expr} while(0)
+
 #define Stringify_(a) #a
 #define Stringify(a) Stringify_(a)
+
 #define Glue_(a, b) a##b
 #define Glue(a, b) Glue_(a, b)
+
+// -----------------------------------------------------------------------------
+// object section names
+
+#if COMPILER_CLANG || COMPILER_GCC
+#  define Section(name) __attribute__((__section__(name)))
+#elif COMPILER_MSVC
+#  define Section(name) __declspec(allocate(name))
+#else
+#  error ERROR: `Section` not defined for this compiler
+#endif
+
+// -----------------------------------------------------------------------------
+// before main
+
+#if OS_LINUX
+#  define BeforeMain__Named(name)\
+  __attribute__((constructor)) static void name(void)
+#elif OS_WINDOWS
+#  define BeforeMain__Named(name)\
+  static void name(void);\
+  Section(".CRT$XCU")\
+  __pragma(comment(linker, "/include:"#name"__"))\
+  CLinkage void (*Glue(name, __))(void) = name;  \
+  static void name(void)
+#else
+#  error ERROR: BeforeMain not defined for this compiler
+#endif
+
+#define BeforeMain_(name) BeforeMain__Named(name)
+#define BeforeMain() BeforeMain_(Glue(beforemain__, __COUNTER__))
+
+
+// -----------------------------------------------------------------------------
+// asserts
 
 #if COMPILER_CLANG || COMPILER_GCC
 #  define AssertAlways(cond) if(!(cond)) __builtin_trap()
 #elif COMPILER_MSVC
 #  define AssertAlways(cond) if(!(cond)) __debugbreak()
 #else
-#  waringing "WARNING: unsupported compiler"
+#  warning "WARNING: unsupported compiler"
 #  define AssertAlways(cond) if(!(cond)) *(void*)0
 #endif
 
