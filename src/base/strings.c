@@ -186,6 +186,7 @@ str8_join(Arena *arena, String8List *list, StringJoin *opt_join)
   else
   {
     U64 count = list->total_count;
+    count += 1; // null terminator
     PushBuffer pb = push_buffer_alloc(arena, count);
 
     for(String8Node *node = list->first; node != 0; node = node->next)

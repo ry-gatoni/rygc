@@ -1,3 +1,6 @@
+#error ERROR: os layer is discontinued. functionality is split into `base.os` and `gfx` layers
+
+
 #include "os_core.h"
 
 #if defined(OS_FEATURE_GFX)

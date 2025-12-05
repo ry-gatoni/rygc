@@ -8,4 +8,5 @@
 #include "buffer.h"
 #include "math.h"
 #include "symbol_set.h"
+#include "base.os.h"
 /* #include "profile.h" */

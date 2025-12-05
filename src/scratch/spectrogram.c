@@ -6,9 +6,8 @@
  * merge various pieces application state into a single structure
  */
 
-#define OS_FEATURE_GFX
 #include "base/base.h"
-#include "os/os.h"
+#include "gfx/gfx.h"
 #include "render/render.h"
 #include "font/font.h"
 #include "OpenGL/ogl.h"
@@ -18,7 +17,7 @@
 #include "file_formats/wav.h"
 
 #include "base/base.c"
-#include "os/os.c"
+#include "gfx/gfx.c"
 #include "render/render.c"
 #include "font/font.c"
 #include "OpenGL/ogl.c"
