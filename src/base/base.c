@@ -5,3 +5,4 @@
 #include "math.c"
 #include "color.c"
 #include "base.os.c"
+#include "selfimg/selfimg.c" // TODO: do i really want this here?
