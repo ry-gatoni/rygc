@@ -107,6 +107,19 @@
 # define CPU_ARM64 0
 #endif
 
+#if CPU_X64 || CPU_ARM64
+#  define ARCH_64BIT 1
+#elif CPU_X86 || CPU_ARM
+#  define ARCH_32BIT 1
+#endif
+
+#if !defined(ARCH_64BIT)
+#  define ARCH_64BIT 0
+#endif
+#if !defined(ARCH_32BIT)
+#  define ARCH_32BIT 0
+#endif
+
 // NOTE: language
 #if defined(__cplusplus)
 # define LANGUAGE_CXX 1

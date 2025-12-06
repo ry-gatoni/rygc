@@ -215,11 +215,86 @@ enum
 #undef X
 };
 
+#define ELF_CLASSTYPE_XLIST\
+  X(NONE, 0)\
+  X(32, 1)\
+  X(64, 2)\
+  X(NUM, 3)
+
+typedef U8 Elf_ClassType;
+enum
+{
+#define X(name, value) Glue(Elf_ClassType_, name) = value,
+  ELF_CLASSTYPE_XLIST
+#undef X
+};
+
+#define ELF_DATATYPE_XLIST\
+  X(NONE, 0)\
+  X(2LSB, 1)\
+  X(2MSB, 2)\
+  X(NUM, 3)
+
+typedef U8 Elf_DataType;
+enum
+{
+#define X(name, value) Glue(Elf_DataType_, name) = value,
+  ELF_DATATYPE_XLIST
+#undef X
+};
+
+#define ELF_OSABI_XLIST\
+  X(NONE, 0)\
+  X(SYSV, 0)\
+  X(HPUX, 0)\
+  X(NETBSD, 2)\
+  X(GNU, 3)\
+  X(LINUX, 3)\
+  X(SOLARIS, 6)\
+  X(AIX, 7)\
+  X(IRIX, 8)\
+  X(FREEBSD, 9)\
+  X(TRU64, 10)\
+  X(MODESTO, 11)\
+  X(OPENBSD, 12)\
+  X(ARM_AEABI, 64)\
+  X(ARM, 97)\
+  X(STANDALONE, 255)
+
+typedef U8 Elf_OsAbi;
+enum
+{
+#define X(name, value) Glue(Elf_OsAbi_, name) = value,
+  ELF_OSABI_XLIST
+#undef X
+};
+
+#define ELF_VERSION_CURRENT 1
+
 #define ELF_IDENT_COUNT 16
+
+typedef struct Elf_Ident
+{
+  union
+  {
+    struct
+    {
+      U32 elf_magic;
+      Elf_ClassType class;
+      Elf_DataType data;
+      U8 version;
+      Elf_OsAbi abi;
+    };
+
+    U8 raw[ELF_IDENT_COUNT];
+  };
+} Elf_Ident;
+
+#define ELF_MAGIC FOURCC("\177ELF")
 
 typedef struct Elf_Header32
 {
-  U8                    ident[ELF_IDENT_COUNT];
+  Elf_Ident             ident;
   Elf_FileType          type;
   Elf_MachineType       machine;
   U32                   version;
@@ -228,16 +303,16 @@ typedef struct Elf_Header32
   U32                   section_table_offset;
   U32                   processor_flags;
   U16                   elf_header_size;
-  U16                   program_header_table_entry_size;
-  U16                   program_header_table_entry_count;
-  U16                   section_header_table_entry_size;
-  U16                   section_header_table_entry_count;
-  U16                   section_header_string_table_idx;
+  U16                   program_table_entry_size;
+  U16                   program_table_entry_count;
+  U16                   section_table_entry_size;
+  U16                   section_table_entry_count;
+  U16                   section_string_table_idx;
 } Elf_Header32;
 
 typedef struct Elf_Header64
 {
-  U8                    ident[ELF_IDENT_COUNT];
+  Elf_Ident             ident;
   Elf_FileType          type;
   Elf_MachineType       machine;
   U32                   version;
@@ -246,12 +321,20 @@ typedef struct Elf_Header64
   U64                   section_table_offset;
   U32                   processor_flags;
   U16                   elf_header_size;
-  U16                   program_header_table_entry_size;
-  U16                   program_header_table_entry_count;
-  U16                   section_header_table_entry_size;
-  U16                   section_header_table_entry_count;
-  U16                   section_header_string_table_idx;
+  U16                   program_table_entry_size;
+  U16                   program_table_entry_count;
+  U16                   section_table_entry_size;
+  U16                   section_table_entry_count;
+  U16                   section_string_table_idx;
 } Elf_Header64;
+
+#if ARCH_64BIT
+typedef Elf_Header64 Elf_Header;
+#elif ARCH_32BIT
+typedef Elf_Header32 Elf_Header;
+#else
+#  error ERROR: unsupported architecture
+#endif
 
 // -----------------------------------------------------------------------------
 // elf section
@@ -330,6 +413,14 @@ typedef struct Elf_Section64
   U64                   align;
   U64                   entry_size;
 } Elf_Section64;
+
+#if ARCH_64BIT
+typedef Elf_Section64 Elf_Section;
+#elif ARCH_32BIT
+typedef Elf_Section32 Elf_Section;
+#else
+#  error ERROR: unsupported architecture
+#endif
 
 // -----------------------------------------------------------------------------
 // elf compression
