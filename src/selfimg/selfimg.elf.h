@@ -67,7 +67,7 @@ enum
   X(ME16, 59)\
   X(ST100, 60)\
   X(TINYJ, 61)\
-  X(X86, 64)\
+  X(X86_64, 62)\
   X(PDSP, 63)\
   X(PDP10, 64)\
   X(PDP11, 65)\
@@ -246,7 +246,7 @@ enum
 #define ELF_OSABI_XLIST\
   X(NONE, 0)\
   X(SYSV, 0)\
-  X(HPUX, 0)\
+  X(HPUX, 1)\
   X(NETBSD, 2)\
   X(GNU, 3)\
   X(LINUX, 3)\
@@ -299,8 +299,8 @@ typedef struct Elf_Header32
   Elf_MachineType       machine;
   U32                   version;
   U32                   entry_addr;
-  U32                   program_table_offset;
-  U32                   section_table_offset;
+  U32                   program_table_file_offset;
+  U32                   section_table_file_offset;
   U32                   processor_flags;
   U16                   elf_header_size;
   U16                   program_table_entry_size;
@@ -317,8 +317,8 @@ typedef struct Elf_Header64
   Elf_MachineType       machine;
   U32                   version;
   U64                   entry_addr;
-  U64                   program_table_offset;
-  U64                   section_table_offset;
+  U64                   program_table_file_offset;
+  U64                   section_table_file_offset;
   U32                   processor_flags;
   U16                   elf_header_size;
   U16                   program_table_entry_size;
@@ -432,4 +432,83 @@ typedef Elf_Section32 Elf_Section;
 // elf relocation
 
 // -----------------------------------------------------------------------------
-// elf program header
+// elf program segment
+
+#define ELF_SEGMENTTYPE_XLIST\
+  X(UNUSED, 0)\
+  X(LOAD, 1)\
+  X(DYNAMIC, 2)\
+  X(INTERP, 3)\
+  X(NOTE, 4)\
+  X(SHLIB, 5)\
+  X(PHDR, 6)\
+  X(TLS, 7)\
+  X(NUM, 8)\
+  X(LOOS, 0x60000000)\
+  X(GNU_EH_FRAME, 0x6474e550)\
+  X(GNU_STACK, 0x6474e551)\
+  X(GNU_RELRO, 0x6474e552)\
+  X(GNU_PROPERTY, 0x6474e553)\
+  X(GNU_SFRAME, 0x6474e554)\
+  X(LOSUNW, 0x6ffffffa)\
+  X(SUNWBSS, 0x6ffffffa)\
+  X(SUNWSTACK, 0x6ffffffb)\
+  X(HISUNW, 0x6fffffff)\
+  X(HIOS, 0x6fffffff)\
+  X(LOPROC, 0x70000000)\
+  X(HIPROC, 0x7fffffff)
+
+typedef U32 Elf_SegmentType;
+enum
+{
+#define X(name, value) Glue(Elf_SegmentType_, name) = value,
+  ELF_SEGMENTTYPE_XLIST
+#undef X
+};
+
+#define ELF_SEGMENTFLAGS_XLIST\
+  X(X, 1)\
+  X(W, 2)\
+  X(R, 4)\
+  X(MASKOS, 0x0ff00000)\
+  X(MASKPROC, 0xf0000000)
+
+typedef U32 Elf_SegmentFlags;
+enum
+{
+#define X(name, value) Glue(Elf_SegmentFlags_, name) = value,
+  ELF_SEGMENTFLAGS_XLIST
+#undef X
+};
+
+typedef struct Elf_Segment32
+{
+  Elf_SegmentType       type;
+  U32                   file_offset;
+  U32                   virtual_addr;
+  U32                   physical_addr;
+  U32                   file_size;
+  U32                   mem_size;
+  Elf_SegmentFlags      flags;
+  U32                   alignment;
+} Elf_Segment32;
+
+typedef struct Elf_Segment64
+{
+  Elf_SegmentType       type;
+  Elf_SegmentFlags      flags;
+  U64                   file_offset;
+  U64                   virtual_addr;
+  U64                   physical_addr;
+  U64                   file_size;
+  U64                   memory_size;
+  U64                   alignment;
+} Elf_Segment64;
+
+#if ARCH_64BIT
+typedef Elf_Segment64 Elf_Segment;
+#elif ARCH_32BIT
+typedef Elf_Segment32 Elf_Segment;
+#else
+#  error ERROR: unsupported architecture
+#endif
