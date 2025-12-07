@@ -9,5 +9,5 @@
 #include "math.h"
 #include "symbol_set.h"
 #include "base.os.h"
-#include "selfimg/selfimg.h" // TODO: do i really want this here?
+/* #include "selfimg/selfimg.h" // TODO: do i really want this here? */
 #include "profile.h"

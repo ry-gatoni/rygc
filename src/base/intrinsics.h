@@ -1,6 +1,7 @@
-proc U64 cpu_get_cycle_count_fixed(void);
-proc U64 cpu_get_cycle_counter_freq(void);
-proc U64 cpu_get_cycle_count(void);
+/* proc U64 cpu_counter_fixed(void); */
+/* proc U64 cpu_counter_fixed_freq(void); */
+proc U64 cpu_counter(void);
+proc U64 cpu_counter_freq(void);
 
 #if OS_LINUX || OS_MAC
 #  define AtomicCompareAndSwap(dest, old_val, new_val) ({       \

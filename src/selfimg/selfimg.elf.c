@@ -51,10 +51,12 @@ elf_get_section_from_name(String8 image, String8 section_name)
     if(!elf_is_valid(elf_header)) elf_header = 0;
   }
 
+  Elf_Section *result = 0;
+
   // TODO: this is all wrong
+#if 0
   char *string_table_base = (char*)(image.string + elf_header->section_string_table_idx);
 
-  Elf_Section *result = 0;
   Elf_Section *section_base = (Elf_Section*)(image.string + elf_header->section_table_file_offset);
   Elf_Section *section_opl = section_base + elf_header->section_table_entry_count;
   for(Elf_Section *sec = section_base; sec < section_opl; ++sec)
@@ -67,6 +69,7 @@ elf_get_section_from_name(String8 image, String8 section_name)
       break;
     }
   }
+#endif
 
   return(result);
 }

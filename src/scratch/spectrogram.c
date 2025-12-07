@@ -559,6 +559,9 @@ main(int argc, char **argv)
   Log *spectrogram_log = log_alloc();
   log_select(spectrogram_log);
 
+  Profiler *spectrogram_main_profiler = profile_alloc();
+  profile_select(spectrogram_main_profiler);
+
   if(os_init())
   {
     if(os_gfx_init())
@@ -613,20 +616,24 @@ main(int argc, char **argv)
         Arena *frame_arena = arena_alloc();
         while(running)
         {
+          profile_begin();
           log_begin_scope(Str8Lit("main loop"));
 
           // NOTE: handle events
-          Os_EventList events = os_events(frame_arena);
-          for(Os_Event *event = events.first; event; event = event->next)
+          ProfileScope(event_handling)
           {
-            if(event->window.handle == window.handle)
+            Os_EventList events = os_events(frame_arena);
+            for(Os_Event *event = events.first; event; event = event->next)
             {
-              switch(event->kind)
+              if(event->window.handle == window.handle)
               {
-                case Os_EventKind_close:
-                { running = 0; } break;
-                default:
-                {} break;
+                switch(event->kind)
+                {
+                  case Os_EventKind_close:
+                  { running = 0; } break;
+                  default:
+                  {} break;
+                }
               }
             }
           }
@@ -634,106 +641,112 @@ main(int argc, char **argv)
           render_equip_window(window);
           render_begin_frame();
 
-          V2S32 window_dim = os_window_get_dim(window);
-          Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
-          V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
-          render_rect(screen_rect, 0, RenderLevel(background), background_color);
+          ProfileScope(render_frame)
+          {
+            V2S32 window_dim = os_window_get_dim(window);
+            Rect2 screen_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(window_dim));
+            V4 background_color = v4(0.09411f, 0.10196f, 0.14902f, 1);
+            render_rect(screen_rect, 0, RenderLevel(background), background_color);
 
 #if 0
-          // DEBUG:
-          {
-            local R32 angle = PI32/2.f;
-            V2 base_pt = v2_sub(rect2_center(screen_rect), v2(100.f, 100.f));
-            V2 end_pt = v2_add(base_pt, v2_polar(200.f, angle));
+            // DEBUG:
+            {
+              local R32 angle = PI32/2.f;
+              V2 base_pt = v2_sub(rect2_center(screen_rect), v2(100.f, 100.f));
+              V2 end_pt = v2_add(base_pt, v2_polar(200.f, angle));
 
-            Rect2 base_rect = rect2_center_dim(base_pt, v2(10.f, 10.f));
-            Rect2 end_rect = rect2_center_dim(end_pt, v2(10.f, 10.f));
-            render_rect(base_rect, 0, RenderLevel(top), v4(0, 1, 1, 1));
-            render_rect(end_rect, 0, RenderLevel(top), v4(1, 0, 1, 1));
+              Rect2 base_rect = rect2_center_dim(base_pt, v2(10.f, 10.f));
+              Rect2 end_rect = rect2_center_dim(end_pt, v2(10.f, 10.f));
+              render_rect(base_rect, 0, RenderLevel(top), v4(0, 1, 1, 1));
+              render_rect(end_rect, 0, RenderLevel(top), v4(1, 0, 1, 1));
 
-            render_line_segment(base_pt, end_pt, 5, RenderLevel(top), v4(1, 1, 0, 1));
+              render_line_segment(base_pt, end_pt, 5, RenderLevel(top), v4(1, 1, 0, 1));
 
-            angle += 0.02f;
-          }
+              angle += 0.02f;
+            }
 
-          render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
+            render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
 #endif
 
-          draw_spectrum_grid(spec_state, window_dim, font);
+            draw_spectrum_grid(spec_state, window_dim, font);
 
-          AudioBufferList *buffer_list = &spec_state->buffer_list;
-          // NOTE: drawing the spectrum
-          {
-            // NOTE: try to dequeue buffers
-            AudioBufferNode *first_node = 0;
-            AudioBufferNode *last_node = 0;
-            U32 buffer_count = 0;
-            TakeLock(&buffer_list->lock);
+            AudioBufferList *buffer_list = &spec_state->buffer_list;
+            // NOTE: drawing the spectrum
+            ProfileScope(spectrum_drawing)
             {
-              first_node = buffer_list->first;
-              last_node = buffer_list->last;
-              buffer_count = (U32)buffer_list->count;
-              buffer_list->first = 0;
-              buffer_list->last = 0;
-              buffer_list->count = 0;
-            }
-            ReleaseLock(&buffer_list->lock);
-
-            //fprintf(stderr, "dequeued %u buffers\n", buffer_count);
-            log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
-
-            // NOTE: if we dequeued buffers, draw their spectra.
-            //       otherwise draw the cached spectrum
-            if(first_node)
-            {
-              // TODO: how to handle multiple buffer nodes?
-              //for(AudioBufferNode *node = first_node; node; node = node->next) {
-              for(AudioBufferNode *node = first_node; node; node = 0)
-              {
-                AudioBuffer *buf = &node->buf;
-                FloatBuffer sample_buf = {.count = buffer_list->buffer_sample_count,
-                                          .mem = buf->samples[0]};
-
-                // TODO: enable windowing in ui
-#if 0
-                // NOTE: window_input
-                // TODO: maybe don't overwrite the buffer?
-                for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx)
-                {
-                  R32 window_val =
-                    0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
-                  sample_buf.mem[sample_idx] *= window_val;
-                }
-#endif
-
-                Assert(sample_buf.count == spec_state->cached_spectrum.count);
-                ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-                draw_spectrum(spec_state, window_dim, spectrum_buf);
-
-                // NOTE: cache spectrum
-                CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
-                CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
-              }
-            }
-            else
-            {
-              draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
-            }
-
-            // NOTE: if we dequeued buffers, put them on the freelist
-            if(last_node)
-            {
+              // NOTE: try to dequeue buffers
+              AudioBufferNode *first_node = 0;
+              AudioBufferNode *last_node = 0;
+              U32 buffer_count = 0;
               TakeLock(&buffer_list->lock);
               {
-                last_node->next = buffer_list->freelist;
-                buffer_list->freelist = last_node;
+                first_node = buffer_list->first;
+                last_node = buffer_list->last;
+                buffer_count = (U32)buffer_list->count;
+                buffer_list->first = 0;
+                buffer_list->last = 0;
+                buffer_list->count = 0;
               }
               ReleaseLock(&buffer_list->lock);
+
+              //fprintf(stderr, "dequeued %u buffers\n", buffer_count);
+              log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
+
+              // NOTE: if we dequeued buffers, draw their spectra.
+              //       otherwise draw the cached spectrum
+              if(first_node)
+              {
+                // TODO: how to handle multiple buffer nodes?
+                //for(AudioBufferNode *node = first_node; node; node = node->next) {
+                for(AudioBufferNode *node = first_node; node; node = 0)
+                {
+                  AudioBuffer *buf = &node->buf;
+                  FloatBuffer sample_buf = {.count = buffer_list->buffer_sample_count,
+                    .mem = buf->samples[0]};
+
+                  // TODO: enable windowing in ui
+#if 0
+                  // NOTE: window_input
+                  // TODO: maybe don't overwrite the buffer?
+                  for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx)
+                  {
+                    R32 window_val =
+                      0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
+                    sample_buf.mem[sample_idx] *= window_val;
+                  }
+#endif
+
+                  Assert(sample_buf.count == spec_state->cached_spectrum.count);
+                  ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
+                  draw_spectrum(spec_state, window_dim, spectrum_buf);
+
+                  // NOTE: cache spectrum
+                  CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
+                  CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
+                }
+              }
+              else
+              {
+                draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
+              }
+
+              // NOTE: if we dequeued buffers, put them on the freelist
+              if(last_node)
+              {
+                TakeLock(&buffer_list->lock);
+                {
+                  last_node->next = buffer_list->freelist;
+                  buffer_list->freelist = last_node;
+                }
+                ReleaseLock(&buffer_list->lock);
+              }
             }
           }
 
           render_end_frame();
           arena_clear(frame_arena);
+
+          profile_end();
 
           LogScopeResult render_loop_log = log_end_scope();
           String8 log_error_string = render_loop_log.msgs[LogMessageKind_error];

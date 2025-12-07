@@ -30,6 +30,8 @@ typedef struct Linux_State
   Linux_ThreadInfo *last_thread_info;
   U64 thread_info_count;
   Linux_ThreadInfo *thread_info_freelist;
+
+  U64 cpu_counter_freq;
 } Linux_State;
 
 global Linux_State *linux_state = 0;

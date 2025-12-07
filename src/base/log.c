@@ -54,7 +54,7 @@ log_begin_scope(String8 name)
   if(active_log != 0)
   {
     U64 pos = arena_pos(active_log->arena);
-    LogScope *scope = arena_push_struct(active_log->arena, LogScope);
+    LogScope *scope = arena_push_struct_z(active_log->arena, LogScope);
     scope->arena_pos = pos;
     scope->name = arena_push_str8_copy(active_log->arena, name);
     scope->depth = active_log->active_scope ? active_log->active_scope->depth + 1 : 0;

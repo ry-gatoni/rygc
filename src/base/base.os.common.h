@@ -62,3 +62,9 @@ proc Os_Handle os_thread_launch(Os_ThreadProc *procedure, void *data);
 // libraries (implemented per-os)
 
 proc void* os_this_image(void);
+
+// -----------------------------------------------------------------------------
+// time
+
+proc U64 os_counter(void);
+proc U64 os_counter_freq(void);
