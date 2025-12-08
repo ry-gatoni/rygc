@@ -128,137 +128,153 @@ spectrogram_state_alloc(void)
 void
 audio_process(Audio_ProcessData *data)
 {
-  // DEBUG: wav logging state
+  ProfileFunction()
+  {
+    // DEBUG: wav logging state
 #if 0
-  U32 chunk_cap = 500;
-  local U32 chunk_count = 0;
-  local B32 wav_written = 0;
-  local WavWriter *wav_writer = 0;
-  if(!wav_writer) wav_writer = begin_wav(48000, 1, WavSampleKind_R32);
+    U32 chunk_cap = 500;
+    local U32 chunk_count = 0;
+    local B32 wav_written = 0;
+    local WavWriter *wav_writer = 0;
+    if(!wav_writer) wav_writer = begin_wav(48000, 1, WavSampleKind_R32);
 #endif
 
-  ArenaTemp scratch = arena_get_scratch(0, 0);
+    ArenaTemp scratch = arena_get_scratch(0, 0);
 
-  SpectrogramState *spec_state = data->user_data;
-  U32 sample_count = data->sample_count;
+    SpectrogramState *spec_state = data->user_data;
+    U32 sample_count = data->sample_count;
 
-  SineOscState *osc_state = spec_state->osc_state;
-  AudioBufferList *buffer_list = &spec_state->buffer_list;
-
-  if(osc_state)
-  {
-    // NOTE: react to midi messages
-    R32 base_freq = osc_state->base_freq;
-    R32 pitch_bend = osc_state->pitch_bend;
-    R32 *freq_buffer = arena_push_array(scratch.arena, R32, sample_count);
-    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
+    if(spec_state)
     {
-      Audio_MidiMessage *midi_msg = audio_next_midi_message(data);
-      if(midi_msg)
+      SineOscState *osc_state = spec_state->osc_state;
+      AudioBufferList *buffer_list = &spec_state->buffer_list;
+
+      // NOTE: react to midi messages
+      R32 *freq_buffer = 0;
+      ProfileScope(handle_midi_messages)
       {
-        if(midi_msg->sample_idx >= sample_idx)
+        R32 base_freq = osc_state->base_freq;
+        R32 pitch_bend = osc_state->pitch_bend;
+        freq_buffer = arena_push_array(scratch.arena, R32, sample_count);
+        for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
         {
-          switch(midi_msg->opcode)
+          Audio_MidiMessage *midi_msg = audio_next_midi_message(data);
+          if(midi_msg)
           {
-            case MidiOpcode_note_on:
+            if(midi_msg->sample_idx >= sample_idx)
             {
-              U32 midi_note = audio_midi_get_note_number(midi_msg);
-              base_freq = audio_hertz_from_midi_note(midi_note);
-            } break;
+              switch(midi_msg->opcode)
+              {
+                case MidiOpcode_note_on:
+                {
+                  U32 midi_note = audio_midi_get_note_number(midi_msg);
+                  base_freq = audio_hertz_from_midi_note(midi_note);
+                } break;
 
-            case MidiOpcode_pitch_bend:
-            {
-              pitch_bend = audio_midi_get_pitch_bend(midi_msg);
-            } break;
+                case MidiOpcode_pitch_bend:
+                {
+                  pitch_bend = audio_midi_get_pitch_bend(midi_msg);
+                } break;
 
-            default: {} break;
+                default: {} break;
+              }
+
+              audio_dequeue_midi_message(data);
+            }
           }
 
-          audio_dequeue_midi_message(data);
+          // TODO: smooth out pitch bend changes
+          freq_buffer[sample_idx] = base_freq * pitch_bend;
+        }
+        osc_state->base_freq = base_freq;
+        osc_state->pitch_bend = pitch_bend;
+      }
+
+      // NOTE: compute audio samples
+      R32 *mix_buffer = 0;
+      ProfileScope(compute_audio_samples)
+      {
+        R32 input_volume = 0.f;
+        mix_buffer = arena_push_array_z(scratch.arena, R32, sample_count);
+        for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
+        {
+          R32 sine_sample = osc_state->volume * sinf(osc_state->phasor);
+          mix_buffer[sample_idx] += 0.5f*sine_sample;
+
+          R32 step = TAU32 * freq_buffer[sample_idx] * data->sample_period;
+          osc_state->phasor += step;
+          if(osc_state->phasor > TAU32)
+          {
+            osc_state->phasor -= TAU32;
+          }
+
+          mix_buffer[sample_idx] += 0.5f*input_volume*data->input[0][sample_idx];
         }
       }
 
-      // TODO: smooth out pitch bend changes
-      freq_buffer[sample_idx] = base_freq * pitch_bend;
-    }
-    osc_state->base_freq = base_freq;
-    osc_state->pitch_bend = pitch_bend;
-
-    // NOTE: compute audio samples
-    R32 *mix_buffer = arena_push_array_z(scratch.arena, R32, sample_count);
-    for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
-    {
-      R32 sine_sample = osc_state->volume * sinf(osc_state->phasor);
-      mix_buffer[sample_idx] += 0.5f*sine_sample;
-
-      R32 step = TAU32 * freq_buffer[sample_idx] * data->sample_period;
-      osc_state->phasor += step;
-      if(osc_state->phasor > TAU32)
+      // NOTE: output samples
+      ProfileScope(output_audio_samples)
       {
-        osc_state->phasor -= TAU32;
+        CopyArray(data->output[0], mix_buffer, R32, sample_count);
+        CopyArray(data->output[1], mix_buffer, R32, sample_count);
       }
 
-      mix_buffer[sample_idx] += data->input[0][sample_idx];
-    }
-
-    // NOTE: output samples
-    CopyArray(data->output[0], mix_buffer, R32, sample_count);
-    CopyArray(data->output[1], mix_buffer, R32, sample_count);
-
-    // DEBUG: accumulate output chunks
+      // DEBUG: accumulate output chunks
 #if 0
-    if(chunk_count < chunk_cap) {
-      wav_push_chunk(wav_writer, sample_count, data->output[0]);
-      ++chunk_count;
-    }else {
-      if(!wav_written) {
-        end_wav(wav_writer, Str8Lit(DATA_DIR"/test/audio_process_output_test.wav"));
-        wav_written = 1;
+      if(chunk_count < chunk_cap) {
+        wav_push_chunk(wav_writer, sample_count, data->output[0]);
+        ++chunk_count;
+      }else {
+        if(!wav_written) {
+          end_wav(wav_writer, Str8Lit(DATA_DIR"/test/audio_process_output_test.wav"));
+          wav_written = 1;
+        }
       }
-    }
 #endif
 
-    // NOTE: queue audio buffer
-    {
-      // NOTE: allocating a new node (or taking one off the freelist) requires taking the lock
-      AudioBufferNode *node = 0;
-      TakeLock(&buffer_list->lock);
+      // NOTE: queue audio buffer
+      ProfileScope(queue_audio_buffer)
       {
-        node = buffer_list->freelist;
-        if(node)
+        // NOTE: allocating a new node (or taking one off the freelist) requires taking the lock
+        AudioBufferNode *node = 0;
+        TakeLock(&buffer_list->lock);
         {
-          U32 sample_count_pow2 = RoundUpPow2(sample_count);
-          Assert(buffer_list->buffer_sample_count >= sample_count_pow2);
-          SLLStackPop(buffer_list->freelist);
+          node = buffer_list->freelist;
+          if(node)
+          {
+            U32 sample_count_pow2 = RoundUpPow2(sample_count);
+            Assert(buffer_list->buffer_sample_count >= sample_count_pow2);
+            SLLStackPop(buffer_list->freelist);
+          }
+          else
+          {
+            node = arena_push_struct(buffer_list->arena, AudioBufferNode);
+            node->buf.sample_count = sample_count;
+            node->buf.samples[0] = arena_push_array_z(buffer_list->arena,
+                                                      R32, buffer_list->buffer_sample_count);
+            node->buf.samples[1] = arena_push_array_z(buffer_list->arena,
+                                                      R32, buffer_list->buffer_sample_count);
+          }
         }
-        else
+        ReleaseLock(&buffer_list->lock);
+
+        // NOTE: copy samples to audio buffer
+        Assert(node);
+        CopyArray(node->buf.samples[0], mix_buffer, R32, sample_count);
+        CopyArray(node->buf.samples[1], mix_buffer, R32, sample_count);
+
+        // NOTE: push audio buffer onto the queue
+        TakeLock(&buffer_list->lock);
         {
-          node = arena_push_struct(buffer_list->arena, AudioBufferNode);
-          node->buf.sample_count = sample_count;
-          node->buf.samples[0] = arena_push_array_z(buffer_list->arena,
-                                                    R32, buffer_list->buffer_sample_count);
-          node->buf.samples[1] = arena_push_array_z(buffer_list->arena,
-                                                    R32, buffer_list->buffer_sample_count);
+          SLLQueuePush(buffer_list->first, buffer_list->last, node);
+          ++buffer_list->count;
         }
+        ReleaseLock(&buffer_list->lock);
       }
-      ReleaseLock(&buffer_list->lock);
-
-      // NOTE: copy samples to audio buffer
-      Assert(node);
-      CopyArray(node->buf.samples[0], mix_buffer, R32, sample_count);
-      CopyArray(node->buf.samples[1], mix_buffer, R32, sample_count);
-
-      // NOTE: push audio buffer onto the queue
-      TakeLock(&buffer_list->lock);
-      {
-        SLLQueuePush(buffer_list->first, buffer_list->last, node);
-        ++buffer_list->count;
-      }
-      ReleaseLock(&buffer_list->lock);
     }
-  }
 
-  arena_release_scratch(scratch);
+    arena_release_scratch(scratch);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -617,6 +633,7 @@ main(int argc, char **argv)
         while(running)
         {
           profile_begin();
+
           log_begin_scope(Str8Lit("main loop"));
 
           // NOTE: handle events

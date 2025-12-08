@@ -1,6 +1,7 @@
 typedef struct ProfileEntry
 {
   String8 label;
+  U64 thread_id;
 
   U64 tsc_elapsed;
   U64 tsc_elapsed_children;
@@ -17,6 +18,8 @@ typedef struct ProfileEntry
 typedef struct Profiler
 {
   Arena *arena;
+
+  U64 thread_id;
 
   U64 profile_entry_count;
   ProfileEntry *profile_entries;
@@ -64,6 +67,7 @@ proc void profile_end_block(ProfileEntry *entry);
 #define ProfileData(name) (&Glue(profile__, name))
 
 ProfileDefine(0) = {0};
+global ProfileEntry *profile_entry_null = &profile__0;
 
 // NOTE: only tested on linux/clang
 extern ProfileEntry __start_rygcPROF[];

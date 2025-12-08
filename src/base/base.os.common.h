@@ -57,6 +57,7 @@ proc B32 os_write_entire_file(String8 file, String8 path);
 // threads (implemented per-os)
 
 proc Os_Handle os_thread_launch(Os_ThreadProc *procedure, void *data);
+proc U64 os_thread_id(void);
 
 // -----------------------------------------------------------------------------
 // libraries (implemented per-os)

@@ -324,6 +324,14 @@ os_thread_launch(Os_ThreadProc *procedure, void *data)
   return(result);
 }
 
+proc U64
+os_thread_id(void)
+{
+  pthread_t thread_id = pthread_self();
+  U64 result = (U64)thread_id;
+  return(result);
+}
+
 proc void*
 os_this_image(void)
 {

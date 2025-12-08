@@ -1,7 +1,12 @@
 # TODO (December 2025)
 - base layer
-  - [ ] make logging system more ergonomic; support different destinations (console, file, ui, popup)
-  - [ ] add profiler (hook into logging system?)
+  - [ ] logging
+    - [ ] make logging system more ergonomic
+    - [ ] support different destinations (console, file, ui, popup)
+  - [ ] profiler
+    - [ ] figure out how to implement the `ProfileFunction` macro
+    - [ ] put profile stuff in its own log scope (or stop using the logging system for profile data)
+  - [ ] add streams
   - [ ] replace crt math
   - [ ] add printf-like function attributes to relevent functions
   - [ ] abstract entry point
@@ -33,6 +38,7 @@
   - [ ] device selection
   - [ ] set client sample rate
   - [ ] expose more granular interface, allowing manual audio thread creation (instead of callback)
+  - [ ] reusable audio logging system (hook into existing logging system somehow?)
 
 - spectrogram example
   - [ ] lines instead of rectangles
@@ -44,7 +50,7 @@
   - [ ] clang on windows
   - [ ] mac support
   - [ ] static executable on linux (with detour-like ld-linux api loading)
-  - [ ] vst3, audio unit, aax, and vcv rack targets
+  - [ ] vst3, audio unit, aax, clap, and vcv rack targets
   - [ ] build configuration via script arguments
   - [ ] self-image parsing
 

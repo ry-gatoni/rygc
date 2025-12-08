@@ -25,6 +25,7 @@ proc void
 profile_select(Profiler *profiler)
 {
   active_profiler = profiler;
+  active_profiler->thread_id= os_thread_id();
 }
 
 // -----------------------------------------------------------------------------
@@ -35,6 +36,7 @@ profile_begin(void)
 {
   if(active_profiler != 0)
   {
+    /* log_begin_scope(Str8Lit("profile")); */
     active_profiler->current_parent = &profile__0;
     active_profiler->start_tsc = cpu_counter();
   }
@@ -53,36 +55,44 @@ profile_end(void)
     for(U64 entry_idx = 0; entry_idx < active_profiler->profile_entry_count; ++entry_idx)
     {
       ProfileEntry *entry = active_profiler->profile_entries + entry_idx;
-      if(entry != &profile__0)
+      if(entry != profile_entry_null)
       {
-        U64 tsc_elapsed__self = entry->tsc_elapsed - entry->tsc_elapsed_children;
-        R64 percent = 100.0 * ((R64)tsc_elapsed__self/(R64)tsc_elapsed);
-        if(entry->tsc_elapsed_root != tsc_elapsed__self)
+        if(entry->thread_id == active_profiler->thread_id)
         {
-          R64 percent_with_children = 100.0 * ((R64)entry->tsc_elapsed_root/(R64)tsc_elapsed);
-          log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%, %.2f%% w/ children)",
-                    (int)entry->label.count, entry->label.string,
-                    entry->hit_count,
-                    tsc_elapsed__self,
-                    entry->tsc_elapsed_root,
-                    percent,
-                    percent_with_children);
-        }
-        else
-        {
-          log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%)",
-                    (int)entry->label.count, entry->label.string,
-                    entry->hit_count,
-                    tsc_elapsed__self,
-                    entry->tsc_elapsed_root,
-                    percent);
-        }
+          U64 tsc_elapsed__self = entry->tsc_elapsed - entry->tsc_elapsed_children;
+          R64 percent = 100.0 * ((R64)tsc_elapsed__self/(R64)tsc_elapsed);
+          if(entry->tsc_elapsed_root != tsc_elapsed__self)
+          {
+            R64 percent_with_children = 100.0 * ((R64)entry->tsc_elapsed_root/(R64)tsc_elapsed);
+            log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%, %.2f%% w/ children)",
+                      (int)entry->label.count, entry->label.string,
+                      entry->hit_count,
+                      tsc_elapsed__self,
+                      entry->tsc_elapsed_root,
+                      percent,
+                      percent_with_children);
+          }
+          else
+          {
+            log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%)",
+                      (int)entry->label.count, entry->label.string,
+                      entry->hit_count,
+                      tsc_elapsed__self,
+                      entry->tsc_elapsed_root,
+                      percent);
+          }
 
-        // NOTE: clear entry
-        entry->tsc_elapsed = 0;
-        entry->tsc_elapsed_children = 0;
-        entry->tsc_elapsed_root = 0;
-        entry->hit_count = 0;
+          // NOTE: write log messages to console
+          /* LogScopeResult profile_log = log_end_scope(); */
+          /* String8 profile_log_info = profile_log.msgs[LogMessageKind_info]; */
+          /* fprintf(stdout, "%.*s", (int)profile_log_info.count, profile_log_info.string); */
+
+          // NOTE: clear entry
+          entry->tsc_elapsed = 0;
+          entry->tsc_elapsed_children = 0;
+          entry->tsc_elapsed_root = 0;
+          entry->hit_count = 0;
+        }
       }
     }
   }
@@ -96,6 +106,7 @@ profile_begin_block(ProfileEntry *entry)
 {
   if(active_profiler != 0)
   {
+    entry->thread_id= os_thread_id();
     entry->tsc_elapsed_root__old = entry->tsc_elapsed_root;
     entry->parent = active_profiler->current_parent;
     active_profiler->current_parent = entry;
