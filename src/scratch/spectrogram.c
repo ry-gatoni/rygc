@@ -662,7 +662,6 @@ main(int argc, char **argv)
               }
               ReleaseLock(&buffer_list->lock);
 
-              //fprintf(stderr, "dequeued %u buffers\n", buffer_count);
               log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
 
               // NOTE: if we dequeued buffers, draw their spectra.

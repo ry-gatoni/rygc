@@ -45,6 +45,8 @@ struct R_Batch
   R_Texture *texture;
 };
 
+#define RENDER_BATCH_QUAD_CAP KB(4)
+
 typedef struct R_Commands
 {
   Arena *arena;
@@ -96,7 +98,6 @@ proc void render_end_frame(void);
 
 proc R_Texture render_create_texture(S32 width, S32 height, R_PixelFormat internal_fmt, R_PixelFormat pixel_fmt, void *pixels);
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
-proc R_Batch* render_batch_for_texture(R_Texture *texture);
 
 // -----------------------------------------------------------------------------
 // drawing
@@ -106,3 +107,9 @@ proc void render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R3
 proc void render_rect(Rect2 rect, R32 angle, R32 level, V4 color);
 proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
 proc void render_line_segment(V2 p0, V2 p1, R32 thickness, R32 level, V4 color);
+
+// -----------------------------------------------------------------------------
+// batch helpers
+
+proc R_Batch* render_batch_alloc(void);
+proc R_Batch* render_batch_for_texture(R_Texture *texture);

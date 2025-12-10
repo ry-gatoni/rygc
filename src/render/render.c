@@ -49,7 +49,27 @@ render_begin_frame(void)
 }
 
 // -----------------------------------------------------------------------------
-// textures
+// batch helpers
+
+proc R_Batch*
+render_batch_alloc(void)
+{
+  R_Batch *result = render_commands->batch_freelist;
+  if(result)
+  {
+    result->quad_count = 0;
+    SLLStackPop(render_commands->batch_freelist);
+  }
+  else
+  {
+    result = arena_push_struct_z(render_commands->arena, R_Batch);
+    result->quad_cap = RENDER_BATCH_QUAD_CAP;
+    result->quads = arena_push_array_z(render_commands->arena, R_Quad, result->quad_cap);
+  }
+  SLLQueuePush(render_commands->first_batch, render_commands->last_batch, result);
+  ++render_commands->batch_count;
+  return(result);
+}
 
 proc R_Batch*
 render_batch_for_texture(R_Texture *texture)
@@ -68,25 +88,12 @@ render_batch_for_texture(R_Texture *texture)
       break;
     }
   }
+
   // NOTE: if there is not already a batch with this texture, allocate a new one and add it to the list
-  if(!batch)
+  if(batch == 0)
   {
-    batch = commands->batch_freelist;
-    if(batch)
-    {
-      batch->quad_count = 0;
-      SLLStackPop(commands->batch_freelist);
-    }
-    else
-    {
-      // NOTE: push a new batch onto the arena
-      batch = arena_push_struct_z(commands->arena, R_Batch);
-      batch->quad_cap = KB(4);
-      batch->quads = arena_push_array_z(commands->arena, R_Quad, batch->quad_cap);
-    }
+    batch = render_batch_alloc();
     batch->texture = texture;
-    SLLQueuePush(commands->first_batch, commands->last_batch, batch);
-    ++commands->batch_count;
   }
 
   return(batch);
@@ -100,8 +107,10 @@ render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V
 {
   R_Batch *batch = render_batch_for_texture(texture);
 
-  // TODO: allocate a new batch if we go over capacity
-  Assert(batch->quad_count < batch->quad_cap);
+  if(batch->quad_count >= batch->quad_cap)
+  {
+    batch = render_batch_alloc();
+  }
 
   R_Quad *quad = batch->quads + batch->quad_count++;
   quad->p_min = rect.min;

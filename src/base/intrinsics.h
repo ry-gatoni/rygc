@@ -4,9 +4,10 @@ proc U64 cpu_counter(void);
 proc U64 cpu_counter_freq(void);
 
 #if OS_LINUX || OS_MAC
-#  define AtomicCompareAndSwap(dest, old_val, new_val) ({       \
-    U32 temp = old_val;                                                 \
-    __atomic_compare_exchange_n((volatile U32*)(dest), &temp, new_val, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
+#  define AtomicCompareAndSwap(dest, old_val, new_val) ({\
+      U32 original_val = (old_val);\
+      __atomic_compare_exchange_n((volatile U32*)(dest), &original_val, (new_val), 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);\
+      original_val;\
     })
 #elif OS_WINDOWS
 #  define AtomicCompareAndSwap(dest, old_val, new_val) \
