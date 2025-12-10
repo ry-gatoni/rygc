@@ -217,72 +217,80 @@ v2_angle(V2 v)
   return(result);
 }
 
-// NOTE: ranges
+// -----------------------------------------------------------------------------
+// ranges
+
+// -----------------------------------------------------------------------------
+// construction
+
 proc RangeU32
-rangeu32(U32 min, U32 max)
+range_u32(U32 min, U32 max)
 {
   RangeU32 result = {.min = min, .max = max};
   return(result);
 }
 
 proc RangeS32
-ranges32(S32 min, S32 max)
+range_s32(S32 min, S32 max)
 {
   RangeS32 result = {.min = min, .max = max};
   return(result);
 }
 
 proc RangeR32
-ranger32(R32 min, R32 max)
+range_r32(R32 min, R32 max)
 {
   RangeR32 result = {.min = min, .max = max};
   return(result);
 }
 
 proc RangeU32
-rangeu32_invalid(void)
+range_u32_invalid(void)
 {
   RangeU32 result = {.min = U32_MAX, .max = 0};
   return(result);
 }
 
 proc RangeS32
-ranges32_invalid(void)
+range_s32_invalid(void)
 {
   RangeS32 result = {.min = S32_MAX, .max = S32_MIN};
   return(result);
 }
 
 proc RangeR32
-ranger32_invalid(void)
+range_r32_invalid(void)
 {
   RangeR32 result = {.min = R32_MAX, .min = R32_MIN};
   return(result);
 }
 
+// -----------------------------------------------------------------------------
+// scalar from range
+
 proc U32
-rangeu32_len(RangeU32 rng)
+range_u32_len(RangeU32 rng)
 {
   U32 result = rng.max - rng.min;
   return(result);
 }
 
 proc S32
-ranges32_len(RangeS32 rng)
+range_s32_len(RangeS32 rng)
 {
   S32 result = rng.max - rng.min;
   return(result);
 }
 
 proc R32
-ranger32_len(RangeR32 rng)
+range_r32_len(RangeR32 rng)
 {
   R32 result = rng.max - rng.min;
   return(result);
 }
 
 proc R32
-ranger32_map_01(R32 val, RangeR32 rng)
+range_r32_map_01(R32 val, RangeR32 rng)
 {
   R32 result = (val - rng.min)/(rng.max - rng.min);
   return(result);

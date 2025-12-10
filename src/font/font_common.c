@@ -5,7 +5,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   result->ascender = loose_font->ascender;
   result->descender = loose_font->descender;
   result->line_height = loose_font->line_height;
-  result->glyph_count = rangeu32_len(loose_font->glyph_idx_rng);
+  result->glyph_count = range_u32_len(loose_font->glyph_idx_rng);
   result->glyphs = arena_push_array(arena, PackedGlyph, result->glyph_count);
   result->codepoint_map_count = 2*result->glyph_count;
   result->codepoint_map = arena_push_array(arena, CodepointMapBucket, result->codepoint_map_count);
@@ -16,11 +16,11 @@ font_pack(Arena *arena, LooseFont *loose_font)
     // TODO: better hash function!
     U32 cp_map_idx = cp_idx->codepoint % result->codepoint_map_count;
     CodepointMapBucket *cp_map_bucket = result->codepoint_map + cp_map_idx;
-    
+
     CodepointMapNode *cp_map_node = arena_push_struct(arena, CodepointMapNode);
     cp_map_node->codepoint = cp_idx->codepoint;
     cp_map_node->glyph_index = cp_idx->index - loose_font->glyph_idx_rng.min;
-    
+
     SLLQueuePush(cp_map_bucket->first, cp_map_bucket->last, cp_map_node);
   }
 
@@ -57,54 +57,54 @@ font_pack(Arena *arena, LooseFont *loose_font)
 
     B32 inserted = 0;
     while(!inserted && grow_count <= max_grow_count) {
-      
+
       U32 max_x = layout_x + loose_glyph->width;
       U32 max_y = layout_y + loose_glyph->height;
       B32 fits = (max_x <= atlas_w && max_y <= atlas_h);
       if(fits) {
 
-	FontPackNode *new_pack_node = arena_push_struct(scratch.arena, FontPackNode);
-	new_pack_node->x = layout_x;
-	new_pack_node->y = layout_y;
-	new_pack_node->loose_glyph = loose_glyph;
-	SLLQueuePush(first_pack_node, last_pack_node, new_pack_node);
+        FontPackNode *new_pack_node = arena_push_struct(scratch.arena, FontPackNode);
+        new_pack_node->x = layout_x;
+        new_pack_node->y = layout_y;
+        new_pack_node->loose_glyph = loose_glyph;
+        SLLQueuePush(first_pack_node, last_pack_node, new_pack_node);
 
-	layout_x += loose_glyph->width;
-	row_max_h = Max(row_max_h, (U32)loose_glyph->height);
-	inserted = 1;
+        layout_x += loose_glyph->width;
+        row_max_h = Max(row_max_h, (U32)loose_glyph->height);
+        inserted = 1;
       }else {
-	
-	if(max_y > atlas_h) {
-	  // NOTE: grow atlas
-	  ++grow_count;
-	  if(grow_count & 1) {
-	    // NOTE: grow x
-	    space_x = atlas_w;
-	    layout_x = atlas_w;
-	    layout_y = 0;
-	    row_max_h = 0;
-	    atlas_w *= 2;
-	  }else {
-	    // NOTE: grow y
-	    space_x = 0;
-	    layout_x = 0;
-	    layout_y = atlas_h;
-	    row_max_h = 0;
-	    atlas_h *= 2;
-	  }	  
-	}else {
-	  // NOTE: only overflowing x. go to next row
-	  layout_y += row_max_h;
-	  layout_x = space_x;
-	  row_max_h = 0;
-	}
+
+        if(max_y > atlas_h) {
+          // NOTE: grow atlas
+          ++grow_count;
+          if(grow_count & 1) {
+            // NOTE: grow x
+            space_x = atlas_w;
+            layout_x = atlas_w;
+            layout_y = 0;
+            row_max_h = 0;
+            atlas_w *= 2;
+          }else {
+            // NOTE: grow y
+            space_x = 0;
+            layout_x = 0;
+            layout_y = atlas_h;
+            row_max_h = 0;
+            atlas_h *= 2;
+          }
+        }else {
+          // NOTE: only overflowing x. go to next row
+          layout_y += row_max_h;
+          layout_x = space_x;
+          row_max_h = 0;
+        }
       }
     }
 
     if(!inserted) {
       fprintf(stderr, "ERROR: font atlas creation failed\n");
       break;
-    }    
+    }
   }
 
   // NOTE: build atlas
@@ -173,11 +173,11 @@ font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx)
 
     for(CodepointMapNode *n = b->first; n && !done; n = n->next) {
       if(n->glyph_index == glyph_idx) {
-	cp = n->codepoint;
-	done = 1;
+        cp = n->codepoint;
+        done = 1;
       }
     }
   }
-  
+
   return(cp);
 }

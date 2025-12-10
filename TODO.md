@@ -53,6 +53,7 @@
   - [ ] vst3, audio unit, aax, clap, and vcv rack targets
   - [ ] build configuration via script arguments
   - [ ] self-image parsing
+  - [ ] input fuzzing
 
 # TODO (November 2025)
 - base layer

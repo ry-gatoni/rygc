@@ -373,7 +373,7 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 
   /* U32 freq_line_count = 4; */
   /* U32 amp_line_count = 6; */
-  U32 freq_line_count = (U32)(ranger32_len(spec_state->freq_rng) + 1) / freq_space;
+  U32 freq_line_count = (U32)(range_r32_len(spec_state->freq_rng) + 1) / freq_space;
   U32 amp_line_count = 2400 / amp_space;
 
   U32 current_freq = 0;
@@ -418,88 +418,44 @@ draw_spectrum_grid_lin(SpectrogramState *spec_state, R_Font *font)
 proc void
 draw_spectrum_log_db(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec_buf)
 {
-#if 1
   U32 bin_count = (U32)spec_buf.count/2;
   R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
   R32 nyquist = 0.5f * (R32)spec_state->sample_rate;
-  RangeR32 log_freq_rng = {.min = log10f(spec_state->freq_rng.min), .max = log10f(spec_state->freq_rng.max)};
+  RangeR32 log_freq_rng = range_r32(log10f(spec_state->freq_rng.min), log10f(spec_state->freq_rng.max));
 
   R32 window_width  = (R32)window_dim.width;
   R32 window_height = (R32)window_dim.height;
 
-  V2 pos = v2(0, 0);
-  for(U32 bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx) {
+  R32 bin_0_re = spec_buf.re[0];
+  R32 bin_0_im = spec_buf.im[0];
 
+  V2 bin_min = v2(0, 0);
+  R32 last_bin_phase = v2_angle(v2(bin_0_re, bin_0_im));
+  for(U32 bin_idx = 1; bin_idx < bin_count; ++bin_idx)
+  {
     R32 bin_re = spec_buf.re[bin_idx];
     R32 bin_im = spec_buf.im[bin_idx];
+
     R32 bin_power = bin_re*bin_re + bin_im*bin_im;
+    R32 bin_phase = v2_angle(v2(bin_re, bin_im));
+
     R32 bin_db = 10.f*log10f(bin_power * norm_coeff);
-    R32 bin_height = window_height * ranger32_map_01(bin_db, spec_state->db_rng);
+    R32 bin_height = window_height * range_r32_map_01(bin_db, spec_state->db_rng);
 
-    R32 next_bin_freq = ((R32)(bin_idx + 1)/(R32)bin_count) * nyquist;
-    R32 log_next_bin_freq = log10f(next_bin_freq);
+    R32 bin_freq = ((R32)bin_idx/(R32)bin_count) * nyquist;
+    R32 bin_freq_log = log10f(bin_freq);
 
-    R32 next_pos_x = window_width * ranger32_map_01(log_next_bin_freq, log_freq_rng) - 1.f;
-    R32 width = next_pos_x - pos.x;
+    V2 bin_max = v2(window_width*range_r32_map_01(bin_freq_log, log_freq_rng) - 1.f, bin_height);
+    Rect2 bin_mag_rect = rect2(bin_min, bin_max);
+    render_rect(bin_mag_rect, 0, RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
 
-    Rect2 bin = rect2_min_dim(pos, v2(width, bin_height));
-    render_rect(bin, 0, RenderLevel(signal), v4(0, 0.5f, 0.5f, 1));
+    V2 last_phase_pos = v2(bin_min.x, ((last_bin_phase + PI32) / TAU32) * (R32)window_dim.y);
+    V2 phase_pos = v2(bin_max.x, ((bin_phase + PI32) / TAU32) * (R32)window_dim.y);
+    render_line_segment(last_phase_pos, phase_pos, 5.f, RenderLevel(signal), v4(0.5f, 0.5f, 0, 1));
 
-#  if 0
-    // NOTE: debug
-    fprintf(stderr, "bin_idx=%u, next_freq=%.4f, log_next_freq=%.4f, pos.x=%.2f\n",
-            bin_idx, next_bin_freq, log_next_bin_freq, pos.x);
-#  endif
-
-    pos.x = next_pos_x;
+    bin_min.x = bin_max.x;
+    last_bin_phase = bin_phase;
   }
-#else
-  U32 bin_count = spec_buf.count/2;
-  R32 norm_coeff = 1.f/(R32)(spec_buf.count*spec_buf.count);
-  R32 width = 2.f/(R32)bin_count;
-  R32 pos_x = -1.f;
-
-#  if 0
-  fprintf(stderr, "log power spectrum:\n"); // DEBUG
-#  endif
-
-  R32 step = log10f(spec_state->freq_rng.max/spec_state->freq_rng.min)/(R32)bin_count;
-  R32 exp = log10f(spec_state->freq_rng.min);
-  for(U32 i = 0; i < bin_count; ++i) {
-
-    R32 freq = powf(10.f, exp);
-
-    R32 freq_bin_pos = (freq*(R32)spec_buf.count)/(R32)spec_state->sample_rate;
-    U32 freq_bin_idx = (U32)freq_bin_pos;
-    R32 freq_bin_frac = freq_bin_pos - (R32)freq_bin_idx;
-
-    R32 bin_re_0 = spec_buf.re[freq_bin_idx];
-    R32 bin_re_1 = spec_buf.re[freq_bin_idx + 1];
-
-    R32 bin_im_0 = spec_buf.im[freq_bin_idx];
-    R32 bin_im_1 = spec_buf.im[freq_bin_idx + 1];
-
-    R32 bin_mag_sq_0 = bin_re_0*bin_re_0 + bin_im_0*bin_im_0;
-    R32 bin_mag_sq_1 = bin_re_1*bin_re_1 + bin_im_1*bin_im_1;
-    R32 bin_mag_sq = lerp(bin_mag_sq_0, bin_mag_sq_1, freq_bin_frac);
-
-    R32 bin_mag_db = 10.f*log10f(bin_mag_sq * norm_coeff);
-    R32 bin_height = ranger32_map_01(bin_mag_db, spec_state->db_rng);
-    R32 bin_height_ndc = 2.f * bin_height;
-
-    Rect2 bin_rect = rect2_min_dim(v2(pos_x, -1), v2(width, bin_height_ndc));
-    render_rect(render_commands, 0, bin_rect, rect2_invalid(), render_level(RenderLevel_signal), v4(0, 0.5f, 0.5f, 1));
-
-#  if 0
-    // DEBUG:
-    fprintf(stderr, "%3u (%.2f): %.4f\n", i, freq, bin_mag_sq);
-    fprintf(stderr, "  access (idx, frac): %3u, %.2f\n", freq_bin_idx, freq_bin_frac);
-    fprintf(stderr, "  bin_mag_sq(0, 1) = %.4f, %.4f\n", bin_mag_sq_0, bin_mag_sq_1);
-#  endif
-    exp += step;
-    pos_x += width;
-  }
-#endif
 }
 
 proc void

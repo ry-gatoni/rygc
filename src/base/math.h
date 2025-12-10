@@ -105,22 +105,22 @@ typedef struct RangeR32
 // -----------------------------------------------------------------------------
 // construction
 
-proc RangeU32 rangeu32(U32 min, U32 max);
-proc RangeS32 ranges32(S32 min, S32 max);
-proc RangeR32 ranger32(R32 min, R32 max);
+proc RangeU32 range_u32(U32 min, U32 max);
+proc RangeS32 range_s32(S32 min, S32 max);
+proc RangeR32 range_r32(R32 min, R32 max);
 
-proc RangeU32 rangeu32_invalid(void);
-proc RangeS32 ranges32_invalid(void);
-proc RangeR32 ranger32_invalid(void);
+proc RangeU32 range_u32_invalid(void);
+proc RangeS32 range_s32_invalid(void);
+proc RangeR32 range_r32_invalid(void);
 
 // -----------------------------------------------------------------------------
 // scalar from range
 
-proc U32 rangeu32_len(RangeU32 rng);
-proc S32 ranges32_len(RangeS32 rng);
-proc R32 ranger32_len(RangeR32 rng);
+proc U32 range_u32_len(RangeU32 rng);
+proc S32 range_s32_len(RangeS32 rng);
+proc R32 range_r32_len(RangeR32 rng);
 
-proc R32 ranger32_map_01(R32 val, RangeR32 rng);
+proc R32 range_r32_map_01(R32 val, RangeR32 rng);
 
 // -----------------------------------------------------------------------------
 // rects
