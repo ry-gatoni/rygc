@@ -55,7 +55,6 @@ typedef struct AudioBufferList
 
   volatile U32 lock;
 
-  U32 buffer_sample_count;
   AudioBufferNode *first;
   AudioBufferNode *last;
   U64 count;
@@ -74,6 +73,14 @@ typedef struct SineOscState
   R32 volume;
 } SineOscState;
 
+// TODO: it may be better to interleave the real and imaginary parts here, since
+// that's the access pattern the drawing code does
+typedef struct SpectrumView
+{
+  R32 *re;
+  R32 *im;
+} SpectrumView; /* TimeWarnerCableView is now SpectrumView */
+
 typedef struct SpectrogramState
 {
   Arena *arena;
@@ -84,9 +91,15 @@ typedef struct SpectrogramState
   RangeR32 db_rng;
 
   U32 sample_rate;
-  U32 spectrum_sample_count;
 
-  ComplexBuffer cached_spectrum;
+  // NOTE: all spectra must have the same number of samples. we zero-pad input
+  // audio buffers to this number of samples. this number of samples must be a
+  // power of two (for the fft) and larger than the number of samples that any
+  // `audio_process()` call will pass
+  U32 spectrum_sample_count;
+  U32 spectrum_cursor;
+  SpectrumView spectra[512];
+  R32 *spectra_pool;
 
   AudioBufferList buffer_list;
 } SpectrogramState;
@@ -115,12 +128,17 @@ spectrogram_state_alloc(void)
   // TODO: make size less hacky, and handle caching multiple spectrum sizes
   //U32 cached_spectrum_count = 1024;
   result->spectrum_sample_count = 2048;
-  result->cached_spectrum.count = result->spectrum_sample_count;
-  result->cached_spectrum.re = arena_push_array(arena, R32, result->spectrum_sample_count);
-  result->cached_spectrum.im = arena_push_array(arena, R32, result->spectrum_sample_count);
+
+  result->spectra_pool =
+    arena_push_array(arena, R32, result->spectrum_sample_count * ArrayCount(result->spectra) * 2);
+  for(U32 spec_idx = 0; spec_idx < ArrayCount(result->spectra); ++spec_idx)
+  {
+    SpectrumView *spectrum = result->spectra + spec_idx;
+    spectrum->re = result->spectra_pool + spec_idx * ArrayCount(result->spectra) * 2;
+    spectrum->im = result->spectra_pool + (spec_idx + 1) * ArrayCount(result->spectra) * 2;
+  }
 
   result->buffer_list.arena = arena;
-  result->buffer_list.buffer_sample_count = result->spectrum_sample_count;
 
   return(result);
 }
@@ -242,18 +260,17 @@ audio_process(Audio_ProcessData *data)
           node = buffer_list->freelist;
           if(node)
           {
-            U32 sample_count_pow2 = RoundUpPow2(sample_count);
-            Assert(buffer_list->buffer_sample_count >= sample_count_pow2);
             SLLStackPop(buffer_list->freelist);
           }
           else
           {
             node = arena_push_struct(buffer_list->arena, AudioBufferNode);
-            node->buf.sample_count = sample_count;
+            Assert(sample_count <= spec_state->spectrum_sample_count);
+            node->buf.sample_count = spec_state->spectrum_sample_count;
             node->buf.samples[0] = arena_push_array_z(buffer_list->arena,
-                                                      R32, buffer_list->buffer_sample_count);
+                                                      R32, spec_state->spectrum_sample_count);
             node->buf.samples[1] = arena_push_array_z(buffer_list->arena,
-                                                      R32, buffer_list->buffer_sample_count);
+                                                      R32, spec_state->spectrum_sample_count);
           }
         }
         ReleaseLock(&buffer_list->lock);
@@ -664,43 +681,45 @@ main(int argc, char **argv)
 
               log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
 
-              // NOTE: if we dequeued buffers, draw their spectra.
-              //       otherwise draw the cached spectrum
-              if(first_node)
+              for(AudioBufferNode *node = first_node; node; node = node->next)
               {
-                // TODO: how to handle multiple buffer nodes?
-                //for(AudioBufferNode *node = first_node; node; node = node->next) {
-                for(AudioBufferNode *node = first_node; node; node = 0)
-                {
-                  AudioBuffer *buf = &node->buf;
-                  FloatBuffer sample_buf = {.count = buffer_list->buffer_sample_count,
-                    .mem = buf->samples[0]};
+                AudioBuffer *buf = &node->buf;
+                FloatBuffer sample_buf = {.count = buf->sample_count, .mem = buf->samples[0]};
 
-                  // TODO: enable windowing in ui
+                // TODO: enable windowing in ui
 #if 0
-                  // NOTE: window_input
-                  // TODO: maybe don't overwrite the buffer?
-                  for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx)
-                  {
-                    R32 window_val =
-                      0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
-                    sample_buf.mem[sample_idx] *= window_val;
-                  }
+                // NOTE: window_input
+                // TODO: maybe don't overwrite the buffer?
+                for(U32 sample_idx = 0; sample_idx < sample_buf.count; ++sample_idx)
+                {
+                  R32 window_val =
+                    0.5f*(cosf(TAU32*((R32)sample_idx/(R32)sample_buf.count - 0.5f)) + 1.f);
+                  sample_buf.mem[sample_idx] *= window_val;
+                }
 #endif
 
-                  Assert(sample_buf.count == spec_state->cached_spectrum.count);
-                  ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
-                  draw_spectrum(spec_state, window_dim, spectrum_buf);
+                Assert(sample_buf.count == spec_state->spectrum_sample_count);
+                ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
 
-                  // NOTE: cache spectrum
-                  CopyArray(spec_state->cached_spectrum.re, spectrum_buf.re, R32, spectrum_buf.count);
-                  CopyArray(spec_state->cached_spectrum.im, spectrum_buf.im, R32, spectrum_buf.count);
+                // NOTE: cache spectrum
+                {
+                  R32 *re = spec_state->spectra[spec_state->spectrum_cursor].re;
+                  R32 *im = spec_state->spectra[spec_state->spectrum_cursor].im;
+                  CopyArray(re, spectrum_buf.re, R32, spectrum_buf.count);
+                  CopyArray(im, spectrum_buf.im, R32, spectrum_buf.count);
+
+                  ++spec_state->spectrum_cursor;
+                  spec_state->spectrum_cursor &= (ArrayCount(spec_state->spectra) - 1);
                 }
               }
-              else
-              {
-                draw_spectrum(spec_state, window_dim, spec_state->cached_spectrum);
-              }
+
+              U32 last_spectrum_idx = (spec_state->spectrum_cursor ?
+                                       spec_state->spectrum_cursor - 1 :
+                                       ArrayCount(spec_state->spectra) - 1);
+              SpectrumView spectrum = spec_state->spectra[last_spectrum_idx];
+              ComplexBuffer spectrum_buf =
+                {.count = spec_state->spectrum_sample_count, .re = spectrum.re, .im = spectrum.im};
+              draw_spectrum(spec_state, window_dim, spectrum_buf);
 
               // NOTE: if we dequeued buffers, put them on the freelist
               if(last_node)
