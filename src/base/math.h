@@ -72,11 +72,36 @@ proc V2 v2_rmul(V2 v, R32 a);
 proc void v2_scale(V2 *v, R32 a);
 proc V2 v2_hadamard(V2 v, V2 w);
 
+proc V3 v3_add(V3 v, V3 w);
+proc V3 v3_sub(V3 v, V3 w);
+proc void v3_inc(V3 *v, V3 w);
+proc void v3_dec(V3 *v, V3 w);
+proc V3 v3_lmul(R32 a, V3 v);
+proc V3 v3_rmul(V3 v, R32 a);
+proc void v3_scale(V3 *v, R32 a);
+proc V3 v3_hadamard(V3 v, V3 w);
+
+proc V4 v4_add(V4 v, V4 w);
+proc V4 v4_sub(V4 v, V4 w);
+proc void v4_inc(V4 *v, V4 w);
+proc void v4_dec(V4 *v, V4 w);
+proc V4 v4_lmul(R32 a, V4 v);
+proc V4 v4_rmul(V4 v, R32 a);
+proc void v4_scale(V4 *v, R32 a);
+proc V4 v4_hadamard(V4 v, V4 w);
+
 // -----------------------------------------------------------------------------
 // scalar from vector
 
 proc R32 v2_length(V2 v);
 proc R32 v2_angle(V2 v);
+
+// -----------------------------------------------------------------------------
+// interpolation
+
+proc V2 lerp_v2(V2 v, V2 w, R32 t);
+proc V3 lerp_v3(V3 v, V3 w, R32 t);
+proc V4 lerp_v4(V4 v, V4 w, R32 t);
 
 // -----------------------------------------------------------------------------
 // ranges

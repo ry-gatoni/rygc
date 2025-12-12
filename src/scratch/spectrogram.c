@@ -81,6 +81,16 @@ typedef struct SpectrumView
   R32 *im;
 } SpectrumView; /* TimeWarnerCableView is now SpectrumView */
 
+
+// NOTE: all spectra must have the same number of samples. we zero-pad input
+// audio buffers to this number of samples. this number of samples must be a
+// power of two (for the fft) and larger than the number of samples that any
+// `audio_process()` call will pass
+
+// TODO: consistent audio process block size across backends (and support setting the size)
+#define SPECTRUM_SAMPLE_COUNT 1024
+#define STORED_SPECTRUM_COUNT 128
+
 typedef struct SpectrogramState
 {
   Arena *arena;
@@ -92,14 +102,13 @@ typedef struct SpectrogramState
 
   U32 sample_rate;
 
-  // NOTE: all spectra must have the same number of samples. we zero-pad input
-  // audio buffers to this number of samples. this number of samples must be a
-  // power of two (for the fft) and larger than the number of samples that any
-  // `audio_process()` call will pass
-  U32 spectrum_sample_count;
+  U32 last_spectrum_cursor;
   U32 spectrum_cursor;
-  SpectrumView spectra[512];
+  SpectrumView spectra[STORED_SPECTRUM_COUNT];
   R32 *spectra_pool;
+
+  R_Texture spectrogram_texture;
+  R_PixelFormat spectrogram_texture_pixel_format;
 
   AudioBufferList buffer_list;
 } SpectrogramState;
@@ -125,17 +134,23 @@ spectrogram_state_alloc(void)
 
   result->sample_rate = 48000;
 
-  // TODO: make size less hacky, and handle caching multiple spectrum sizes
-  //U32 cached_spectrum_count = 1024;
-  result->spectrum_sample_count = 2048;
-
   result->spectra_pool =
-    arena_push_array(arena, R32, result->spectrum_sample_count * ArrayCount(result->spectra) * 2);
-  for(U32 spec_idx = 0; spec_idx < ArrayCount(result->spectra); ++spec_idx)
+    arena_push_array(arena, R32, SPECTRUM_SAMPLE_COUNT * STORED_SPECTRUM_COUNT * 2);
+  for(U32 spec_idx = 0; spec_idx < STORED_SPECTRUM_COUNT; ++spec_idx)
   {
     SpectrumView *spectrum = result->spectra + spec_idx;
-    spectrum->re = result->spectra_pool + spec_idx * ArrayCount(result->spectra) * 2;
-    spectrum->im = result->spectra_pool + (spec_idx + 1) * ArrayCount(result->spectra) * 2;
+    spectrum->re = result->spectra_pool + ((2*spec_idx + 0) * SPECTRUM_SAMPLE_COUNT);
+    spectrum->im = result->spectra_pool + ((2*spec_idx + 1) * SPECTRUM_SAMPLE_COUNT);
+  }
+
+  // NOTE: spectrogram texture
+  // TODO: the texture colors aren't what they're supposed to be
+  {
+    U32 width = SPECTRUM_SAMPLE_COUNT / 2;
+    U32 height = STORED_SPECTRUM_COUNT;
+    result->spectrogram_texture_pixel_format = R_PixelFormat_rgba;
+    result->spectrogram_texture =
+      render_create_texture(width, height, R_PixelFormat_rgba, R_PixelFormat_rgba, 0);
   }
 
   result->buffer_list.arena = arena;
@@ -265,12 +280,10 @@ audio_process(Audio_ProcessData *data)
           else
           {
             node = arena_push_struct(buffer_list->arena, AudioBufferNode);
-            Assert(sample_count <= spec_state->spectrum_sample_count);
-            node->buf.sample_count = spec_state->spectrum_sample_count;
-            node->buf.samples[0] = arena_push_array_z(buffer_list->arena,
-                                                      R32, spec_state->spectrum_sample_count);
-            node->buf.samples[1] = arena_push_array_z(buffer_list->arena,
-                                                      R32, spec_state->spectrum_sample_count);
+            Assert(sample_count <= SPECTRUM_SAMPLE_COUNT);
+            node->buf.sample_count = SPECTRUM_SAMPLE_COUNT;
+            node->buf.samples[0] = arena_push_array_z(buffer_list->arena, R32, SPECTRUM_SAMPLE_COUNT);
+            node->buf.samples[1] = arena_push_array_z(buffer_list->arena, R32, SPECTRUM_SAMPLE_COUNT);
           }
         }
         ReleaseLock(&buffer_list->lock);
@@ -527,6 +540,87 @@ draw_spectrum(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec
   //draw_spectrum_lin(spec_state, window_dim, spec_buf);
 }
 
+proc void
+draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
+{
+  V4 low_color = color_v4_from_rgba(0x08, 0x0C, 0x1C, 0xFF);
+  V4 high_color = color_v4_from_rgba(0xEE, 0xB4, 0x22, 0xFF);
+
+  R32 norm_coeff = 1.f/(R32)(SPECTRUM_SAMPLE_COUNT * SPECTRUM_SAMPLE_COUNT);
+
+  B32 region_wraps = spec_state->last_spectrum_cursor > spec_state->spectrum_cursor;
+  U32 new_spectra_count = 0;
+  if(region_wraps)
+  {
+    new_spectra_count =
+      STORED_SPECTRUM_COUNT - spec_state->last_spectrum_cursor - spec_state->spectrum_cursor;
+  }
+  else
+  {
+    new_spectra_count = spec_state->spectrum_cursor - spec_state->last_spectrum_cursor;
+  }
+
+  // NOTE: compute new spectrum pixels
+  U32 bin_count = SPECTRUM_SAMPLE_COUNT / 2;
+  U32 spec_pixel_count = new_spectra_count * bin_count;
+  U32 *new_spec_pixels = arena_push_array(arena, U32, spec_pixel_count);
+  for(U32 row_idx = 0; row_idx < new_spectra_count; ++row_idx)
+  {
+    U32 *row_pixels = new_spec_pixels + row_idx;
+
+    U32 spec_idx = (spec_state->last_spectrum_cursor + row_idx) & (STORED_SPECTRUM_COUNT - 1);
+    SpectrumView *spectrum = spec_state->spectra + spec_idx;
+
+    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx)
+    {
+      R32 bin_re = spectrum->re[bin_idx];
+      R32 bin_im = spectrum->im[bin_idx];
+
+      R32 bin_power = bin_re*bin_re + bin_im*bin_im;
+      R32 bin_db = 10.f * log10f(norm_coeff * bin_power);
+      R32 bin_height_01 = range_r32_map_01(bin_db, spec_state->db_rng);
+
+      V4 bin_color = lerp_v4(low_color, high_color, bin_height_01);
+      U32 bin_color_u32 = color_u32_from_v4(bin_color);
+      *row_pixels++ = bin_color_u32;
+    }
+  }
+
+  // NOTE: update spectrogram texture
+  S32 pos_x = 0;
+  S32 width = bin_count;
+  R_Texture *spectrogram = &spec_state->spectrogram_texture;
+  if(region_wraps)
+  {
+    // TODO: this isn't being handled correctly when `spectra_before_wrap` is greater than 1
+    U32 spectra_before_wrap = STORED_SPECTRUM_COUNT - spec_state->last_spectrum_cursor;
+
+    S32 pos_y_1 = spec_state->last_spectrum_cursor;
+    S32 height_1 = spectra_before_wrap;
+    U32 *pixels_1 = new_spec_pixels;
+    render_update_texture(spectrogram, pos_x, pos_y_1, width, height_1,
+                          spec_state->spectrogram_texture_pixel_format, pixels_1);
+
+    S32 pos_y_2 = 0;
+    S32 height_2 = new_spectra_count - spectra_before_wrap;
+    U32 *pixels_2 = new_spec_pixels + spectra_before_wrap;
+    render_update_texture(spectrogram, pos_x, pos_y_2, width, height_2,
+                          spec_state->spectrogram_texture_pixel_format, pixels_2);
+  }
+  else
+  {
+    S32 pos_y = spec_state->last_spectrum_cursor;
+    S32 height = spec_state->spectrum_cursor - spec_state->last_spectrum_cursor;
+    render_update_texture(spectrogram, pos_x, pos_y, width, height,
+                          spec_state->spectrogram_texture_pixel_format, new_spec_pixels);
+  }
+
+  // NOTE: render updated texture
+  // TODO: put newest line at the top of the region
+  Rect2 uv = rect2(v2(0, 0), v2(1, 1));
+  render_texture(spectrogram, region, uv, 0, RenderLevel(signal), v4(1, 1, 1, 1));
+}
+
 // -----------------------------------------------------------------------------
 // entry point
 
@@ -658,8 +752,6 @@ main(int argc, char **argv)
             render_string(font, Str8Lit("Testing testing 1 2 1 2 ..."), rect2_center(screen_rect), RenderLevel(label), v4(1, 1, 1, 1));
 #endif
 
-            draw_spectrum_grid(spec_state, window_dim, font);
-
             AudioBufferList *buffer_list = &spec_state->buffer_list;
             // NOTE: drawing the spectrum
             ProfileScope(spectrum_drawing)
@@ -681,6 +773,7 @@ main(int argc, char **argv)
 
               log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
 
+              spec_state->last_spectrum_cursor = spec_state->spectrum_cursor;
               for(AudioBufferNode *node = first_node; node; node = node->next)
               {
                 AudioBuffer *buf = &node->buf;
@@ -698,7 +791,7 @@ main(int argc, char **argv)
                 }
 #endif
 
-                Assert(sample_buf.count == spec_state->spectrum_sample_count);
+                Assert(sample_buf.count == SPECTRUM_SAMPLE_COUNT);
                 ComplexBuffer spectrum_buf = fft_re(frame_arena, sample_buf);
 
                 // NOTE: cache spectrum
@@ -709,17 +802,9 @@ main(int argc, char **argv)
                   CopyArray(im, spectrum_buf.im, R32, spectrum_buf.count);
 
                   ++spec_state->spectrum_cursor;
-                  spec_state->spectrum_cursor &= (ArrayCount(spec_state->spectra) - 1);
+                  spec_state->spectrum_cursor &= (STORED_SPECTRUM_COUNT - 1);
                 }
               }
-
-              U32 last_spectrum_idx = (spec_state->spectrum_cursor ?
-                                       spec_state->spectrum_cursor - 1 :
-                                       ArrayCount(spec_state->spectra) - 1);
-              SpectrumView spectrum = spec_state->spectra[last_spectrum_idx];
-              ComplexBuffer spectrum_buf =
-                {.count = spec_state->spectrum_sample_count, .re = spectrum.re, .im = spectrum.im};
-              draw_spectrum(spec_state, window_dim, spectrum_buf);
 
               // NOTE: if we dequeued buffers, put them on the freelist
               if(last_node)
@@ -731,6 +816,20 @@ main(int argc, char **argv)
                 }
                 ReleaseLock(&buffer_list->lock);
               }
+
+              // NOTE: actual drawing
+#if 0
+              U32 last_spectrum_idx = (spec_state->spectrum_cursor ?
+                                       spec_state->spectrum_cursor - 1 :
+                                       STORED_SPECTRUM_COUNT - 1);
+              SpectrumView spectrum = spec_state->spectra[last_spectrum_idx];
+              ComplexBuffer spectrum_buf =
+                {.count = SPECTRUM_SAMPLE_COUNT, .re = spectrum.re, .im = spectrum.im};
+              draw_spectrum(spec_state, window_dim, spectrum_buf);
+              draw_spectrum_grid(spec_state, window_dim, font);
+#else
+              draw_spectrogram(frame_arena, spec_state, screen_rect);
+#endif
             }
           }
 

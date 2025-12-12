@@ -144,6 +144,10 @@ v2_from_v2s32(V2S32 v)
 // -----------------------------------------------------------------------------
 // binops
 
+//
+// v2
+//
+
 proc V2
 v2_add(V2 v, V2 w)
 {
@@ -200,6 +204,135 @@ v2_hadamard(V2 v, V2 w)
   return(result);
 }
 
+//
+// v3
+//
+
+proc V3
+v3_add(V3 v, V3 w)
+{
+  V3 result = v3(v.x + w.x, v.y + w.y, v.z + w.z);
+  return(result);
+}
+
+proc V3
+v3_sub(V3 v, V3 w)
+{
+  V3 result = v3(v.x - w.x, v.y - w.y, v.z - w.z);
+  return(result);
+}
+
+proc void
+v3_inc(V3 *v, V3 w)
+{
+  v->x += w.x;
+  v->y += w.y;
+  v->z += w.z;
+}
+
+proc void
+v3_dec(V3 *v, V3 w)
+{
+  v->x -= w.x;
+  v->y -= w.y;
+  v->z -= w.z;
+}
+
+proc V3
+v3_lmul(R32 a, V3 v)
+{
+  V3 result = v3(a*v.x, a*v.y, a*v.z);
+  return(result);
+}
+
+proc V3
+v3_rmul(V3 v, R32 a)
+{
+  V3 result = v3_lmul(a, v);
+  return(result);
+}
+
+proc void
+v3_scale(V3 *v, R32 a)
+{
+  v->x *= a;
+  v->y *= a;
+  v->z *= a;
+}
+
+proc V3
+v3_hadamard(V3 v, V3 w)
+{
+  V3 result = v3(v.x * w.x, v.y * w.y, v.z * w.z);
+  return(result);
+}
+
+//
+// v4
+//
+
+proc V4
+v4_add(V4 v, V4 w)
+{
+  V4 result = v4(v.x + w.x, v.y + w.y, v.z + w.z, v.w + w.w);
+  return(result);
+}
+
+proc V4
+v4_sub(V4 v, V4 w)
+{
+  V4 result = v4(v.x - w.x, v.y - w.y, v.z - w.z, v.w - w.w);
+  return(result);
+}
+
+proc void
+v4_inc(V4 *v, V4 w)
+{
+  v->x += w.x;
+  v->y += w.y;
+  v->z += w.z;
+  v->w += w.w;
+}
+
+proc void
+v4_dec(V4 *v, V4 w)
+{
+  v->x -= w.x;
+  v->y -= w.y;
+  v->z -= w.z;
+  v->w -= w.w;
+}
+
+proc V4
+v4_lmul(R32 a, V4 v)
+{
+  V4 result = v4(a * v.x, a * v.y, a * v.z, a * v.w);
+  return(result);
+}
+
+proc V4
+v4_rmul(V4 v, R32 a)
+{
+  V4 result = v4_lmul(a, v);
+  return(result);
+}
+
+proc void
+v4_scale(V4 *v, R32 a)
+{
+  v->x *= a;
+  v->y *= a;
+  v->z *= a;
+  v->w *= a;
+}
+
+proc V4
+v4_hadamard(V4 v, V4 w)
+{
+  V4 result = v4(v.x * w.x, v.y * w.y, v.z * w.z, v.w * w.w);
+  return(result);
+}
+
 // -----------------------------------------------------------------------------
 // scalar from vector
 
@@ -214,6 +347,34 @@ proc R32
 v2_angle(V2 v)
 {
   R32 result = rygc_atan2(v.x, v.y);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// interpolation
+
+proc V2
+lerp_v2(V2 v, V2 w, R32 t)
+{
+  // r = (1 - t) * v + t * w;
+  V2 result = v2_add(v2_lmul(1.f - t, v),
+                     v2_lmul(t, w));
+  return(result);
+}
+
+proc V3
+lerp_v3(V3 v, V3 w, R32 t)
+{
+  V3 result = v3_add(v3_lmul(1.f - t, v),
+                     v3_lmul(t, w));
+  return(result);
+}
+
+proc V4
+lerp_v4(V4 v, V4 w, R32 t)
+{
+  V4 result = v4_add(v4_lmul(1.f - t, v),
+                     v4_lmul(t, w));
   return(result);
 }
 

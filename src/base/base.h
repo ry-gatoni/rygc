@@ -7,7 +7,8 @@
 #include "log.h"
 #include "buffer.h"
 #include "math.h"
-#include "symbol_set.h"
+#include "color.h"
+//#include "symbol_set.h"
 #include "base.os.h"
 /* #include "selfimg/selfimg.h" // TODO: do i really want this here? */
 #include "profile.h"

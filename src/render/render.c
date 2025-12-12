@@ -52,7 +52,7 @@ render_begin_frame(void)
 // batch helpers
 
 proc R_Batch*
-render_batch_alloc(void)
+render_batch_alloc(B32 push_front)
 {
   R_Batch *result = render_commands->batch_freelist;
   if(result)
@@ -66,8 +66,17 @@ render_batch_alloc(void)
     result->quad_cap = RENDER_BATCH_QUAD_CAP;
     result->quads = arena_push_array_z(render_commands->arena, R_Quad, result->quad_cap);
   }
-  SLLQueuePush(render_commands->first_batch, render_commands->last_batch, result);
+
+  if(push_front)
+  {
+    SLLQueuePushFront(render_commands->first_batch, render_commands->last_batch, result);
+  }
+  else
+  {
+    SLLQueuePush(render_commands->first_batch, render_commands->last_batch, result);
+  }
   ++render_commands->batch_count;
+
   return(result);
 }
 
@@ -92,7 +101,7 @@ render_batch_for_texture(R_Texture *texture)
   // NOTE: if there is not already a batch with this texture, allocate a new one and add it to the list
   if(batch == 0)
   {
-    batch = render_batch_alloc();
+    batch = render_batch_alloc(0);
     batch->texture = texture;
   }
 
@@ -109,7 +118,8 @@ render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V
 
   if(batch->quad_count >= batch->quad_cap)
   {
-    batch = render_batch_alloc();
+    batch = render_batch_alloc(1);
+    batch->texture = texture;
   }
 
   R_Quad *quad = batch->quads + batch->quad_count++;

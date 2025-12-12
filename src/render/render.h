@@ -111,5 +111,5 @@ proc void render_line_segment(V2 p0, V2 p1, R32 thickness, R32 level, V4 color);
 // -----------------------------------------------------------------------------
 // batch helpers
 
-proc R_Batch* render_batch_alloc(void);
+proc R_Batch* render_batch_alloc(B32 push_front);
 proc R_Batch* render_batch_for_texture(R_Texture *texture);

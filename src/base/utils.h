@@ -119,8 +119,13 @@
 #define SLLStackPop_N(l, next) ((l)=(l)->next)
 #define SLLStackPop(l) SLLStackPop_N(l, next)
 
-#define SLLQueuePush_N(f, l, n, next) ((((f)==0) ? ((f)=(l)=(n)) : ((l)->next=n, (l)=(n))), (n)->next=0)
+#define SLLQueuePush_N(f, l, n, next)\
+  ((((f)==0) ? ((f)=(l)=(n)) : ((l)->next=(n), (l)=(n))), (n)->next=0)
 #define SLLQueuePush(f, l, n) SLLQueuePush_N(f, l, n, next)
+
+#define SLLQueuePushFront_N(f, l, n, next)\
+  (((f)==0) ? ((f)=(l)=(n), (n)->next=0) : ((n)->next=(f), (f)=(n)))
+#define SLLQueuePushFront(f, l, n) SLLQueuePushFront_N(f, l, n, next)
 
 #define SLLQueuePop_N(f, l, next) (((f)==(l)) ? ((f)=(l)=0) : ((f)=(f)->next))
 #define SLLQueuePop(f, l) SLLQueuePop_N(f, l, next)
