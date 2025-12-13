@@ -69,19 +69,23 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
   return(result);
 }
 
-// NOTE: render implementations
+// -----------------------------------------------------------------------------
+// render implementations
+
 proc R_Texture
-render_create_texture(S32 width, S32 height, R_PixelFormat internal_fmt, R_PixelFormat pixel_fmt, void *pixels)
+render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params)
 {
   U32 handle;
   glGenTextures(1, &handle);
   glBindTexture(GL_TEXTURE_2D, handle);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, ogl_fmts[internal_fmt], width, height, 0, ogl_fmts[pixel_fmt], GL_UNSIGNED_BYTE, pixels);
+  GLint internal_fmt = ogl_fmts[params->internal_fmt];
+  GLint pixel_fmt = ogl_fmts[params->pixel_fmt];
+  glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, width, height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params->wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params->wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE);
 
   R_Texture result = {0};
   result.handle.handle = PtrFromInt(handle);
@@ -107,9 +111,6 @@ render_backend_init(Arena *arena)
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glDepthFunc(GL_LESS);
-
-  //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  //glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
   ogl_renderer->vert_shader = ogl_make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);

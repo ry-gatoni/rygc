@@ -108,7 +108,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   }
 
   // NOTE: build atlas
-  result->atlas = render_create_texture(atlas_w, atlas_h, R_PixelFormat_rgba, R_PixelFormat_rgba, 0);
+  result->atlas = render_create_texture(atlas_w, atlas_h, 0);
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;

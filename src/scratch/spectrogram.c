@@ -149,8 +149,7 @@ spectrogram_state_alloc(void)
     U32 width = SPECTRUM_SAMPLE_COUNT / 2;
     U32 height = STORED_SPECTRUM_COUNT;
     result->spectrogram_texture_pixel_format = R_PixelFormat_rgba;
-    result->spectrogram_texture =
-      render_create_texture(width, height, R_PixelFormat_rgba, R_PixelFormat_rgba, 0);
+    result->spectrogram_texture = render_create_texture(width, height, 0, .wrap_y = 1);
   }
 
   result->buffer_list.arena = arena;
@@ -588,9 +587,10 @@ draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
   }
 
   // NOTE: update spectrogram texture
-  S32 pos_x = 0;
-  S32 width = bin_count;
   R_Texture *spectrogram = &spec_state->spectrogram_texture;
+  S32 pos_x = 0;
+  S32 width = spectrogram->dim.width;
+  S32 spectrogram_height = spectrogram->dim.height;
   if(region_wraps)
   {
     U32 spectra_before_wrap = STORED_SPECTRUM_COUNT - spec_state->last_spectrum_cursor;
@@ -617,7 +617,9 @@ draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
 
   // NOTE: render updated texture
   // TODO: put newest line at the top of the region
-  Rect2 uv = rect2(v2(0, 0), v2(1, 1));
+  R32 v_low = (R32)spec_state->spectrum_cursor / (R32)spectrogram_height;
+  R32 v_high = 1.f + v_low;
+  Rect2 uv = rect2(v2(0, v_low), v2(1, v_high));
   render_texture(spectrogram, region, uv, 0, RenderLevel(signal), v4(1, 1, 1, 1));
 }
 

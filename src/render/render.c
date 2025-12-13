@@ -9,7 +9,7 @@ render_init(void)
 
   // NOTE: generate white texture
   U32 white[] = { 0xFFFFFFFF };
-  commands->white_texture = render_create_texture(1, 1, R_PixelFormat_rgba, R_PixelFormat_rgba, white);
+  commands->white_texture = render_create_texture(1, 1, white);
 
   render_commands = commands;
   B32 result = render_commands != 0;

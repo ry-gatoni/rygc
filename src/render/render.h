@@ -27,6 +27,14 @@ typedef struct R_Quad
   R32 level;
 } R_Quad;
 
+typedef struct R_TextureCreateParams
+{
+  R_PixelFormat pixel_fmt;
+  R_PixelFormat internal_fmt;
+  B32 wrap_x;
+  B32 wrap_y;
+} R_TextureCreateParams;
+
 typedef struct R_Texture
 {
   R_Handle handle;
@@ -96,7 +104,9 @@ proc void render_end_frame(void);
 // -----------------------------------------------------------------------------
 // textures
 
-proc R_Texture render_create_texture(S32 width, S32 height, R_PixelFormat internal_fmt, R_PixelFormat pixel_fmt, void *pixels);
+#define render_create_texture(width, height, pixels, ...)\
+  render_create_texture_ex(width, height, pixels, &(R_TextureCreateParams){.pixel_fmt = R_PixelFormat_rgba, .internal_fmt = R_PixelFormat_rgba, __VA_ARGS__});
+proc R_Texture render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params);
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
 
 // -----------------------------------------------------------------------------
