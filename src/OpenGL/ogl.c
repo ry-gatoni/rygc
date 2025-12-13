@@ -12,8 +12,8 @@ ogl_make_shader(Arena *arena, char *src, GLenum kind)
   String8 log = {0};
   GLint info_log_length;
   glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
-  if(info_log_length) {
-
+  if(info_log_length)
+  {
     char *buffer = arena_push_array(arena, char, info_log_length + 1);
     GLint len = 0;
     glGetShaderInfoLog(shader_id, info_log_length + 1, &len, buffer);
@@ -23,7 +23,8 @@ ogl_make_shader(Arena *arena, char *src, GLenum kind)
 
   GLint compile_status;
   glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_status);
-  if(compile_status == 0) {
+  if(compile_status == 0)
+  {
     glDeleteShader(shader_id);
     shader_id = 0;
   }
@@ -39,14 +40,14 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
 {
   GLuint program_id = glCreateProgram();
   for(U32 shader_idx = 0; shader_idx < shader_count; ++shader_idx)
-    { glAttachShader(program_id, shaders[shader_idx]); }
+  { glAttachShader(program_id, shaders[shader_idx]); }
   glLinkProgram(program_id);
 
   String8 log = {0};
   GLint info_log_length;
   glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
-  if(info_log_length) {
-
+  if(info_log_length)
+  {
     char *buffer = arena_push_array(arena, char, info_log_length + 1);
     GLint len = 0;
     glGetProgramInfoLog(program_id, info_log_length + 1, &len, buffer);
@@ -56,7 +57,8 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
 
   GLint link_status;
   glGetProgramiv(program_id, GL_LINK_STATUS, &link_status);
-  if(link_status == 0) {
+  if(link_status == 0)
+  {
     glDeleteProgram(program_id);
     program_id = 0;
   }
@@ -106,18 +108,20 @@ render_backend_init(Arena *arena)
 
   glDepthFunc(GL_LESS);
 
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  //glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
   ogl_renderer->vert_shader = ogl_make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);
-  if(ogl_renderer->vert_shader.log.count) {
+  if(ogl_renderer->vert_shader.log.count)
+  {
     fprintf(stderr, "ERROR: vert_shader: %.*s\n",
             (int)ogl_renderer->vert_shader.log.count, ogl_renderer->vert_shader.log.string);
   }
 
   ogl_renderer->frag_shader = ogl_make_shader(scratch.arena, frag_shader_src, GL_FRAGMENT_SHADER);
-  if(ogl_renderer->frag_shader.log.count) {
+  if(ogl_renderer->frag_shader.log.count)
+  {
     fprintf(stderr, "ERROR: frag_shader: %.*s\n",
             (int)ogl_renderer->frag_shader.log.count, ogl_renderer->frag_shader.log.string);
   }
@@ -127,7 +131,8 @@ render_backend_init(Arena *arena)
     ogl_renderer->frag_shader.handle,
   };
   ogl_renderer->shader_prog = ogl_make_program(scratch.arena, shaders, ArrayCount(shaders));
-  if(ogl_renderer->shader_prog.log.count) {
+  if(ogl_renderer->shader_prog.log.count)
+  {
     fprintf(stderr, "ERROR: shader_program: %.*s\n",
             (int)ogl_renderer->shader_prog.log.count, ogl_renderer->shader_prog.log.string);
   }

@@ -540,6 +540,7 @@ draw_spectrum(SpectrogramState *spec_state, V2S32 window_dim, ComplexBuffer spec
   //draw_spectrum_lin(spec_state, window_dim, spec_buf);
 }
 
+// TODO: log freq axis
 proc void
 draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
 {
@@ -592,7 +593,6 @@ draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
   R_Texture *spectrogram = &spec_state->spectrogram_texture;
   if(region_wraps)
   {
-    // TODO: this isn't being handled correctly when `spectra_before_wrap` is greater than 1
     U32 spectra_before_wrap = STORED_SPECTRUM_COUNT - spec_state->last_spectrum_cursor;
 
     S32 pos_y_1 = spec_state->last_spectrum_cursor;

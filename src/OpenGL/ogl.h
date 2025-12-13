@@ -85,7 +85,7 @@ global char frag_shader_src[] =
 
   "void main() {\n"
   "  vec4 sampled = texture(atlas, f_uv);\n"
-  "  out_color = f_color * vec4(sampled.r, sampled.r, sampled.r, sampled.r);\n"
+  "  out_color = f_color * sampled;\n"
   "}\n";
 
 global V4 quad_pattern[] = {

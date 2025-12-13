@@ -6,20 +6,20 @@ dwrite_init(void)
   Arena *arena = arena_alloc();
   dwrite_state = arena_push_struct(arena, DWriteState);
   if(dwrite_state) {
-    result = 1;    
+    result = 1;
     dwrite_state->arena = arena;
 
     HRESULT error = 0;
 #define DWInitCheckPtr(ptr, run) if(((ptr) == 0) || ((error) != S_OK)) { Win32LogError(error); dwrite_state = 0; result = 0; arena_release(arena); run; goto dwrite_init_end; }
-    
+
     // NOTE: create factory
     error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory1,
-				(IUnknown**)&dwrite_state->factory);
+                                (IUnknown**)&dwrite_state->factory);
     if(error == S_OK) {
       dwrite_state->factory_version = 1;
     }else {
       error = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IID_IDWriteFactory,
-				  (IUnknown**)&dwrite_state->factory);
+                                  (IUnknown**)&dwrite_state->factory);
       DWInitCheckPtr(dwrite_state->factory, Assert(!"factory"));
     }
 
@@ -70,12 +70,12 @@ dwrite_open_font(String8 font_path)
   // NOTE: create font face from file
   if(font_file) {
     error = IDWriteFactory_CreateFontFace(dwrite_state->factory, DWRITE_FONT_FACE_TYPE_TRUETYPE, 1,
-					  &font_file, 0, DWRITE_FONT_SIMULATIONS_NONE, &font_face);
+                                          &font_file, 0, DWRITE_FONT_SIMULATIONS_NONE, &font_face);
     if(error != S_OK) {
       Win32LogError(error);
     }
   }
-  
+
   DWriteFont result = {0};
   result.font_file = font_file;
   result.font_face = font_face;
@@ -99,12 +99,12 @@ dwrite_font_metrics(DWriteFont *font, U32 font_size_pt)
   font->metrics.ascender = (S32)((R32)font_metrics.ascent * pixel_per_design_unit + 0.5f);
   font->metrics.descender = -(S32)((R32)font_metrics.descent * pixel_per_design_unit + 0.5f);
   font->metrics.line_height = Max(font->metrics.ascender - font->metrics.descender,
-				  font_metrics.lineGap);
+                                  font_metrics.lineGap);
 }
 
 proc RangeU32
 dwrite_font_glyph_map(Arena *arena, DWriteFont *font,
-		      CodepointIndex **first, CodepointIndex **last)
+                      CodepointIndex **first, CodepointIndex **last)
 {
   HRESULT error = 0;
   CodepointIndex *first_cp_idx = 0;
@@ -113,40 +113,40 @@ dwrite_font_glyph_map(Arena *arena, DWriteFont *font,
   if(font->font_face) {
     glyph_count = IDWriteFontFace_GetGlyphCount(font->font_face);
 
-    // NOTE: codepoint -> glyph index map    
+    // NOTE: codepoint -> glyph index map
     if(dwrite_state->factory_version == 1) {
       U32 unicode_rng_count = 0;
       error = IDWriteFontFace1_GetUnicodeRanges((IDWriteFontFace1*)font->font_face, 0, 0, &unicode_rng_count);
       // TODO why doesn't this return OK?
       //if(error == S_OK)
       {
-	DWRITE_UNICODE_RANGE *unicode_rngs =
-	  arena_push_array(arena, DWRITE_UNICODE_RANGE, unicode_rng_count);
-	error =
-	  IDWriteFontFace1_GetUnicodeRanges((IDWriteFontFace1*)font->font_face, unicode_rng_count, unicode_rngs, &unicode_rng_count);
-	if(error == S_OK) {	  
-	  for(U32 unicode_rng_idx = 0; unicode_rng_idx < unicode_rng_count; ++unicode_rng_idx) {
-	    DWRITE_UNICODE_RANGE *unicode_rng = unicode_rngs + unicode_rng_idx;
-	    for(U32 cp = unicode_rng->first; cp < unicode_rng->last; ++cp) {
-	      U16 glyph_idx = 0;	              
-	      error = IDWriteFontFace_GetGlyphIndices(font->font_face, &cp, 1, &glyph_idx);
-	      if(error == S_OK && glyph_idx != 0) {
-		CodepointIndex *cp_idx = arena_push_struct(arena, CodepointIndex);
-		cp_idx->codepoint = cp;
-		cp_idx->index = glyph_idx;
-		SLLQueuePush(first_cp_idx, last_cp_idx, cp_idx);
-	      }else {
-		// TODO: log error
-	      }
-	    }
-	  }
-	}
+        DWRITE_UNICODE_RANGE *unicode_rngs =
+          arena_push_array(arena, DWRITE_UNICODE_RANGE, unicode_rng_count);
+        error =
+          IDWriteFontFace1_GetUnicodeRanges((IDWriteFontFace1*)font->font_face, unicode_rng_count, unicode_rngs, &unicode_rng_count);
+        if(error == S_OK) {
+          for(U32 unicode_rng_idx = 0; unicode_rng_idx < unicode_rng_count; ++unicode_rng_idx) {
+            DWRITE_UNICODE_RANGE *unicode_rng = unicode_rngs + unicode_rng_idx;
+            for(U32 cp = unicode_rng->first; cp < unicode_rng->last; ++cp) {
+              U16 glyph_idx = 0;
+              error = IDWriteFontFace_GetGlyphIndices(font->font_face, &cp, 1, &glyph_idx);
+              if(error == S_OK && glyph_idx != 0) {
+                CodepointIndex *cp_idx = arena_push_struct(arena, CodepointIndex);
+                cp_idx->codepoint = cp;
+                cp_idx->index = glyph_idx;
+                SLLQueuePush(first_cp_idx, last_cp_idx, cp_idx);
+              }else {
+                // TODO: log error
+              }
+            }
+          }
+        }
       }
     }else {
       // TODO: what to do when we can't get the unicode ranges??
     }
   }
-  
+
   *first = first_cp_idx;
   *last = last_cp_idx;
   RangeU32 result = rangeu32(0, glyph_count);
@@ -155,7 +155,7 @@ dwrite_font_glyph_map(Arena *arena, DWriteFont *font,
 
 proc void
 dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
-			LooseGlyph **first, LooseGlyph **last)
+                        LooseGlyph **first, LooseGlyph **last)
 {
   HRESULT error = 0;
   LooseGlyph *first_glyph = 0;
@@ -170,7 +170,7 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
   Assert(error == S_OK);
   Assert(render_target);
   HDC dc = IDWriteBitmapRenderTarget_GetMemoryDC(render_target);
-  
+
   // NOTE: clear render target
   {
     HGDIOBJ original = SelectObject(dc, GetStockObject(DC_PEN));
@@ -181,9 +181,10 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
     SelectObject(dc, original);
   }
 
-  if(font->font_face) {
-    for(U32 glyph_idx = range.min; glyph_idx < range.max; ++glyph_idx) {
-
+  if(font->font_face)
+  {
+    for(U32 glyph_idx = range.min; glyph_idx < range.max; ++glyph_idx)
+    {
       DWRITE_GLYPH_RUN glyph_run = {0};
       glyph_run.fontFace = font->font_face;
       glyph_run.fontEmSize = font->metrics.pixel_per_em;
@@ -192,10 +193,10 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
 
       RECT bounding_box = {0};
       error =
-	IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, baseline_x, baseline_y,
-					       DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
-					       dwrite_state->render_params, RGB(255, 255, 255),
-					       &bounding_box);      
+        IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, baseline_x, baseline_y,
+                                               DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
+                                               dwrite_state->render_params, RGB(255, 255, 255),
+                                               &bounding_box);
       Assert(error == S_OK);
       //if(bounding_box.top < 0 || bounding_box.left < 0) continue;
       Assert(bounding_box.left >= 0 && bounding_box.top >= 0);
@@ -203,7 +204,7 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
 
       DWRITE_GLYPH_METRICS glyph_metrics = {0};
       error =
-	IDWriteFontFace_GetDesignGlyphMetrics(font->font_face, &(U16)glyph_idx, 1, &glyph_metrics, 0);
+        IDWriteFontFace_GetDesignGlyphMetrics(font->font_face, &(U16)glyph_idx, 1, &glyph_metrics, 0);
       Assert(error == S_OK);
 
       LooseGlyph *glyph = arena_push_struct(arena, LooseGlyph);
@@ -213,7 +214,7 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       glyph->left_bearing = bounding_box.left - (S32)baseline_x;
       glyph->top_bearing = (S32)baseline_y - bounding_box.top;//bounding_box.top - (S32)baseline_y;
       glyph->advance = (U32)(glyph_metrics.advanceWidth*font->metrics.pixel_per_design_unit);
-      glyph->bitmap = arena_push_array_z(arena, U8, glyph->width*glyph->height);
+      glyph->bitmap = arena_push_array_z(arena, U32, glyph->width*glyph->height);
 
       // NOTE: copy pixels from the render target into the glyph bitmap
       HBITMAP glyph_bitmap = GetCurrentObject(dc, OBJ_BITMAP);
@@ -223,36 +224,44 @@ dwrite_rasterize_glyphs(Arena *arena, DWriteFont *font, RangeU32 range,
       U16 src_pixel_size = dib.dsBm.bmBitsPixel/8;
       U32 src_stride = dib.dsBm.bmWidthBytes;
       U8 *src_row = ((U8*)dib.dsBm.bmBits +
-		     (bounding_box.top + glyph->height - 1)*src_stride +
-		     bounding_box.left*src_pixel_size);
-      U8 *dest_row = glyph->bitmap;
-      for(S32 y = 0; y < glyph->height; ++y) {
+                     (bounding_box.top + glyph->height - 1)*src_stride +
+                     bounding_box.left*src_pixel_size);
+      U32 *dest_row = glyph->bitmap;
+      for(S32 y = 0; y < glyph->height; ++y)
+      {
+        U8 *src_pixel = src_row;
+        U8 *dest_pixel = dest_row;
+        for(S32 x = 0; x < glyph->width; ++x)
+        {
+          U8 src = *src_pixel;
+          U32 dest = ((U32)(src << (0*8)) |
+                      (U32)(src << (1*8)) |
+                      (U32)(src << (2*8)) |
+                      (U32)(src << (3*8)));
+          *dest_pixel = dest;
 
-	U8 *src_pixel = src_row;
-	U8 *dest_pixel = dest_row;
-	for(S32 x = 0; x < glyph->width; ++x) {
-	  *dest_pixel = *src_pixel;
-	  dest_pixel += 1;
-	  src_pixel += src_pixel_size;
-	}
-	src_row -= src_stride;
-	dest_row += glyph->stride;
+          dest_pixel += 1;
+          src_pixel += src_pixel_size;
+        }
+
+        src_row -= src_stride;
+        dest_row += glyph->stride;
       }
-      
+
       SLLQueuePush(first_glyph, last_glyph, glyph);
 
       // NOTE: clear render target
       {
-	HGDIOBJ original = SelectObject(dc, GetStockObject(DC_PEN));
-	SetDCPenColor(dc, RGB(0, 0, 0));
-	SelectObject(dc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(dc, RGB(0, 0, 0));
-	Rectangle(dc, bounding_box.left, bounding_box.top, bounding_box.right, bounding_box.bottom);
-	SelectObject(dc, original);
+        HGDIOBJ original = SelectObject(dc, GetStockObject(DC_PEN));
+        SetDCPenColor(dc, RGB(0, 0, 0));
+        SelectObject(dc, GetStockObject(DC_BRUSH));
+        SetDCBrushColor(dc, RGB(0, 0, 0));
+        Rectangle(dc, bounding_box.left, bounding_box.top, bounding_box.right, bounding_box.bottom);
+        SelectObject(dc, original);
       }
     }
   }
-  
+
   *first = first_glyph;
   *last = last_glyph;
 }
@@ -272,7 +281,7 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
   S32 ascender = 0;
   S32 descender = 0;
   U32 line_height = 0;
-  
+
   if(dwrite_init()) {
     DWriteFont font = dwrite_open_font(font_path);
     dwrite_font_metrics(&font, font_size_pt);
@@ -281,7 +290,7 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
     if(first_cp_idx == 0) {
       goto font_parse_end;
     }
-    
+
     dwrite_rasterize_glyphs(arena, &font, range, &first_glyph, &last_glyph);
     if(first_glyph == 0) {
       first_cp_idx = 0;
@@ -295,8 +304,8 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
     descender = font.metrics.descender;
     line_height = font.metrics.line_height;
   }
-  
- font_parse_end:  
+
+ font_parse_end:
   LooseFont result = {0};
   result.first_cp_index = first_cp_idx;
   result.last_cp_index = last_cp_idx;
@@ -392,7 +401,7 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
   LooseGlyph *last_glyph = 0;
   U16 glyph_count = IDWriteFontFace_GetGlyphCount(font_face);
   RangeU32 glyph_idx_rng = rangeu32(0, glyph_count);
-  for(U16 glyph_idx = 0; glyph_idx < glyph_count; ++glyph_idx) {   
+  for(U16 glyph_idx = 0; glyph_idx < glyph_count; ++glyph_idx) {
 
     DWRITE_GLYPH_RUN glyph_run = {0};
     glyph_run.fontFace = font_face;
@@ -402,8 +411,8 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
 
     RECT bounding_box = {0};
     error = IDWriteBitmapRenderTarget_DrawGlyphRun(render_target, baseline_x, baseline_y,
-						   DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
-						   render_params, RGB(255, 255, 255), &bounding_box);
+                                                   DWRITE_MEASURING_MODE_NATURAL, &glyph_run,
+                                                   render_params, RGB(255, 255, 255), &bounding_box);
     DWCheck(Assert(!"not good"));
     //if(bounding_box.top < 0 || bounding_box.left < 0) continue;
     Assert(bounding_box.left >= 0 && bounding_box.top >= 0);
@@ -435,9 +444,9 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
       U8 *src_pixel = src + y*src_stride;
       U8 *dest_pixel = dest + y*glyph->stride;
       for(S32 x = 0; x < glyph->width; ++x) {
-	*dest_pixel = *src_pixel;
-	dest_pixel += 1;
-	src_pixel += src_pixel_size;
+        *dest_pixel = *src_pixel;
+        dest_pixel += 1;
+        src_pixel += src_pixel_size;
       }
     }
 
@@ -453,7 +462,7 @@ font_parse(Arena *arena, String8 font_path, U32 font_size_pt)
       SelectObject(dc, original);
     }
   }
-  
+
   result.first_cp_index = first_cp_index;
   result.last_cp_index = last_cp_index;
   result.first_glyph = first_glyph;

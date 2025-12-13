@@ -17,19 +17,19 @@ struct LooseGlyph
   S32 left_bearing;
   S32 top_bearing;
   U32 advance;
-  U8 *bitmap;
+  U32 *bitmap;
 };
 
 typedef struct LooseFont
 {
   CodepointIndex *first_cp_index;
   CodepointIndex *last_cp_index;
-  
+
   LooseGlyph *first_glyph;
   LooseGlyph *last_glyph;
-  
+
   RangeU32 glyph_idx_rng;
-  
+
   S32 ascender;
   S32 descender;
   U32 line_height;

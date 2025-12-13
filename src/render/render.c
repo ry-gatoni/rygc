@@ -8,9 +8,8 @@ render_init(void)
   commands->renderer = render_backend_init(arena);
 
   // NOTE: generate white texture
-  U8 white[256];
-  SetSize(white, U8_MAX, ArrayCount(white));
-  commands->white_texture = render_create_texture(16, 16, R_PixelFormat_red, R_PixelFormat_red, white);
+  U32 white[] = { 0xFFFFFFFF };
+  commands->white_texture = render_create_texture(1, 1, R_PixelFormat_rgba, R_PixelFormat_rgba, white);
 
   render_commands = commands;
   B32 result = render_commands != 0;

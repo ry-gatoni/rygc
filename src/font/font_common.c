@@ -108,7 +108,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   }
 
   // NOTE: build atlas
-  result->atlas = render_create_texture(atlas_w, atlas_h, R_PixelFormat_red, R_PixelFormat_red, 0);
+  result->atlas = render_create_texture(atlas_w, atlas_h, R_PixelFormat_rgba, R_PixelFormat_rgba, 0);
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;
@@ -130,7 +130,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
     glyph->uv.max.y = (y + h) * atlas_inv_h;
 
     // NOTE: copy bitmap data to atlas
-    render_update_texture(&result->atlas, x, y, w, h, R_PixelFormat_red, pack_node->loose_glyph->bitmap);
+    render_update_texture(&result->atlas, x, y, w, h, R_PixelFormat_rgba, pack_node->loose_glyph->bitmap);
   }
 
   arena_release_scratch(scratch);

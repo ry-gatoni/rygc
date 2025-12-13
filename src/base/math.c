@@ -453,7 +453,8 @@ range_r32_len(RangeR32 rng)
 proc R32
 range_r32_map_01(R32 val, RangeR32 rng)
 {
-  R32 result = (val - rng.min)/(rng.max - rng.min);
+  R32 val_clamped = ClampToRange(val, rng.min, rng.max);
+  R32 result = (val_clamped - rng.min)/(rng.max - rng.min);
   return(result);
 }
 
