@@ -1,9 +1,21 @@
 /**
  * TODO:
- * accumulate spectrum data over time to present as spectrogram, with option of viewing each window as a spectrum
- * visualize phase data
- * draw lines instead of rectangles
- * merge various pieces application state into a single structure
+ [ ] ui for selecting different drawing modes
+     [ ] windowing on/off
+     [ ] spectrogram vs spectrum view
+     [ ] enable/disable phase display
+     [ ] lin/log plot
+     [ ] control axis range
+
+ [ ] check spectrogram drawing performance/cleanup
+
+ [ ] improve spectrum caching and sharing data structures
+
+ [ ] make spectrum visualization look better (lines or curves instead of rectangles?)
+
+ [ ] make code more reusable
+     [ ] draw spectrum/spectrogram in given region/window
+
  */
 
 #include "base/base.h"
@@ -81,7 +93,6 @@ typedef struct SpectrumView
   R32 *im;
 } SpectrumView; /* TimeWarnerCableView is now SpectrumView */
 
-
 // NOTE: all spectra must have the same number of samples. we zero-pad input
 // audio buffers to this number of samples. this number of samples must be a
 // power of two (for the fft) and larger than the number of samples that any
@@ -144,7 +155,6 @@ spectrogram_state_alloc(void)
   }
 
   // NOTE: spectrogram texture
-  // TODO: the texture colors aren't what they're supposed to be
   {
     U32 width = SPECTRUM_SAMPLE_COUNT / 2;
     U32 height = STORED_SPECTRUM_COUNT;
@@ -553,7 +563,7 @@ draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
   if(region_wraps)
   {
     new_spectra_count =
-      STORED_SPECTRUM_COUNT - spec_state->last_spectrum_cursor - spec_state->spectrum_cursor;
+      STORED_SPECTRUM_COUNT + spec_state->spectrum_cursor - spec_state->last_spectrum_cursor;
   }
   else
   {
@@ -616,7 +626,6 @@ draw_spectrogram(Arena *arena, SpectrogramState *spec_state, Rect2 region)
   }
 
   // NOTE: render updated texture
-  // TODO: put newest line at the top of the region
   R32 v_low = (R32)spec_state->spectrum_cursor / (R32)spectrogram_height;
   R32 v_high = 1.f + v_low;
   Rect2 uv = rect2(v2(0, v_low), v2(1, v_high));
@@ -775,6 +784,7 @@ main(int argc, char **argv)
 
               log_msgf(LogMessageKind_info, "dequed %u buffers", buffer_count);
 
+              Assert(spec_state->spectrum_cursor < STORED_SPECTRUM_COUNT);
               spec_state->last_spectrum_cursor = spec_state->spectrum_cursor;
               for(AudioBufferNode *node = first_node; node; node = node->next)
               {

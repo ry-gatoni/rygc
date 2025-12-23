@@ -44,7 +44,7 @@
   - [ ] lines instead of rectangles
   - [ ] visualize phase
   - [ ] add ui
-  - [ ] spectra per frame, display spectrogram
+  - [x] spectra per frame, display spectrogram
 
 - misc
   - [ ] clang on windows
