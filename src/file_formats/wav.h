@@ -2,45 +2,45 @@
 
 typedef union RiffId
 {
-  U32	id;
-  U8	str[4];
+  U32   id;
+  U8    str[4];
 } RiffId;
 
 #pragma pack(push, 1)
 typedef struct RiffHeader
 {
-  RiffId	chunk_id;
-  U32		chunk_size;
+  RiffId        chunk_id;
+  U32           chunk_size;
 } RiffHeader;
 
 typedef struct WaveHeader
 {
-  RiffId	wave_id;
+  RiffId        wave_id;
 } WaveHeader;
 
 typedef struct WaveFormatChunk
 {
   RiffHeader    header;
-  U16		format_tag;
-  U16		channel_count;
-  U32		sample_rate;
-  U32		avg_bytes_per_sec;
-  U16		data_block_size;
-  U16		bits_per_sample;
-  U16		cb_size;
+  U16           format_tag;
+  U16           channel_count;
+  U32           sample_rate;
+  U32           avg_bytes_per_sec;
+  U16           data_block_size;
+  U16           bits_per_sample;
 } WaveFormatChunk;
 
 typedef struct WaveFormatExtension
 {
-  U16	valid_bits_per_sample;
-  U32	channel_mask;
-  U8	sub_fmt[16];
+  U16   cb_size;
+  U16   valid_bits_per_sample;
+  U32   channel_mask;
+  U8    sub_fmt[16];
 } WaveFormatExtension;
 
-typedef struct WaevFormatExtended
+typedef struct WaveFormatExtended
 {
-  WaveFormatChunk	fmt;
-  WaveFormatExtension	ex;
+  WaveFormatChunk       fmt;
+  WaveFormatExtension   ex;
 } WaveFormatExtended;
 
 #pragma pack(pop)
@@ -49,10 +49,10 @@ typedef RiffHeader WaveDataChunk;
 
 typedef enum WaveFormat
 {
-  WaveFormat_pcm	= 0x0001,
+  WaveFormat_pcm        = 0x0001,
   WaveFormat_ieee_float = 0x0003,
-  WaveFormat_alaw	= 0x0006,
-  WaveFormat_mulaw	= 0x0007,
+  WaveFormat_alaw       = 0x0006,
+  WaveFormat_mulaw      = 0x0007,
   WaveFormat_extensible = 0xFFFE,
 } WaveFormat;
 
@@ -92,14 +92,14 @@ typedef struct WavChunkList
 typedef struct WavWriter
 {
   Arena *arena;
-  
+
   U32 sample_rate;
   U32 channel_count;
   WaveFormat sample_format;
   U32 sample_size;
   U32 frame_size;
 
-  WavChunkList chunk_list;  
+  WavChunkList chunk_list;
 } WavWriter;
 
 proc inline U32

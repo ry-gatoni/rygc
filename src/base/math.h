@@ -35,6 +35,7 @@ typedef union V2S32
 typedef union V3
 {
   struct {R32 x, y, z;};
+  struct {R32 r, g, b;};
   R32 v[3];
 } V3;
 

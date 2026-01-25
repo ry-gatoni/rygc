@@ -1,3 +1,23 @@
+proc U32
+color_u32_from_rgba(U8 r, U8 g, U8 b, U8 a)
+{
+  U32 result = (((U32)(r) << 0*8) |
+                ((U32)(g) << 1*8) |
+                ((U32)(b) << 2*8) |
+                ((U32)(a) << 3*8));
+  return(result);
+}
+
+proc U32
+color_u32_from_v3(V3 color, R32 a)
+{
+  U32 result = ((((U32)(color.r*255.f)) << 0*8) |
+                (((U32)(color.g*255.f)) << 1*8) |
+                (((U32)(color.b*255.f)) << 2*8) |
+                (((U32)(a*255.f)) << 3*8));
+  return(result);
+}
+
 // TODO: should there be two of these, for each endianness?
 proc U32
 color_u32_from_v4(V4 color)

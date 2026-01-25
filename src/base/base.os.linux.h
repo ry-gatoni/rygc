@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/syscall.h>
 
 #if CPU_X86 || CPU_X64
 #  include <x86intrin.h>
@@ -32,6 +33,8 @@ typedef struct Linux_State
   Linux_ThreadInfo *thread_info_freelist;
 
   U64 cpu_counter_freq;
+
+  U64 page_size;
 } Linux_State;
 
 global Linux_State *linux_state = 0;

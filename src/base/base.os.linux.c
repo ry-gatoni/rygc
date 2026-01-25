@@ -55,7 +55,49 @@ os_mem_release(void *mem, U64 size)
   }
 }
 
-// NOTE: files
+proc Os_RingBuffer
+os_ring_buffer_alloc(U64 min_size)
+{
+  int fd = -1;
+  void *map_base = MAP_FAILED;
+  void *map_lo = MAP_FAILED;
+  void *map_hi = MAP_FAILED;
+  Os_RingBuffer result = {0};
+
+  U64 size = AlignPow2(min_size, linux_state->page_size);
+  fd = syscall(__NR_memfd_create, "RYGC-MAGIC-RING-BUFFER", FD_CLOEXEC);
+  if(fd == -1) { goto os_ring_buffer_alloc_failure; }
+  if(ftruncate(fd, size) == -1) { goto os_ring_buffer_alloc_failure; }
+
+  map_base = mmap(0, 2*size, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+  if(map_base == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+
+  map_lo = mmap((U8*)map_base + 0*size, size, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
+  if(map_lo == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+  map_hi = mmap((U8*)map_base + 1*size, size, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
+  if(map_hi == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+
+  close(fd);
+
+  result.mem = map_base;
+  result.size = size;
+  return(result);
+
+os_ring_buffer_alloc_failure:
+  if(fd != -1) { close(fd); }
+  if(map_base != MAP_FAILED) munmap(map_base, 2*size);
+  return(result);
+}
+
+proc void
+os_ring_buffer_free(Os_RingBuffer *rb)
+{
+  munmap(rb->mem, 2*rb->size);
+}
+
+// -----------------------------------------------------------------------------
+// files
+
 #define LINUX_MAX_BYTES_TO_READ (0x7FFFF000ULL)
 #define LINUX_MAX_BYTES_TO_WRITE LINUX_MAX_BYTES_TO_READ
 
@@ -449,6 +491,7 @@ linux_init(void)
   linux_state = arena_push_struct(arena, Linux_State);
   if(linux_state) {
     linux_state->arena = arena;
+    linux_state->page_size = sysconf(_SC_PAGESIZE);
     result = 1;
   }
   return(result);

@@ -1,3 +1,7 @@
+# TODO (January 2025)
+- render
+  - [ ] it should be possible to use the render layer without using the font layer
+
 # TODO (December 2025)
 - base layer
   - [ ] logging

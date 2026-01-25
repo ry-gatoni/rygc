@@ -60,6 +60,16 @@
 #define BeforeMain_(name) BeforeMain__Named(name)
 #define BeforeMain() BeforeMain_(Glue(beforemain__, __COUNTER__))
 
+// -----------------------------------------------------------------------------
+// struct field alignment
+
+#if COMPILER_CLANG || COMPILER_GCC
+#  define AlignField(n) __attribute((aligned(n)))
+#elif COMPILER_MSVC
+#  define AlignField(n) __declspec(align(n))
+#else
+#  warning WARNING: `AlignField()` macro not supported on this compiler
+#endif
 
 // -----------------------------------------------------------------------------
 // asserts
@@ -98,7 +108,7 @@
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
 #define AlignPow2(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
 #define TruncPow2(n, a) ((n) & ~((a) - 1))
-#define RoundUpPow2(n) (1 << (MSB(n) + 1))
+#define RoundUpPow2(n) (1ULL << (MSB(n)))
 
 #define IntFromPtr(p) (U64)((U8*)(p))
 #define PtrFromInt(n) (void*)((uintptr_t)(n))//(void *)((U8 *)0 + (n))
@@ -151,3 +161,4 @@
 #define ZeroArray(dest, type, count) memset(dest, 0, (count)*sizeof(type))
 
 #define SetSize(dest, val, size) memset(dest, val, size);
+#define SetArray(dest, val, type, count) SetSize(dest, val, (count)*sizeof(type))
