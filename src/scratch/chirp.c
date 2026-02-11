@@ -19,14 +19,14 @@ main(int argc, char **argv)
   WavWriter *wav = begin_wav(sample_rate, 1, WavSampleKind_R32);
 
   R32 w1 = 440.f;
-  R32 w2 = 4.f * w1;
+  R32 w2 = 2.f * w1;
 
   R32 w1_duration__s = 1.f;
   R32 ramp_duration__s = 2.f;
   R32 w2_duration__s = 1.f;
 
   String8 filename;
-#define CHIRP_BAD 1
+#define CHIRP_BAD 0
 #if CHIRP_BAD
   filename = Str8Lit("../data/test/chirp_bad.wav");
 

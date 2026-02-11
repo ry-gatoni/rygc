@@ -37,8 +37,9 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/spectrogram.c -lxkbcommon -lEGL -lGL -lfreetype -ljack -ldl -o spectrogram
 # clang $CFLAGS $SRC/tests/fft_test.c -o fft_test
 # clang $CFLAGS $SRC/scratch/binary_to_h_file.c -o binary_to_h_file
-clang $CFLAGS $SRC/scratch/lissajous.c -lfreetype -lxkbcommon -lEGL -lGL -ljack -ldl -o lissajous
-#clang $CFLAGS $SRC/scratch/chirp.c -o chirp && ./chirp
+# clang $CFLAGS $SRC/scratch/lissajous.c -lfreetype -lxkbcommon -lEGL -lGL -ljack -ldl -o lissajous
+# clang $CFLAGS $SRC/scratch/chirp.c -o chirp && ./chirp
+clang $CFLAGS $SRC/scratch/square_wave.c -o square_wave && ./square_wave
 
 popd > /dev/null # ./build -> ./src
 
