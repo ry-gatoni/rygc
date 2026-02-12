@@ -268,11 +268,15 @@ os_file_write_to(Buffer file_contents, U64 pos, Os_Handle file)
   return(result);
 }
 
-proc String8
+proc Buffer
 os_read_entire_file(Arena *arena, String8 path)
 {
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
-
+#if 1
+  Os_Handle file = os_file_open(path, Os_FileOpenFlag_read);
+  Os_FileAttributes attr = os_file_attributes(file);
+  Buffer result = os_file_read(arena, file, attr.size);
+#else
   String8 result = {0};
   String8 path_cstr = arena_push_str8_copy(scratch.arena, path);
   int handle = open((char *)path_cstr.string, O_RDONLY);
@@ -310,18 +314,22 @@ os_read_entire_file(Arena *arena, String8 path)
   else {
     // TODO: log "ERROR: open failed: <ERROR STRING>"
   }
+#endif
 
   arena_release_scratch(scratch);
   return(result);
 }
 
 proc B32
-os_write_entire_file(String8 file, String8 path)
+os_write_entire_file(Buffer file_contents, String8 path)
 {
   B32 result = 1;
 
   ArenaTemp scratch = arena_get_scratch(0, 0);
-
+#if 1
+  Os_Handle file = os_file_open(path, Os_FileOpenFlag_write);
+  os_file_write(file_contents, file);
+#else
   String8 path_cstr = arena_push_str8_copy(scratch.arena, path);
   int handle = open((char *)path_cstr.string, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   if(handle != -1) {
@@ -344,6 +352,7 @@ os_write_entire_file(String8 file, String8 path)
     result = 0;
     // TODO: log "ERROR: open failed: <ERROR STRING>"
   }
+#endif
 
   arena_release_scratch(scratch);
   return(result);

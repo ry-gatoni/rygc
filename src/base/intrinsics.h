@@ -30,7 +30,7 @@ proc U64 cpu_counter_freq(void);
 #define ReleaseLock(lock) ReleaseLock_01(lock, 0, 1)
 
 #if COMPILER_CLANG || COMPILER_GCC
-#  define MSB(n) (__builtin_clz((n)|1))
+#  define MSB(n) ((n) ? (63ULL - __builtin_clzll(n)) : (0))
 #  define LSB(n) (__builtin_ctz((n)|1) + 1)
 #elif COMPILER_MSVC
 #  include <intrin.h>

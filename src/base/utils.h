@@ -108,7 +108,7 @@
 #define Align(n, a) (((n) + ((a) - 1)) - (((n) + ((a) - 1)) % (a)))
 #define AlignPow2(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
 #define TruncPow2(n, a) ((n) & ~((a) - 1))
-#define RoundUpPow2(n) (1ULL << (MSB(n)))
+#define RoundUpPow2(n) (1ULL << (MSB((n) - 1) + 1))
 
 #define IntFromPtr(p) (U64)((U8*)(p))
 #define PtrFromInt(n) (void*)((uintptr_t)(n))//(void *)((U8 *)0 + (n))
@@ -160,5 +160,6 @@
 #define ZeroStruct(dest) memset(dest, 0, sizeof(*(dest)))
 #define ZeroArray(dest, type, count) memset(dest, 0, (count)*sizeof(type))
 
+// TODO: deprecate or figure out a way to set not only 1-byte values
 #define SetSize(dest, val, size) memset(dest, val, size);
 #define SetArray(dest, val, type, count) SetSize(dest, val, (count)*sizeof(type))

@@ -50,8 +50,8 @@ proc Buffer os_file_read_from(Arena *arena, Os_Handle file, U64 pos, U64 size);
 proc B32 os_file_write(Buffer file_contents, Os_Handle file);
 proc B32 os_file_write_to(Buffer file_contents, U64 pos, Os_Handle file);
 
-proc String8 os_read_entire_file(Arena *arena, String8 path);
-proc B32 os_write_entire_file(String8 file, String8 path);
+proc Buffer os_read_entire_file(Arena *arena, String8 path);
+proc B32 os_write_entire_file(Buffer file_contents, String8 path);
 
 // -----------------------------------------------------------------------------
 // threads (implemented per-os)
