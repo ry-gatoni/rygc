@@ -15,11 +15,11 @@ freetype_init(void)
 proc FreetypeFont
 freetype_open_font(Arena *arena, String8 font_path)
 {
-  String8 file_contents = os_read_entire_file(arena, font_path);
+  Buffer file_contents = os_read_entire_file(arena, font_path);
   FT_Open_Args open_args = {0};
   open_args.flags = FT_OPEN_MEMORY;
-  open_args.memory_base = file_contents.string;
-  open_args.memory_size = (FT_Long)file_contents.count;
+  open_args.memory_base = file_contents.mem;
+  open_args.memory_size = (FT_Long)file_contents.size;
 
   FT_Face face = 0;
   FT_Error open_face_result = FT_Open_Face(ft_state->library, &open_args, 0, &face);

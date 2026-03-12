@@ -241,11 +241,14 @@ render_end_frame(void)
     }
 
     // NOTE: move all batches onto the freelist
-    commands->last_batch->next = commands->batch_freelist;
-    commands->batch_freelist = commands->first_batch;
-    commands->first_batch = 0;
-    commands->last_batch = 0;
-    commands->batch_count = 0;
+    if(commands->first_batch)
+    {
+      commands->last_batch->next = commands->batch_freelist;
+      commands->batch_freelist = commands->first_batch;
+      commands->first_batch = 0;
+      commands->last_batch = 0;
+      commands->batch_count = 0;
+    }
 
     os_window_end_frame(commands->window);
   }

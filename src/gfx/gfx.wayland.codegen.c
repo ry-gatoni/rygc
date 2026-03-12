@@ -174,7 +174,7 @@ generate_code_from_wayland_xml(Arena *codegen_arena, ParsedXml protocol)
             str8_list_push(codegen_arena, &request_function_list,
                            Str8Lit("  PushBuffer buf = push_buffer_alloc_ex(scratch.arena, 1024, 4, 1);\n"));
             str8_list_push(codegen_arena, &request_function_list,
-                           Str8Lit("  WaylandMessageHeader *message_header = buf_push_struct(&buf, WaylandMessageHeader);\n"));
+                           Str8Lit("  Wayland_MessageHeader *message_header = buf_push_struct(&buf, Wayland_MessageHeader);\n"));
             str8_list_push_f(codegen_arena, &request_function_list,
                              "  message_header->object_id = %.*s_id;\n",
                              (int)interface_name.count, interface_name.string);

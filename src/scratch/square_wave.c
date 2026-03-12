@@ -117,17 +117,18 @@ main(int argc, char **argv)
   // -----------------------------------------------------------------------------
   // draw spectra
 
+  U32 const fft_sample_count = 1 << 14;
+
   S32 const image_width = 640;
   S32 const image_height = 480;
   U32 const background_color = color_u32_from_rgba(0x08, 0x0C, 0x1C, 0xFF);
 
   String8 aliased_bmp_name = Str8Lit("../data/test/aliased_square_spectrum.bmp");
 
-  U32 aliased_duration_samples_pow_2 = RoundUpPow2(aliased_duration_samples);
-  R32 *aliased_fft_samples = arena_push_array(arena, R32, aliased_duration_samples_pow_2);
-  CopyArray(aliased_fft_samples, aliased_samples, R32, aliased_duration_samples);
+  R32 *aliased_fft_samples = arena_push_array(arena, R32, fft_sample_count);
+  CopyArray(aliased_fft_samples, aliased_samples, R32, fft_sample_count);
 
-  FloatBuffer aliased_in = { .count = aliased_duration_samples_pow_2, .mem = aliased_fft_samples };
+  FloatBuffer aliased_in = { .count = fft_sample_count, .mem = aliased_fft_samples };
   ComplexBuffer aliased_spectrum = fft_re(arena, aliased_in);
 
   LoadedBmp aliased_bitmap = bmp_alloc(arena, image_width, image_height);
@@ -137,11 +138,10 @@ main(int argc, char **argv)
 
   String8 unaliased_bmp_name = Str8Lit("../data/test/unaliased_square_spectrum.bmp");
 
-  U32 unaliased_duration_samples_pow_2 = RoundUpPow2(aliased_duration_samples);
-  R32 *unaliased_fft_samples = arena_push_array(arena, R32, unaliased_duration_samples_pow_2);
-  CopyArray(unaliased_fft_samples, unaliased_samples, R32, unaliased_duration_samples);
+  R32 *unaliased_fft_samples = arena_push_array(arena, R32, fft_sample_count);
+  CopyArray(unaliased_fft_samples, unaliased_samples, R32, fft_sample_count);
 
-  FloatBuffer unaliased_in = { .count = unaliased_duration_samples_pow_2, .mem = unaliased_fft_samples };
+  FloatBuffer unaliased_in = { .count = fft_sample_count, .mem = unaliased_fft_samples };
   ComplexBuffer unaliased_spectrum = fft_re(arena, unaliased_in);
 
   LoadedBmp unaliased_bitmap = bmp_alloc(arena, image_width, image_height);

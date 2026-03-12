@@ -162,23 +162,24 @@ typedef struct Os_EventList
 // -----------------------------------------------------------------------------
 // helpers
 
-proc Os_Event* os_event_list_push_new(Arena *arena, Os_EventList *list, Os_EventKind kind);
+proc Os_Event* gfx__event_list_push_new(Arena *arena, Os_EventList *list, Os_EventKind kind);
 
 // -----------------------------------------------------------------------------
 // interface
 
-proc B32 os_gfx_init(void);
+proc B32 gfx_init(void);
+proc void gfx_uninit(void);
 
-proc Os_Handle os_open_window(String8 name, S32 width, S32 height);
-proc void os_close_window(Os_Handle window);
+proc Os_Handle gfx_window_open(String8 name, S32 width, S32 height);
+proc void gfx_window_close(Os_Handle window);
 
-proc Os_EventList os_events(Arena *arena);
+proc Os_EventList gfx_events(Arena *arena);
 
-proc V2S32 os_window_get_dim(Os_Handle window);
+proc V2S32 gfx_window_get_dim(Os_Handle window);
 
 // -----------------------------------------------------------------------------
 // rendering
 // TODO: move to render module
 
-proc void os_window_begin_frame(Os_Handle window);
-proc void os_window_end_frame(Os_Handle window);
+proc void gfx_window_begin_frame(Os_Handle window);
+proc void gfx_window_end_frame(Os_Handle window);

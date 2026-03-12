@@ -4,6 +4,7 @@
 #define GFX_BACKEND_WAYLAND 1
 #define GFX_BACKEND_WIN32 2
 
+// NOTE: default gfx backends
 #ifndef GFX_BACKEND
 #  if OS_LINUX
 #    define GFX_BACKEND GFX_BACKEND_WAYLAND
@@ -21,5 +22,5 @@
 #elif GFX_BACKEND == GFX_BACKEND_WIN32
 #  include "gfx.win32.h"
 #else
-#  error ERROR: `GFX_BACKEND` not defined
+#  error ERROR: unrecognized value for `GFX_BACKEND`
 #endif
