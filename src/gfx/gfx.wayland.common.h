@@ -38,12 +38,12 @@ struct Wayland_Id
   U32 id;
 };
 
-typedef struct WaylandTempId WaylandTempId;
-struct WaylandTempId
-{
-  WaylandTempId *next;
-  U32 id;
-};
+/* typedef struct WaylandTempId WaylandTempId; */
+/* struct WaylandTempId */
+/* { */
+/*   WaylandTempId *next; */
+/*   U32 id; */
+/* }; */
 
 /* typedef struct GlFramebuffer */
 /* { */
@@ -86,10 +86,18 @@ typedef enum Wayland_BackendFlag
 } Wayland_BackendFlag;
 
 typedef B32 (Wayland_CreateBufferProc)(Wayland_Window *window);
+/* typedef B32 (Wayland_WindowOpenProc)(Wayland_Window *window); */
+/* typedef B32 (Wayland_WindowCloseProc)(Wayland_Window *window); */
+typedef B32 (Wayland_WindowBeginFrameProc)(Wayland_Window *window);
+typedef B32 (Wayland_WindowEndFrameProc)(Wayland_Window *window);
 
 typedef struct Wayland_BackendApi
 {
   Wayland_CreateBufferProc *create_buffer;
+  /* Wayland_WindowOpenProc *open_window; */
+  /* Wayland_WindowCloseProc *close_window; */
+  Wayland_WindowBeginFrameProc *begin_frame;
+  Wayland_WindowEndFrameProc *end_frame;
 } Wayland_BackendApi;
 
 struct Wayland_Window
@@ -100,28 +108,32 @@ struct Wayland_Window
   Wayland_Id *wl_surface;
   Wayland_Id *xdg_surface;
   Wayland_Id *xdg_toplevel;
-  Wayland_Id *wl_shm_pool;
+  /* Wayland_Id *wl_shm_pool; */
 
   //Wayland_Id *zwp_linux_buffer_params_v1;
 
-  Wayland_Id *buffers[2];
-  U32 backbuffer_index;
-  Wayland_Id *gl_buffer;
+  //Wayland_Id *buffers[2];
+  //U32 backbuffer_index;
+  //Wayland_Id *gl_buffer;
 
   Wayland_Id *frame_callback;
   U32 last_frame_timestamp;
   U32 last_frame_ms_elapsed;
 
-  void *shared_memory;
-  U64 shared_memory_size;
+  /* void *shared_memory; */
+  /* U64 shared_memory_size; */
 
   //GlFramebuffer gl_framebuffer[2];
 
   //RenderTarget render_target;
   Wayland_Backend enabled_backend;
+  void *backends[Wayland_Backend_Count]; // NOTE: backend data
   /* void *software_backend; */
   /* void *ogl_backend; */
   /* void *vulkan_backend; */
+
+  U32 backbuffer_index;
+  Wayland_Id *buffers[2];
 
   U64 frame_index;
 
@@ -183,9 +195,9 @@ typedef struct WaylandState
   Wayland_Id *last_wl_buffer;
   U64 wl_buffer_count;
 
-  Wayland_Id *first_gl_buffer;
-  Wayland_Id *last_gl_buffer;
-  U64 gl_buffer_count;
+  /* Wayland_Id *first_gl_buffer; */
+  /* Wayland_Id *last_gl_buffer; */
+  /* U64 gl_buffer_count; */
 
   Wayland_Id *first_frame_callback;
   Wayland_Id *last_frame_callback;

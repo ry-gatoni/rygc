@@ -16,6 +16,8 @@ typedef struct Wayland_Window Wayland_Window;
 
 typedef struct WaylandGl_Framebuffer
 {
+  Wayland_Id *buffer;
+
   U32 color_texture;
   U32 depth_texture;
   U32 fbo;
@@ -42,12 +44,12 @@ struct WaylandGl_Window
 
   Wayland_Id *zwp_linux_buffer_params_v1;
   WaylandGl_Framebuffer framebuffers[2];
-  U32 backbuffer_index;
+  /* U32 backbuffer_index; */
 };
 
 typedef struct WaylandGL_State
 {
-  WaylandGl_Window *first_free_window;
+  WaylandGl_Window *freelist;
 
   EGLDisplay egl_display;
   EGLContext egl_context;
@@ -62,7 +64,7 @@ global WaylandGl_State *wayland_gl_state = 0;
 // -----------------------------------------------------------------------------
 // helpers
 
-proc WaylandGl_Window* wayland_gl__window_create(Wayland_Window *window);
+proc WaylandGl_Window* wayland_gl__window_create(Arena *arena);
 proc void wayland_gl__window_destroy(WaylandGl_Window *window);
 
 proc WaylandGl_Window* wayland_gl__window_get(Wayland_Window *window);
@@ -75,10 +77,12 @@ proc B32 wayland_gl__create_buffer(WaylandGl_Window *window);
 // functions
 
 proc B32 wayland_gl_init(void);
-proc void wayland_gl_close(void);
+proc void wayland_gl_uninit(void);
 
-proc B32 wayland_gl_window_open(Wayland_Window *window);
-proc void wayland_gl_window_close(Wayland_Window *window);
+proc WaylandGl_Window* wayland_gl_window_open(Wayland_Window *window);
+proc void wayland_gl_window_close(WaylandGl_Window *window);
+
+proc B32 wayland_gl_window_create_buffer(Wayland_Window *window);
 proc B32 wayland_gl_window_begin(Wayland_Window *window);
 proc B32 wayland_gl_window_end(Wayland_Window *window);
 

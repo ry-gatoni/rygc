@@ -9,14 +9,14 @@ gl_debug_message_callback(GLenum src, GLenum type, GLuint id, GLenum severity, G
 proc WaylandGl_Window*
 wayland_gl__window_get(Wayland_Window *window)
 {
-  WaylandGl_Window *result = window->ogl_backend;
+  WaylandGl_Window *result = window->backends[Wayland_Backend_opengl];
   return(result);
 }
 
 proc WaylandGl_Framebuffer
 wayland_gl__window_get_framebuffer(WaylandGl_Window *window)
 {
-  WaylandGl_Framebuffer result = window->framebuffers[window->backbuffer_index];
+  WaylandGl_Framebuffer result = window->framebuffers[window->wayland_window->backbuffer_index];
   return(result);
 }
 
@@ -38,23 +38,22 @@ wayland_gl__create_buffer(WaylandGl_Window *window)
 		params);
     ++wayland_state->zwp_linux_buffer_params_v1_count;
 
-    WaylandGl_Framebuffer framebuffer = window->framebuffers[window->backbuffer_index];
+    WaylandGl_Framebuffer *framebuffer = window->framebuffers + wayland_window->backbuffer_index;
     if(zwp_linux_buffer_params_v1_add(window->zwp_linux_buffer_params_v1->id,
-                                      framebuffer.fd,
+                                      framebuffer->fd,
                                       0,
-                                      framebuffer.offset,
-                                      framebuffer.stride,
-                                      framebuffer.modifier_hi,
-                                      framebuffer.modifier_lo))
+                                      framebuffer->offset,
+                                      framebuffer->stride,
+                                      framebuffer->modifier_hi,
+                                      framebuffer->modifier_lo))
     {
       Wayland_Id *buffer = wayland__new_id(wayland_window);
       if(zwp_linux_buffer_params_v1_create_immed(window->zwp_linux_buffer_params_v1->id, buffer->id,
-                                                 wayland_window->width, wayland_window->height, framebuffer.fourcc, 0))
+                                                 wayland_window->width, wayland_window->height, framebuffer->fourcc, 0))
       {
-        window->buffers[window->backbuffer_index] = buffer;
-        // TODO: do we really need separate lists for gl and non-gl buffers?
-        DLLPushBack(wayland_state->first_gl_buffer, wayland_state->last_gl_buffer, buffer);
-        ++wayland_state->gl_buffer_count;
+	wayland_window->buffers[wayland_window->backbuffer_index] = buffer;
+        DLLPushBack(wayland_state->first_wl_buffer, wayland_state->last_wl_buffer, buffer);
+        ++wayland_state->wl_buffer_count;
       } else {
         result = 0;
       }
@@ -207,39 +206,85 @@ wayland_gl_init(void)
     }
   }
 
+  Wayland_BackendApi *gl_backend = wayland_state->backends + Wayland_Backend_opengl;
+  gl_backend->create_buffer = wayland_gl_window_create_buffer;
+  gl_backend->begin_frame = wayland_gl_window_begin;
+  gl_backend->end_frame = wayland_gl_window_end;
+
   return(result);
 }
 
 proc void
-wayland_gl_close(void)
+wayland_gl_uninit(void)
 {
 
+}
+
+proc WaylandGl_Window*
+wayland_gl__window_create(Arena *arena)
+{
+  WaylandGl_Window *gl_window = wayland_gl_state->freelist;
+  if(gl_window)
+  {
+    SLLStackPop_N(wayland_gl_state->freelist, next_free);
+  }
+  else
+  {
+    gl_window = arena_push_struct(arena, WaylandGl_Window);
+  }
+  Assert(gl_window);
+  return(gl_window);
+}
+
+proc void
+wayland_gl__window_destroy(WaylandGl_Window *window)
+{
+  SLLStackPush_N(wayland_gl_state->freelist, window, next_free);
+}
+
+proc WaylandGl_Window*
+wayland_gl_window_open(Wayland_Window *window)
+{
+  Arena *arena = wayland_state->arena;
+  U64 arena_pre_pos = arena_pos(arena);
+  WaylandGl_Window *gl_window = wayland_gl__window_create(arena);
+  gl_window->wayland_window = window;
+
+  B32 result = wayland_gl__allocate_textures(gl_window);
+  if(!result)
+  {
+    arena_pop_to(arena, arena_pre_pos);
+    gl_window = 0;
+  }
+  return(gl_window);
+}
+
+proc void
+wayland_gl_window_close(WaylandGl_Window *window)
+{
+  // TODO: manage the lifetime of this thing
+  if(window->zwp_linux_buffer_params_v1)
+  {
+    zwp_linux_buffer_params_v1_destroy(window->zwp_linux_buffer_params_v1->id);
+    wayland__release_id(window->zwp_linux_buffer_params_v1);
+  }
+
+  for(U32 i = 0; i < ArrayCount(window->framebuffers); ++i)
+  {
+    glDeleteTextures(1, &window->framebuffers[i].color_texture);
+    glDeleteTextures(1, &window->framebuffers[i].depth_texture);
+    glDeleteFramebuffers(1, &window->framebuffers[i].fbo);
+  }
+
+  wayland_gl__window_destroy(window);
 }
 
 proc B32
-wayland_gl_window_open(Wayland_Window *window)
-{
-  WaylandGl_Window *gl_window = wayland_gl__window_create(window);
-  B32 result = wayland_gl__allocate_textures(gl_window);
-  return(result);
-}
-
-proc void
-wayland_gl_window_close(Wayland_Window *window)
+wayland_gl_window_create_buffer(Wayland_Window *window)
 {
   WaylandGl_Window *gl_window = wayland_gl__window_get(window);
-
-  zwp_linux_buffer_params_v1_destroy(gl_window->zwp_linux_buffer_params_v1->id);
-  wayland__release_id(gl_window->zwp_linux_buffer_params_v1);
-
-  for(U32 i = 0; i < ArrayCount(gl_window->framebuffers); ++i)
-  {
-    glDeleteTextures(1, &gl_window->framebuffers[i].color_texture);
-    glDeleteTextures(1, &gl_window->framebuffers[i].depth_texture);
-    glDeleteFramebuffers(1, &gl_window->framebuffers[i].fbo);
-  }
-
-  wayland_gl__window_destroy(gl_window);
+  B32 result = wayland_gl__create_buffer(gl_window);
+  return(result);
 }
 
 proc B32
@@ -248,10 +293,12 @@ wayland_gl_window_begin(Wayland_Window *window)
   WaylandGl_Window *gl_window = wayland_gl__window_get(window);
   WaylandGl_Framebuffer framebuffer = wayland_gl__window_get_framebuffer(gl_window);
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+  return(1);
 }
 
 proc B32
 wayland_gl_window_end(Wayland_Window *window)
 {
-
+  Unused(window);
+  return(1);
 }

@@ -21,17 +21,15 @@ main(int argc, char **argv)
   Unused(argv);
 
   if(!gfx_init()) return 1;
-  if(!render_init()) return 1;
+  //if(!render_init()) return 1;
 
   Os_Handle window = gfx_window_open(Str8Lit("3d filter"), 640, 480);
-  render_equip_window(window);
+  //render_equip_window(window);
 
   Arena *frame_arena = arena_alloc();
   B32 running = 1;
   while(running)
   {
-    render_begin_frame();
-
     Os_EventList events = gfx_events(frame_arena);
     for(Os_Event *event = events.first; event; event = event->next)
     {
@@ -42,7 +40,11 @@ main(int argc, char **argv)
       }
     }
 
-    render_end_frame();
+    //render_begin_frame();
+    gfx_window_begin_frame(window);
+
+    //render_end_frame();
+    gfx_window_end_frame(window);
     arena_clear(frame_arena);
   }
 

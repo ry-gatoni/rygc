@@ -6,11 +6,11 @@
 
 // NOTE: default wayland backend
 #ifndef WAYLAND_BACKEND
-#  define WAYLAND_BACKEND WAYLAND_BACKEND_OPENGL
+#  define WAYLAND_BACKEND (WAYLAND_BACKEND_SOFTWARE | WAYLAND_BACKEND_OPENGL)
 #endif
 
 #if WAYLAND_BACKEND & WAYLAND_BACKEND_SOFTWARE
-#  error TODO
+#  include "gfx.wayland.software.h"
 #endif
 #if WAYLAND_BACKEND & WAYLAND_BACKEND_OPENGL
 #  include "gfx.wayland.ogl.h"
