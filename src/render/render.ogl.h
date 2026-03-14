@@ -1,0 +1,105 @@
+typedef struct Ogl_Shader
+{
+  GLuint handle;
+  String8 log;
+} Ogl_Shader;
+
+typedef struct Ogl_Renderer
+{
+  GLuint vao;
+  GLuint vbo;
+  GLuint sampler;
+  GLint sampler_loc;
+  GLint transform_loc;
+
+  Ogl_Shader vert_shader;
+  Ogl_Shader frag_shader;
+  Ogl_Shader shader_prog;
+} Ogl_Renderer;
+
+global Ogl_Renderer *ogl_renderer = 0;
+
+global GLint ogl_fmts[] ={
+  [R_PixelFormat_rgba] = GL_RGBA,
+  [R_PixelFormat_abgr] = GL_BGRA,
+  [R_PixelFormat_red] = GL_RED,
+};
+
+global char vert_shader_src[] =
+  "#version 330\n"
+
+  "layout (location = 0) in vec4 pattern;"
+  "layout (location = 1) in vec4 p_min_max;\n"
+  "layout (location = 2) in vec4 uv_min_max;\n"
+  "layout (location = 3) in vec4 color;\n"
+  "layout (location = 4) in float angle;\n"
+  "layout (location = 5) in float level;\n"
+
+  "uniform mat4 transform;\n"
+
+  "out vec2 f_uv;\n"
+  "out vec4 f_color;\n"
+
+  "void main() {\n"
+  "  vec2 pattern_p = pattern.xy;\n"
+  "  vec2 pattern_uv = pattern.zw;\n"
+
+  "  vec2 quad_center = (p_min_max.zw + p_min_max.xy)*0.5;\n"
+  "  vec2 quad_half_dim = (p_min_max.zw - p_min_max.xy)*0.5;\n"
+
+  "  vec2 uv_min = uv_min_max.xy;\n"
+  "  vec2 uv_dim = uv_min_max.zw - uv_min_max.xy;\n"
+
+  "  vec2 scaled_pattern = quad_half_dim*pattern_p;\n"
+  "  float cosa = cos(angle);\n"
+  "  float sina = sin(angle);\n"
+  "  vec2 rot_pattern = vec2(cosa*scaled_pattern.x - sina*scaled_pattern.y, sina*scaled_pattern.x + cosa*scaled_pattern.y);\n"
+
+  "  vec2 pos = quad_center + rot_pattern;\n"
+  "  gl_Position = transform * vec4(pos, level, 1.0);\n"
+
+  "  f_uv = uv_min + uv_dim*pattern_uv;\n"
+
+  "  f_color = color;\n"
+  "}\n";
+
+global char frag_shader_src[] =
+  "#version 330\n"
+
+  "in vec2 f_uv;\n"
+  "in vec4 f_color;\n"
+
+  "uniform sampler2D atlas;\n"
+
+  "out vec4 out_color;\n"
+
+  "void main() {\n"
+  "  vec4 sampled = texture(atlas, f_uv);\n"
+  "  out_color = f_color * sampled;\n"
+  "}\n";
+
+global V4 quad_pattern[] = {
+  // NOTE: format is v_pos.x, v_pos.y, v_uv.x, v_uv.y
+  {-1.f, -1.f, 0.f, 0.f}, // bottom left
+  { 1.f, -1.f, 1.f, 0.f}, // bottom right
+  {-1.f,  1.f, 0.f, 1.f}, // top left
+  { 1.f,  1.f, 1.f, 1.f}, // top right
+};
+
+// -----------------------------------------------------------------------------
+// helpers
+
+proc GLuint ogl__handle_from_render_handle(R_Handle handle);
+proc R_Handle ogl__render_handle_from_handle(GLuint handle);
+
+proc Ogl_Shader ogl__make_shader(Arena *arena, char *src, GLenum kind);
+proc Ogl_Shader ogl__make_program(Arena *arena, GLuint *shaders, U32 shader_count);
+
+// -----------------------------------------------------------------------------
+// render functions
+
+proc R_Texture render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params);
+proc void render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels);
+
+proc R_Handle render_ogl_backend_init(Arena *arena);
+proc void render_ogl_end_frame(void);

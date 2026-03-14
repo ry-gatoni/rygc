@@ -108,15 +108,18 @@ font_pack(Arena *arena, LooseFont *loose_font)
   }
 
   // NOTE: build atlas
-  result->atlas = render_create_texture(atlas_w, atlas_h, 0);
+  //result->atlas = render_create_texture(atlas_w, atlas_h, 0);
+  /* result->atlas_width = atlas_w; */
+  /* result->atlas_height = atlas_h; */
+  U32 *atlas_pixels = os_memory_alloc(atlas_w*atlas_h*sizeof(*atlas_pixels));
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;
   glyph_idx = 0;
   for(FontPackNode *pack_node = first_pack_node;
       pack_node;
-      pack_node = pack_node->next, ++glyph_idx) {
-
+      pack_node = pack_node->next, ++glyph_idx)
+  {
     U32 x = pack_node->x;
     U32 y = pack_node->y;
     U32 w = pack_node->loose_glyph->width;
@@ -130,8 +133,18 @@ font_pack(Arena *arena, LooseFont *loose_font)
     glyph->uv.max.y = (y + h) * atlas_inv_h;
 
     // NOTE: copy bitmap data to atlas
-    render_update_texture(&result->atlas, x, y, w, h, R_PixelFormat_rgba, pack_node->loose_glyph->bitmap);
+    //render_update_texture(&result->atlas, x, y, w, h, R_PixelFormat_rgba, pack_node->loose_glyph->bitmap);
+    for(U32 row_idx = 0; row_idx < h; ++row_idx)
+    {
+      U32 *src_pixels = pack_node->loose_glyph->bitmap + row_idx*w;
+      U32 *dest_pixels = atlas_pixels + (y + row_idx)*atlas_w + x;
+      CopyArray(dest_pixels, src_pixels, U32, w);
+    }
   }
+
+  result->atlas_width = atlas_w;
+  result->atlas_height = atlas_h;
+  result->atlas_pixels = atlas_pixels;
 
   arena_release_scratch(scratch);
   return(result);
@@ -180,4 +193,32 @@ font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx)
   }
 
   return(cp);
+}
+
+// -----------------------------------------------------------------------------
+// rendering
+
+proc R_Font
+render_alloc_font(PackedFont *font)
+{
+  R_Texture texture = render_create_texture(font->atlas_width, font->atlas_height, font->atlas_pixels);
+
+  R_Font result = {0};
+  result.font = font;
+  result.texture = texture;
+  return(result);
+}
+
+proc void
+render_string(R_Font font, String8 string, V2 pos, R32 level, V4 color)
+{
+  for(U32 char_idx = 0; char_idx < string.count; ++char_idx)
+  {
+    U8 c = string.string[char_idx];
+    PackedGlyph *glyph = font_glyph_from_codepoint(font.font, c);
+
+    render_texture(font.atlas, rect2_offset(glyph->rect, pos), glyph->uv, 0, level, color);
+
+    pos.x += glyph->advance;
+  }
 }

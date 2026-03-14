@@ -1028,34 +1028,34 @@ wayland_window_open(String8 title, S32 width, S32 height)
 proc B32
 wayland_create_buffer(Wayland_Window *window)
 {
-  B32 result = 1;
-  Wayland_CreateBufferProc *create_buffer = 0;
-  switch(window->enabled_backend)
-  {
-    case Wayland_Backend_software:
-    {
-      create_buffer = wayland_state->backends[Wayland_Backend_software].create_buffer;
-      Assert(create_buffer);
-      result = create_buffer(window);
-    }break;
+  Wayland_CreateBufferProc *create_buffer = wayland_state->backends[window->enabled_backend].create_buffer;
+  /* switch(window->enabled_backend) */
+  /* { */
+  /*   case Wayland_Backend_software: */
+  /*   { */
+  /*     create_buffer = wayland_state->backends[Wayland_Backend_software].create_buffer; */
+  /*     Assert(create_buffer); */
+  /*     result = create_buffer(window); */
+  /*   }break; */
 
-    case Wayland_Backend_opengl:
-    {
-      create_buffer = wayland_state->backends[Wayland_Backend_opengl].create_buffer;
-      Assert(create_buffer);
-      result = create_buffer(window);
-    }break;
+  /*   case Wayland_Backend_opengl: */
+  /*   { */
+  /*     create_buffer = wayland_state->backends[Wayland_Backend_opengl].create_buffer; */
+  /*     Assert(create_buffer); */
+  /*     result = create_buffer(window); */
+  /*   }break; */
 
-    case Wayland_Backend_vulkan:
-    {
-      create_buffer = wayland_state->backends[Wayland_Backend_vulkan].create_buffer;
-      Assert(create_buffer);
-      result = create_buffer(window);
-    }break;
+  /*   case Wayland_Backend_vulkan: */
+  /*   { */
+  /*     create_buffer = wayland_state->backends[Wayland_Backend_vulkan].create_buffer; */
+  /*     Assert(create_buffer); */
+  /*     result = create_buffer(window); */
+  /*   }break; */
 
-    UnreachableDefault();
-  }
+  /*   UnreachableDefault(); */
+  /* } */
 
+  B32 result = create_buffer(window);
   return(result);
 }
 
@@ -1459,8 +1459,9 @@ wayland_window_get_dim(Wayland_Window *window)
 proc B32
 wayland_window_begin_frame(Wayland_Window *window)
 {
-  Unused(window);
-  return(1);
+  Wayland_WindowBeginFrameProc *begin_frame = wayland_state->backends[window->enabled_backend].begin_frame;
+  B32 result = begin_frame(window);
+  return(result);
 }
 
 /* proc void */

@@ -1,4 +1,6 @@
-// NOTE: loose font structures
+// -----------------------------------------------------------------------------
+// loose font structures
+
 typedef struct CodepointIndex CodepointIndex;
 struct CodepointIndex
 {
@@ -35,6 +37,9 @@ typedef struct LooseFont
   U32 line_height;
 } LooseFont;
 
+// -----------------------------------------------------------------------------
+// packed font structures
+
 typedef struct CodepointMapNode CodepointMapNode;
 struct CodepointMapNode
 {
@@ -56,12 +61,6 @@ typedef struct PackedGlyph
   R32 advance;
 } PackedGlyph;
 
-/* typedef struct GlTexture */
-/* {   */
-/*   S32 width; */
-/*   S32 height; */
-/* } GlTexture; */
-
 typedef struct PackedFont
 {
   S32 ascender;
@@ -74,7 +73,10 @@ typedef struct PackedFont
   U32 codepoint_map_count;
   CodepointMapBucket *codepoint_map;
 
-  R_Texture atlas;
+  S32 atlas_width;
+  S32 atlas_height;
+  U32 *atlas_pixels;
+  //R_Texture atlas;
 } PackedFont;
 
 typedef struct CodepointHashKey
@@ -83,7 +85,22 @@ typedef struct CodepointHashKey
   U64 hash;
 } CodepointHashKey;
 
+// -----------------------------------------------------------------------------
+// rendering
+
+typedef struct R_Font
+{
+  PackedFont *font;
+  R_Texture atlas;
+} R_Font;
+
+// -----------------------------------------------------------------------------
+// functions
+
 proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
 proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);
 proc PackedGlyph* font_glyph_from_codepoint(PackedFont *font, U32 codepoint);
 proc U32 font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx);
+
+proc R_Font render_alloc_font(PackedFont *font);
+proc void render_string(R_Font font, String8 string, V2 pos, R32 level, V4 color);
