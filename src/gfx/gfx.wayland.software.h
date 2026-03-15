@@ -35,6 +35,7 @@ proc B32 wayland_software__create_shm_buffer(WaylandSoftware_Window *window);
 proc WaylandSoftware_Window* wayland_software__window_create(Arena *arena);
 proc void wayland_software__window_destroy(WaylandSoftware_Window *window);
 proc WaylandSoftware_Window* wayland_software__window_get(Wayland_Window *window);
+proc U32* wayland_software__window_get_pixels(WaylandSoftware_Window *window);
 
 // -----------------------------------------------------------------------------
 // functions

@@ -55,6 +55,12 @@ typedef struct RangePtr
   U8 *opl;
 } RangePtr;
 
+typedef struct Buffer
+{
+  U64 size;
+  U8 *mem;
+} Buffer;
+
 #define proc static
 #define local static
 #define global static

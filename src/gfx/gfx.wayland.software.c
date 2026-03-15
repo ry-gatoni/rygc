@@ -115,6 +115,15 @@ wayland_software__window_get(Wayland_Window *window)
   return(result);
 }
 
+proc U32*
+wayland_software__window_get_pixels(WaylandSoftware_Window *window)
+{
+  Wayland_Window *wayland_window = window->wayland_window;
+  U32 *result = (U32*)((U8*)window->shared_memory +
+		       wayland_window->backbuffer_index*window->shared_memory_size/2);
+  return(result);
+}
+
 proc WaylandSoftware_Window*
 wayland_software_window_open(Wayland_Window *window)
 {

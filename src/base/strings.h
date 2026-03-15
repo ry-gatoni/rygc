@@ -52,6 +52,29 @@ typedef struct String8Array
 
 proc String8 str8(U8 *chars, U64 count);
 proc String8 str8_range(U8 *first, U8 *opl);
+proc String8 str8_from_buf(Buffer buf);
+
+// -----------------------------------------------------------------------------
+// parse utils
+
+proc B32 is_alpha(U8 c);
+proc B32 is_number(U8 c);
+proc B32 is_whitespace(U8 c);
+
+proc B32 str8_contains_char(String8 str, U8 c);
+proc U64 str8_idx_of_char_in_str(String8 str, U8 c);
+
+proc String8 str8_trim_whitespace(String8 str);
+proc String8 str8_strip_whitespace(Arena *arena, String8 str);
+
+proc Buffer str8_indices_of_char(Arena *arena, String8 str, U8 c);
+proc Buffer str8_indices_of_chars_in_string(Arena *arena, String8 str, String8 cs);
+
+// -----------------------------------------------------------------------------
+// parse
+
+proc String8 str8_parse_r64(String8 str, R64 *dest);
+proc String8 str8_parse_s64(String8 str, S64 *dest);
 
 // -----------------------------------------------------------------------------
 // push functions

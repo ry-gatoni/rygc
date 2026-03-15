@@ -11,15 +11,54 @@ buffer_alloc(Arena *arena, U64 size)
   return(result);
 }
 
+proc Buffer
+buffer_from_range(U8 *start, U8 *opl)
+{
+  Buffer result = {0};
+  result.mem = start;
+  result.size = IntFromPtr(opl - start);
+  return(result);
+}
+
+proc Buffer
+buf_from_str8(String8 str)
+{
+  Buffer result = {0};
+  result.mem = str.string;
+  result.size = str.count;
+  return(result);
+}
+
+// NOTE: I'm making the convention be that the buffer returns null if you try to
+// read past the end. It might make more sense to only return null if the buffer
+// is *empty*, and hard crash if the buffer has stuff but you try to read
+// more. I'm worried about a situation where you're looping until the buffer is
+// empty, but you have a bug and keep trying to read more from the buffer than
+// it has, thus entering an infinite loop. But maybe there's a situation where
+// you actually want it to return null if you try to read past the end and
+// there's still stuff in there. I haven't ever wanted that, but who knows?
+// - Ry (2026-03-14)
 proc U8*
 buf_consume_size(Buffer *buf, U64 size)
 {
   U8 *result = 0;
-  Assert(size <= buf->size);
-  if(size <= buf->size) {
+  //Assert(size <= buf->size);
+  if(size <= buf->size)
+  {
     result = buf->mem;
     buf->mem += size;
     buf->size -= size;
+  }
+  return(result);
+}
+
+proc B32
+buf_peek_char(Buffer buf, U8 c)
+{
+  B32 result = 0;
+  if(buf.size)
+  {
+    result = *buf.mem == c;
   }
   return(result);
 }

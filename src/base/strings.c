@@ -11,6 +11,9 @@ cstr_get_count(char *cstr)
   return(count);
 }
 
+// -----------------------------------------------------------------------------
+// constructors
+
 proc String8
 str8(U8 *chars, U64 count)
 {
@@ -25,6 +28,278 @@ str8_range(U8 *first, U8 *opl)
   String8 result = str8(first, count);
   return(result);
 }
+
+proc String8
+str8_from_buf(Buffer buf)
+{
+  String8 result = str8(buf.mem, buf.size);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// parse utils
+
+proc B32
+is_alpha(U8 c)
+{
+  B32 result = (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'));
+  return(result);
+}
+
+proc B32
+is_number(U8 c)
+{
+  B32 result = ('0' <= c && c <= '9');
+  return(result);
+}
+
+proc B32
+is_whitespace(U8 c)
+{
+  B32 result = (c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\v');
+  return(result);
+}
+
+proc B32
+str8_contains_char(String8 str, U8 c)
+{
+  B32 result = 0;
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  for(; at < opl; ++at)
+  {
+    if(*at == c)
+    {
+      result = 1;
+      break;
+    }
+  }
+  return(result);
+}
+
+proc U64
+str8_idx_of_char_in_str(String8 str, U8 c)
+{
+  U64 result = U64_MAX;
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  for(; at < opl; ++at)
+  {
+    if(*at == c)
+    {
+      result = IntFromPtr(at - str.string);
+      break;
+    }
+  }
+  return(result);
+}
+
+proc String8
+str8_trim_whitespace(String8 str)
+{
+  U8 *start = str.string;
+  U8 *opl = start + str.count;
+  while(is_whitespace(*start))
+  {
+    ++start;
+  }
+  if(start != opl)
+  {
+    while(is_whitespace(*(opl - 1)))
+    {
+      --opl;
+    }
+  }
+
+  String8 result = str8_range(start, opl);
+  return(result);
+}
+
+proc String8
+str8_strip_whitespace(Arena *arena, String8 str)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  U64 count = 0;
+  U8 *temp = arena_push_array(scratch.arena, U8, str.count);
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  for(; at < opl; ++at)
+  {
+    if(is_whitespace(*at)) continue;
+    temp[count++] = *at;
+  }
+
+  U8 *dest = arena_push_array(arena, U8, count);
+  CopyArray(dest, temp, U8, count);
+
+  arena_release_scratch(scratch);
+
+  String8 result = str8(dest, count);
+  return(result);
+}
+
+proc Buffer
+str8_indices_of_char(Arena *arena, String8 str, U8 c)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  U64 temp_idx_cursor = 0;
+  U64 temp_alloc_count = KB(1);
+  U64 *temp_indices = arena_push_array(scratch.arena, U64, temp_alloc_count);
+
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  for(; at < opl; ++at)
+  {
+    if(temp_idx_cursor == temp_alloc_count)
+    {
+      // NOTE: grow temp buffer
+      arena_push_array(scratch.arena, U64, temp_alloc_count);
+      temp_alloc_count *= 2;
+    }
+
+    if(*at == c)
+    {
+      temp_indices[temp_idx_cursor++] = IntFromPtr(at - str.string);
+    }
+  }
+
+  Buffer result = buffer_alloc(arena, temp_idx_cursor*sizeof(U64));
+  CopyArray(result.mem, temp_indices, U64, temp_idx_cursor);
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+proc Buffer
+str8_indices_of_chars_in_string(Arena *arena, String8 str, String8 cs)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  U64 temp_idx_cursor = 0;
+  U64 temp_alloc_count = KB(1);
+  U64 *temp_indices = arena_push_array(scratch.arena, U64, temp_alloc_count);
+
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  for(; at < opl; ++at)
+  {
+    if(temp_idx_cursor == temp_alloc_count)
+    {
+      // NOTE: grow temp buffer
+      arena_push_array(scratch.arena, U64, temp_alloc_count);
+      temp_alloc_count *= 2;
+    }
+
+    U64 idx = str8_idx_of_char_in_str(cs, *at);
+    if(idx != U64_MAX)
+    {
+      temp_indices[temp_idx_cursor++] = IntFromPtr(at - str.string);
+    }
+  }
+
+  Buffer result = buffer_alloc(arena, temp_idx_cursor*sizeof(U64));
+  CopyArray(result.mem, temp_indices, U64, temp_idx_cursor);
+
+  arena_release_scratch(scratch);
+  return(result);
+}
+
+// TODO: call a function written by someone who knows what they're doing
+proc String8
+str8_parse_r64(String8 str, R64 *dest)
+{
+  Assert(dest);
+
+  R64 result = 0.0;
+  R64 dec = 0.0;
+
+  B32 is_negative = 0;
+  B32 parsing_dec = 0;
+  U32 dec_places = 0;
+
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  if(*at == '+')
+  {
+    ++at;
+  }
+  else if(*at == '-')
+  {
+    is_negative = 1;
+    ++at;
+  }
+
+  for(; at < opl; ++at)
+  {
+    if(*at == '.')
+    {
+      parsing_dec = 1;
+      continue;
+    }
+
+    if(!is_number(*at))
+    {
+      break;
+    }
+
+    if(parsing_dec)
+    {
+      dec *= 10.0;
+      dec += (R64)(*at - '0');
+      ++dec_places;
+    }
+    else
+    {
+      result *= 10.0;
+      result += (R64)(*at - '0');
+    }
+  }
+
+  for(U32 i = 0; i < dec_places; ++i)
+  {
+    dec *= 0.1;
+  }
+  result += dec;
+  if(is_negative) result *= -1;
+  *dest = result;
+
+  return(str8_range(at, opl));
+}
+
+proc String8
+str8_parse_s64(String8 str, S64 *dest)
+{
+  S64 result = 0;
+  B32 is_negative = 0;
+
+  U8 *at = str.string;
+  U8 *opl = at + str.count;
+  if(*at == '+')
+  {
+    ++at;
+  }
+  else if(*at == '-')
+  {
+    ++at;
+    is_negative = 1;
+  }
+  for(; at < opl; ++at)
+  {
+    if(!is_number(*at)) break;
+    result *= 10;
+    result += (S64)(*at - '0');
+  }
+
+  if(is_negative) result *= -1;
+  *dest = result;
+
+  return(str8_range(at, opl));
+}
+
+// -----------------------------------------------------------------------------
+// push
 
 proc String8
 str8_push_f(Arena *arena, char *fmt, ...)
