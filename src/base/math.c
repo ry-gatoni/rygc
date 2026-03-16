@@ -159,6 +159,17 @@ v2_from_v2s32(V2S32 v)
 }
 
 // -----------------------------------------------------------------------------
+// utils
+
+proc V2
+v2_normalized(V2 v)
+{
+  R32 length = v2_length(v);
+  V2 result = v2_lmul(1.f/length, v);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
 // binops
 
 //
@@ -548,6 +559,85 @@ rect_dim(Rect2 rect)
 {
   V2 result = v2_sub(rect.max, rect.min);
   return(result);
+}
+
+// -----------------------------------------------------------------------------
+// complex
+
+// -----------------------------------------------------------------------------
+// construction
+
+proc C64
+c64(R32 re, R32 im)
+{
+  C64 result = { .re = re, .im = im};
+  return(result);
+}
+
+proc C64
+c64_from_v2(V2 v)
+{
+  C64 result = c64(v.x, v.y);
+  return(result);
+}
+
+proc V2
+v2_from_c64(C64 z)
+{
+  V2 result = v2(z.re, z.im);
+  return(result);
+}
+
+proc R32
+c64_mag_sq(C64 z)
+{
+  R32 result = z.re*z.re + z.im*z.im;
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// binops
+
+proc C64
+c64_add(C64 z, C64 w)
+{
+  C64 result = c64(z.re + w.re, z.im + w.im);
+  return(result);
+}
+
+proc C64
+c64_sub(C64 z, C64 w)
+{
+  C64 result = c64(z.re - w.re, z.im - w.im);
+  return(result);
+}
+
+proc C64
+c64_mul(C64 z, C64 w)
+{
+  C64 result = c64(z.re*w.re - z.im*w.im, z.re*w.im + z.im*w.re);
+  return(result);
+}
+
+proc C64
+c64_div(C64 z, C64 w)
+{
+  R32 w_mag_sq_inv = 1.f/c64_mag_sq(w);
+  C64 result = c64((z.re*w.re + z.im*w.im)*w_mag_sq_inv, (z.im*w.re - z.re*w.im)*w_mag_sq_inv);
+  return(result);
+}
+
+proc C64
+c64_lscale(R32 r, C64 z)
+{
+  C64 result = c64(r*z.re, r*z.im);
+  return(result);
+}
+
+proc C64
+c64_rscale(C64 z, R32 r)
+{
+  return(c64_lscale(r, z));
 }
 
 // -----------------------------------------------------------------------------

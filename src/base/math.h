@@ -68,6 +68,11 @@ proc V2S32 v2s32(S32 x, S32 y);
 proc V2 v2_from_v2s32(V2S32 v);
 
 // -----------------------------------------------------------------------------
+// utils
+
+proc V2 v2_normalized(V2 v);
+
+// -----------------------------------------------------------------------------
 // binops
 
 proc V2 v2_add(V2 v, V2 w);
@@ -182,6 +187,35 @@ proc Rect2 rect2_offset(Rect2 rect, V2 offset);
 
 proc V2 rect2_center(Rect2 rect);
 proc V2 rect_dim(Rect2 rect);
+
+// -----------------------------------------------------------------------------
+// complex
+
+typedef struct C64
+{
+  R32 re;
+  R32 im;
+} C64;
+
+// -----------------------------------------------------------------------------
+// constructors
+
+proc C64 c64(R32 re, R32 im);
+proc C64 c64_from_v2(V2 v);
+proc V2 v2_from_c64(C64 z);
+
+proc R32 c64_mag_sq(C64 z);
+
+// -----------------------------------------------------------------------------
+// binops
+
+proc C64 c64_add(C64 z, C64 w);
+proc C64 c64_sub(C64 z, C64 w);
+proc C64 c64_mul(C64 z, C64 w);
+proc C64 c64_div(C64 z, C64 w);
+
+proc C64 c64_lscale(R32 r, C64 z);
+proc C64 c64_rscale(C64 z, R32 r);
 
 // -----------------------------------------------------------------------------
 // matrices

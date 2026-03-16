@@ -140,9 +140,16 @@ filter_parse_string(Arena *arena, String8 poly)
     }
     else
     {
-      String8 term_str = str8_from_buf(term);
-      term_str = str8_parse_r64(term_str, &coeff);
-      term = buf_from_str8(term_str);
+      if(buf_peek_char(term, 'z'))
+      {
+	coeff = 1;
+      }
+      else
+      {
+	String8 term_str = str8_from_buf(term);
+	term_str = str8_parse_r64(term_str, &coeff);
+	term = buf_from_str8(term_str);
+      }
     }
 
     // NOTE: parse the power
@@ -240,6 +247,39 @@ filter_from_strings(Arena *arena, String8 zeros_poly, String8 poles_poly)
   return(result);
 }
 
+proc C64
+filter_evaluate_at(Filter f, C64 z)
+{
+  // TODO: SIMD the shit outta this
+
+  // NOTE: zeros
+  C64 num_result = {0};
+  {
+    C64 mcoeff = c64(f.zero_coeffs[0], 0);
+    for(U32 exp = 1; exp < f.zero_order + 1; ++exp)
+    {
+      C64 acoeff = c64(f.zero_coeffs[exp], 0);
+      mcoeff = c64_add(c64_mul(mcoeff, z), acoeff);
+    }
+    num_result = mcoeff;
+  }
+
+  // NOTE: poles
+  C64 den_result = {0};
+  {
+    C64 mcoeff = c64(f.zero_coeffs[0], 0);
+    for(U32 exp = 1; exp < f.pole_order + 1; ++exp)
+    {
+      C64 acoeff = c64(f.pole_coeffs[exp], 0);
+      mcoeff = c64_add(c64_mul(mcoeff, z), acoeff);
+    }
+    den_result = mcoeff;
+  }
+
+  C64 result = c64_div(num_result, den_result);
+  return(result);
+}
+
 // -----------------------------------------------------------------------------
 // rendering
 
@@ -315,11 +355,10 @@ main(int argc, char **argv)
   String8 zeros_string = Str8Lit("1 - z^2");
   String8 poles_string = Str8Lit("z^2");
   Filter filter = filter_from_strings(permanent_arena, zeros_string, poles_string);
-  Unused(filter);
 
   Camera camera = {0};
-  camera.pos = v2(0, 0);
-  camera.rot = 0.7 * PI32;
+  camera.pos = v2(-2.5f, -0.5f);
+  camera.rot = 1.8 * PI32;
   camera.zoom = 1;
   camera.fov = 0.5 * PI32;
 
@@ -432,16 +471,95 @@ main(int argc, char **argv)
     render_line_segment(camera.pos, plane_1, line_thickness, RenderLevel(camera), cone_color);
 
     // NOTE: cast rays
-    V4 const ray_pos_color = color_v4_from_rgba(0xFF, 0x7F, 0x00, 0xFF);
-    V2 const ray_pos_rect_dim = camera_rect_dim;
+    V4 const ray_line_color = color_v4_from_rgba(0x00, 0xFF, 0xFF, 0xFF);
+    V4 const ray_above_color = color_v4_from_rgba(0xFF, 0x7F, 0x00, 0xFF);
+    V4 const ray_below_color = color_v4_from_rgba(0x7F, 0xFF, 0x00, 0xFF);
+    V2 const ray_rect_dim = camera_rect_dim;
 
-    R32 const step_x = plane_center.x > camera.pos.x ? 1.f : -1.f;
-    R32 const step_y = plane_center.y > camera.pos.y ? 1.f : -1.f;
-    V2 ray_pos = camera.pos;
-    for(;;)
+#define RAY_COUNT 40
+    //R32 plane_len = v2_length(v2_sub(plane_1, plane_0));
+    for(U32 ray_idx = 0; ray_idx < RAY_COUNT; ++ray_idx)
     {
+      R32 camera_x = (2.f*(R32)ray_idx / RAY_COUNT) - 1.f;
+
+      V2 ray_pos = v2_add(plane_center, v2_lmul(camera_x, plane_v));
+      V2 start_pos = ray_pos;
+      fprintf(stderr, "inital pos: (%.4f, %.4f)\n", start_pos.x, start_pos.y);
+      render_rect(rect2_center_dim(start_pos, ray_rect_dim), 0, RenderLevel(camera), ray_line_color);
+
+      V2 ray_dir = v2_sub(start_pos, camera.pos);
+      //V2 ray_dir_norm = v2_normalized(ray_dir);
+
+      V2 delta_dist = v2(fabsf(1.f/ray_dir.x), fabsf(1.f/ray_dir.y));
+
+      S32 grid_x = floorf(ray_pos.x);
+      S32 grid_y = floorf(ray_pos.y);
+
+      // NOTE: quadrants
+      S32 step_x, step_y;
+      R32 side_dist_x, side_dist_y;
+      if(ray_dir.x < 0)
+      {
+	step_x = -1;
+	side_dist_x = (ray_pos.x - grid_x) * delta_dist.x;
+      }
+      else
+      {
+	step_x = 1;
+	side_dist_x = (grid_x + 1.f - ray_pos.x) * delta_dist.x;
+      }
+      if(ray_dir.y < 0)
+      {
+	step_y = -1;
+	side_dist_y = (ray_pos.y - grid_y) * delta_dist.y;
+      }
+      else
+      {
+	step_y = 1;
+	side_dist_y = (grid_y + 1.f - ray_pos.y) * delta_dist.y;
+      }
+
+      B32 done = 0;
+      for(;!done;)
+      {
+	if(side_dist_x < side_dist_y)
+	{
+	  ray_pos = v2_add(start_pos, v2_lmul(side_dist_x, ray_dir));
+	  side_dist_x += delta_dist.x;
+	  grid_x += step_x;
+	  fprintf(stderr, "incrementing x\n");
+	}
+	else
+	{
+	  ray_pos = v2_add(start_pos, v2_lmul(side_dist_y, ray_dir));
+	  side_dist_y += delta_dist.y;
+	  grid_y += step_y;
+	  fprintf(stderr, "incrementing y\n");
+	}
+	fprintf(stderr, "new pos: (%.4f, %.4f)\n", ray_pos.x, ray_pos.y);
+
+	C64 filter_val = filter_evaluate_at(filter, c64(grid_x, grid_y));
+	R32 filter_mag_sq = c64_mag_sq(filter_val);
+	V4 rect_color = filter_mag_sq > 1 ? ray_above_color : ray_below_color;
+	Rect2 ray_rect = rect2_center_dim(ray_pos, ray_rect_dim);
+	render_rect(ray_rect, 0, RenderLevel(camera), rect_color);
+
+	done = (grid_x < bottom_left_world.x || grid_x > top_right_world.x ||
+		grid_y < bottom_left_world.y || grid_y > top_right_world.y);
+      }
+
+      render_line_segment(camera.pos, ray_pos, line_thickness, RenderLevel(camera), ray_line_color);
+    }
+#if 0
+      // TODO: fix advance logic for each quadrant
       R32 ray_pos_next_x = (S32)(ray_pos.x + step_x);
       R32 ray_pos_next_y = (S32)(ray_pos.y + step_y);
+      /* R32 ray_pos_next_x = (S32)ray_pos.x; */
+      /* if(increase_x && ray_pos.x >= 0) ray_pos_next_x += 1; */
+      /* else if(!increase_x && ray_pos.x <= 0) ray_pos_next_x -= 1; */
+      /* R32 ray_pos_next_y = (S32)ray_pos.y; */
+      /* if(increase_y && ray_pos.y >= 0) ray_pos_next_y += 1; */
+      /* else if(!increase_y && ray_pos.y <= 0) ray_pos_next_y -= 1; */
 
       R32 ray_pos_next_x_derived_y =
 	(camera_direction.y / camera_direction.x) * (ray_pos_next_x - plane_center.x) + plane_center.y;
@@ -467,6 +585,10 @@ main(int argc, char **argv)
 	ray_pos = ray_pos_next_y_v;
       }
 
+      C64 filter_at_ray_pos = filter_evaluate_at(filter, c64_from_v2(ray_pos));
+      R32 filter_at_ray_pos_mag_sq = c64_mag_sq(filter_at_ray_pos);
+      V4 ray_pos_color = filter_at_ray_pos_mag_sq > 1 ? ray_pos_color_above : ray_pos_color_below;
+
       Rect2 ray_pos_rect = rect2_center_dim(ray_pos, ray_pos_rect_dim);
       render_rect(ray_pos_rect, 0, RenderLevel(camera), ray_pos_color);
 
@@ -476,7 +598,7 @@ main(int argc, char **argv)
 	break;
       }
     }
-    render_line_segment(camera.pos, ray_pos, line_thickness, RenderLevel(camera), ray_pos_color);
+    #endif
 
     render_end_frame();
     //gfx_window_end_frame(window);
