@@ -125,6 +125,23 @@ v2_polar(R32 mag, R32 angle)
 }
 
 // -----------------------------------------------------------------------------
+// proj/embed
+
+proc V4
+v4_embed_xy(V2 xy)
+{
+  V4 result = v4(xy.x, xy.y, 0, 0);
+  return(result);
+}
+
+proc V2
+v4_proj_xy(V4 v)
+{
+  V2 result = v2(v.x, v.y);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
 // casts
 
 proc V2S32
@@ -333,6 +350,13 @@ v4_hadamard(V4 v, V4 w)
   return(result);
 }
 
+proc R32
+v4_dot(V4 v, V4 w)
+{
+  R32 result = v.x*w.x + v.y*w.y + v.z*w.z + v.w*w.w;
+  return(result);
+}
+
 // -----------------------------------------------------------------------------
 // scalar from vector
 
@@ -533,9 +557,9 @@ rect_dim(Rect2 rect)
 // construction
 
 proc Mat3
-mat3(V3 c0, V3 c1, V3 c2)
+mat3(V3 r0, V3 r1, V3 r2)
 {
-  Mat3 result = {.c0 = c0, .c1 = c1, .c2 = c2};
+  Mat3 result = {.r0 = r0, .r1 = r1, .r2 = r2};
   return(result);
 }
 
@@ -547,9 +571,9 @@ mat3_id(void)
 }
 
 proc Mat4
-mat4(V4 c0, V4 c1, V4 c2, V4 c3)
+mat4(V4 r0, V4 r1, V4 r2, V4 r3)
 {
-  Mat4 result = {.c0 = c0, .c1 = c1, .c2 = c2, .c3 = c3};
+  Mat4 result = {.r0 = r0, .r1 = r1, .r2 = r2, .r3 = r3};
   return(result);
 }
 
@@ -578,9 +602,72 @@ mat4_screen_transform_ndc(V2S32 dim)
 {
   R32 a = 2.f/(R32)dim.width;
   R32 b = 2.f/(R32)dim.height;
-  Mat4 result = mat4(v4( a,  0,  0,  0),
-                     v4( 0,  b,  0,  0),
-                     v4( 0,  0,  1,  0),
-                     v4(-1, -1,  0,  1));
+  Mat4 result = mat4(v4(a, 0, 0, -1),
+                     v4(0, b, 0, -1),
+                     v4(0, 0, 1,  0),
+                     v4(0, 0, 0,  1));
+  return(result);
+}
+
+proc Mat4
+mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_units)
+{
+  R32 a = pixels_from_world_units;
+  R32 off_x = world_origin_in_screen_space.x;
+  R32 off_y = world_origin_in_screen_space.y;
+  Mat4 result = mat4(v4(a, 0, 0, off_x),
+		     v4(0, a, 0, off_y),
+		     v4(0, 0, 1,     0),
+		     v4(0, 0, 0,     1));
+  return(result);
+}
+
+proc Mat4
+mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels)
+{
+  return(mat4_screen_from_world(screen_origin_in_world_space, world_units_from_pixels));
+}
+
+proc Mat3
+mat3_mul(Mat3 m0, Mat3 m1)
+{
+  Mat3 result = {0};
+  for(U32 i = 0; i < 3; ++i)
+  {
+    for(U32 j = 0; j < 3; ++j)
+    {
+      for(U32 k = 0; k < 3; ++k)
+      {
+	result.v[i][j] += m0.v[i][k] * m1.v[k][j];
+      }
+    }
+  }
+  return(result);
+}
+
+proc Mat4
+mat4_mul(Mat4 m0, Mat4 m1)
+{
+  Mat4 result = {0};
+  for(U32 i = 0; i < 4; ++i)
+  {
+    for(U32 j = 0; j < 4; ++j)
+    {
+      for(U32 k = 0; k < 4; ++k)
+      {
+	result.v[i][j] += m0.v[i][k] * m1.v[k][j];
+      }
+    }
+  }
+  return(result);
+}
+
+proc V4
+mat4_transform(Mat4 m, V4 v)
+{
+  V4 result = v4(v4_dot(m.r0, v),
+		 v4_dot(m.r1, v),
+		 v4_dot(m.r2, v),
+		 v4_dot(m.r3, v));
   return(result);
 }

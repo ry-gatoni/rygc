@@ -44,7 +44,7 @@ render_begin_frame(void)
 
   commands->window_dim = gfx_window_get_dim(commands->window);
   // TODO: different transforms for different rendering backends??
-  commands->transform = mat4_screen_transform_ndc(commands->window_dim);
+  commands->transform_device_from_screen = mat4_screen_transform_ndc(commands->window_dim);
 }
 
 // -----------------------------------------------------------------------------
@@ -66,15 +66,16 @@ render_batch_alloc(B32 push_front)
     result->quads = arena_push_array_z(render_commands->arena, R_Quad, result->quad_cap);
   }
 
+  R_BatchList *list = render_commands->batch_lists + render_commands->active_transform;
   if(push_front)
   {
-    SLLQueuePushFront(render_commands->first_batch, render_commands->last_batch, result);
+    SLLQueuePushFront(list->first_batch, list->last_batch, result);
   }
   else
   {
-    SLLQueuePush(render_commands->first_batch, render_commands->last_batch, result);
+    SLLQueuePush(list->first_batch, list->last_batch, result);
   }
-  ++render_commands->batch_count;
+  ++list->batch_count;
 
   return(result);
 }
@@ -85,8 +86,9 @@ render_batch_for_texture(R_Texture *texture)
   R_Commands *commands = render_commands;
 
   R_Batch *batch = 0;
+  R_BatchList *list = commands->batch_lists + commands->active_transform;
   // NOTE: check if texture is already used in a batch
-  for(R_Batch *current_batch = commands->first_batch;
+  for(R_Batch *current_batch = list->first_batch;
       current_batch;
       current_batch = current_batch->next)
   {
@@ -105,6 +107,21 @@ render_batch_for_texture(R_Texture *texture)
   }
 
   return(batch);
+}
+
+// -----------------------------------------------------------------------------
+// transforms
+
+proc void
+render_set_world_transform(Mat4 mat)
+{
+  render_commands->transform_screen_from_world = mat;
+}
+
+proc void
+render_equip_push_transform(R_TransformKind transform)
+{
+  render_commands->active_transform = transform;
 }
 
 // -----------------------------------------------------------------------------
@@ -130,7 +147,8 @@ render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V
   quad->angle = angle;
   quad->level = level;
 
-  ++render_commands->total_quad_count;
+  R_BatchList *list = render_commands->batch_lists + render_commands->active_transform;
+  ++list->total_quad_count;
 }
 
 proc void

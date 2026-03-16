@@ -231,8 +231,6 @@ render_ogl_end_frame(void)
     glVertexAttribPointer(5, 1, GL_FLOAT, 0, sizeof(R_Quad),
                           PtrFromInt(pattern_size + OffsetOf(R_Quad, level)));
 
-    glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 0, (GLfloat*)commands->transform.v);
-
     glViewport(0, 0, commands->window_dim.width, commands->window_dim.height);
     glClearColor(0.2, 0.2, 0.2, 1);
     glClearDepth(1);
@@ -241,29 +239,41 @@ render_ogl_end_frame(void)
     // NOTE: render all batches
     ProfileScope(render_batches)
     {
-      for(R_Batch *batch = commands->first_batch; batch; batch = batch->next)
+      Mat4 transform = mat4_id();
+      for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind)
       {
-        ProfileScope(render_batch)
-        {
-          U64 size = batch->quad_count*sizeof(R_Quad);
-          glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);
+	R_BatchList *list = commands->batch_lists + kind;
+	transform = mat4_mul(transform, commands->transforms[kind]);
+	glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 1, (GLfloat*)transform.v);
 
-          glActiveTexture(GL_TEXTURE0);
-          glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
+	for(R_Batch *batch = list->first_batch; batch; batch = batch->next)
+	{
+	  ProfileScope(render_batch)
+	  {
+	    U64 size = batch->quad_count*sizeof(R_Quad);
+	    glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);
 
-          glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
-        }
+	    glActiveTexture(GL_TEXTURE0);
+	    glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
+
+	    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
+	  }
+	}
       }
     }
 
     // NOTE: move all batches onto the freelist
-    if(commands->first_batch)
+    for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind)
     {
-      commands->last_batch->next = commands->batch_freelist;
-      commands->batch_freelist = commands->first_batch;
-      commands->first_batch = 0;
-      commands->last_batch = 0;
-      commands->batch_count = 0;
+      R_BatchList *list = commands->batch_lists + kind;
+      if(list->first_batch)
+      {
+	list->last_batch->next = commands->batch_freelist;
+	commands->batch_freelist = list->first_batch;
+	list->first_batch = 0;
+	list->last_batch = 0;
+	list->batch_count = 0;
+      }
     }
 
     gfx_window_end_frame(commands->window);

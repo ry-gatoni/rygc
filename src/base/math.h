@@ -56,6 +56,12 @@ proc V4 v4(R32 x, R32 y, R32 z, R32 w);
 proc V2 v2_polar(R32 mag, R32 angle);
 
 // -----------------------------------------------------------------------------
+// proj/embed
+
+proc V4 v4_embed_xy(V2 xy);
+proc V2 v4_proj_xy(V4 v);
+
+// -----------------------------------------------------------------------------
 // casts
 
 proc V2S32 v2s32(S32 x, S32 y);
@@ -90,6 +96,7 @@ proc V4 v4_lmul(R32 a, V4 v);
 proc V4 v4_rmul(V4 v, R32 a);
 proc void v4_scale(V4 *v, R32 a);
 proc V4 v4_hadamard(V4 v, V4 w);
+proc R32 v4_dot(V4 v, V4 w);
 
 // -----------------------------------------------------------------------------
 // scalar from vector
@@ -181,23 +188,33 @@ proc V2 rect_dim(Rect2 rect);
 
 typedef union Mat3
 {
-  struct { V3 c0; V3 c1; V3 c2; };
+  struct { V3 r0; V3 r1; V3 r2; };
   R32 v[3][3];
 } Mat3;
 
 typedef union Mat4
 {
-  struct { V4 c0; V4 c1; V4 c2; V4 c3; };
+  struct { V4 r0; V4 r1; V4 r2; V4 r3; };
   R32 v[4][4];
 } Mat4;
 
 // -----------------------------------------------------------------------------
 // construction
 
-proc Mat3 mat3(V3 c0, V3 c1, V3 c2);
+proc Mat3 mat3(V3 r0, V3 r1, V3 r2);
 proc Mat3 mat3_id(void);
 
-proc Mat4 mat4(V4 c0, V4 c1, V4 c2, V4 c3);
+proc Mat4 mat4(V4 r0, V4 r1, V4 r2, V4 r3);
 proc Mat4 mat4_id(void);
 proc Mat4 mat4_yflip(void);
 proc Mat4 mat4_screen_transform_ndc(V2S32 dim);
+proc Mat4 mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
+proc Mat4 mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels);
+
+// -----------------------------------------------------------------------------
+// multiply
+
+proc Mat3 mat3_mul(Mat3 m0, Mat3 m1);
+proc Mat4 mat4_mul(Mat4 m0, Mat4 m1);
+
+proc V4 mat4_transform(Mat4 m, V4 v);

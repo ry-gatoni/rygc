@@ -42,6 +42,13 @@ typedef struct R_Texture
   void *pixels;
 } R_Texture;
 
+typedef enum R_TransformKind
+{
+  R_Transform_device_from_screen,
+  R_Transform_screen_from_world,
+  R_Transform_Count,
+} R_TransformKind;
+
 typedef struct R_Batch R_Batch;
 struct R_Batch
 {
@@ -56,21 +63,38 @@ struct R_Batch
 
 #define RENDER_BATCH_QUAD_CAP KB(4)
 
+typedef struct R_BatchList
+{
+  R_Batch *first_batch;
+  R_Batch *last_batch;
+  U32 batch_count;
+  U32 total_quad_count;
+} R_BatchList;
+
 typedef struct R_Commands
 {
   Arena *arena;
 
   Os_Handle window;
-
   V2S32 window_dim;
-  Mat4 transform;
-
-  R_Batch *first_batch;
-  R_Batch *last_batch;
-  U32 batch_count;
-  U32 total_quad_count;
 
   R_Texture white_texture;
+
+  R_TransformKind active_transform;
+  union {
+    struct {
+      Mat4 transform_device_from_screen;
+      Mat4 transform_screen_from_world;
+    };
+    Mat4 transforms[R_Transform_Count];
+  };
+  union {
+    struct {
+      R_BatchList screen_space_batches;
+      R_BatchList world_space_batches;
+    };
+    R_BatchList batch_lists[R_Transform_Count];
+  };
 
   R_Batch *batch_freelist;
 
@@ -109,6 +133,12 @@ proc void render_end_frame(void);
   render_create_texture_ex(width, height, pixels, &(R_TextureCreateParams){.pixel_fmt = R_PixelFormat_rgba, .internal_fmt = R_PixelFormat_rgba, __VA_ARGS__});
 proc R_Texture render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params);
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
+
+// -----------------------------------------------------------------------------
+// transforms
+
+proc void render_set_world_transform(Mat4 mat);
+proc void render_equip_push_transform(R_TransformKind transform);
 
 // -----------------------------------------------------------------------------
 // drawing
