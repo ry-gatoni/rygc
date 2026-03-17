@@ -24,3 +24,5 @@
 #else
 #  error ERROR: unrecognized value for `GFX_BACKEND`
 #endif
+
+#define GFX_LAYER

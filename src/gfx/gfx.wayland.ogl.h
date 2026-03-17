@@ -1,15 +1,10 @@
-#include <EGL/egl.h>
-#include <EGL/eglext.h> // TODO: runtime link egl
+/* #include <EGL/egl.h> */
+/* #include <EGL/eglext.h> // TODO: runtime link egl */
 
-#define GL_GLEXT_PROTOTYPES // TODO: runtime link opengl
-#include <GL/gl.h>
+#include "OpenGL/ogl.h"
 
-// TODO: find a better place for this
-#define GlTextureDefaultParams() \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
+/* #define GL_GLEXT_PROTOTYPES // TODO: runtime link opengl */
+/* #include <GL/gl.h> */
 
 typedef struct Wayland_Id Wayland_Id;
 typedef struct Wayland_Window Wayland_Window;

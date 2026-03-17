@@ -40,7 +40,8 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/lissajous.c -lfreetype -lxkbcommon -lEGL -lGL -ljack -ldl -o lissajous
 # clang $CFLAGS $SRC/scratch/chirp.c -o chirp && ./chirp
 # clang $CFLAGS $SRC/scratch/square_wave.c -o square_wave && ./square_wave
-clang $CFLAGS $SRC/scratch/3d_filter.c -o 3d_filter -lxkbcommon -lEGL -lGL
+# clang $CFLAGS $SRC/scratch/3d_filter.c -o 3d_filter -lxkbcommon -lEGL -lGL
+clang $CFLAGS $SRC/scratch/3d_filter2.c -o 3d_filter -lEGL -lGL
 
 popd > /dev/null # ./build -> ./src
 

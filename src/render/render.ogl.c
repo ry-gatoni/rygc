@@ -1,3 +1,5 @@
+#include "OpenGL/ogl.c"
+
 proc GLuint
 ogl__handle_from_render_handle(R_Handle handle)
 {
@@ -6,137 +8,138 @@ ogl__handle_from_render_handle(R_Handle handle)
 }
 
 proc R_Handle
-ogl__render_handle_from_handle(GLuint handle)
+render__handle_from_ogl_handle(GLuint handle)
 {
   R_Handle result = {0};
   result.handle = PtrFromInt(handle);
   return(result);
 }
 
-proc Ogl_Shader
-ogl__make_shader(Arena *arena, char *src, GLenum kind)
-{
-  GLuint shader_id = glCreateShader(kind);
-  glShaderSource(shader_id, 1, (const GLchar*const*)&src, 0);
-  glCompileShader(shader_id);
+/* proc Ogl_Shader */
+/* ogl__make_shader(Arena *arena, char *src, GLenum kind) */
+/* { */
+/*   GLuint shader_id = glCreateShader(kind); */
+/*   glShaderSource(shader_id, 1, (const GLchar*const*)&src, 0); */
+/*   glCompileShader(shader_id); */
 
-  String8 log = {0};
-  GLint info_log_length;
-  glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
-  if(info_log_length)
-  {
-    char *buffer = arena_push_array(arena, char, info_log_length + 1);
-    GLint len = 0;
-    glGetShaderInfoLog(shader_id, info_log_length + 1, &len, buffer);
-    log.count = len;
-    log.string = (U8*)buffer;
-  }
+/*   String8 log = {0}; */
+/*   GLint info_log_length; */
+/*   glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &info_log_length); */
+/*   if(info_log_length) */
+/*   { */
+/*     char *buffer = arena_push_array(arena, char, info_log_length + 1); */
+/*     GLint len = 0; */
+/*     glGetShaderInfoLog(shader_id, info_log_length + 1, &len, buffer); */
+/*     log.count = len; */
+/*     log.string = (U8*)buffer; */
+/*   } */
 
-  GLint compile_status;
-  glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_status);
-  if(compile_status == 0)
-  {
-    glDeleteShader(shader_id);
-    shader_id = 0;
-  }
+/*   GLint compile_status; */
+/*   glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_status); */
+/*   if(compile_status == 0) */
+/*   { */
+/*     glDeleteShader(shader_id); */
+/*     shader_id = 0; */
+/*   } */
 
-  Ogl_Shader result = {0};
-  result.handle = shader_id;
-  result.log = log;
-  return(result);
-}
+/*   Ogl_Shader result = {0}; */
+/*   result.handle = shader_id; */
+/*   result.log = log; */
+/*   return(result); */
+/* } */
 
-proc Ogl_Shader
-ogl__make_program(Arena *arena, GLuint *shaders, U32 shader_count)
-{
-  GLuint program_id = glCreateProgram();
-  for(U32 shader_idx = 0; shader_idx < shader_count; ++shader_idx)
-  { glAttachShader(program_id, shaders[shader_idx]); }
-  glLinkProgram(program_id);
+/* proc Ogl_Shader */
+/* ogl__make_program(Arena *arena, GLuint *shaders, U32 shader_count) */
+/* { */
+/*   GLuint program_id = glCreateProgram(); */
+/*   for(U32 shader_idx = 0; shader_idx < shader_count; ++shader_idx) */
+/*   { glAttachShader(program_id, shaders[shader_idx]); } */
+/*   glLinkProgram(program_id); */
 
-  String8 log = {0};
-  GLint info_log_length;
-  glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
-  if(info_log_length)
-  {
-    char *buffer = arena_push_array(arena, char, info_log_length + 1);
-    GLint len = 0;
-    glGetProgramInfoLog(program_id, info_log_length + 1, &len, buffer);
-    log.count = len;
-    log.string = (U8*)buffer;
-  }
+/*   String8 log = {0}; */
+/*   GLint info_log_length; */
+/*   glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length); */
+/*   if(info_log_length) */
+/*   { */
+/*     char *buffer = arena_push_array(arena, char, info_log_length + 1); */
+/*     GLint len = 0; */
+/*     glGetProgramInfoLog(program_id, info_log_length + 1, &len, buffer); */
+/*     log.count = len; */
+/*     log.string = (U8*)buffer; */
+/*   } */
 
-  GLint link_status;
-  glGetProgramiv(program_id, GL_LINK_STATUS, &link_status);
-  if(link_status == 0)
-  {
-    glDeleteProgram(program_id);
-    program_id = 0;
-  }
+/*   GLint link_status; */
+/*   glGetProgramiv(program_id, GL_LINK_STATUS, &link_status); */
+/*   if(link_status == 0) */
+/*   { */
+/*     glDeleteProgram(program_id); */
+/*     program_id = 0; */
+/*   } */
 
-  Ogl_Shader result = {0};
-  result.handle = program_id;
-  result.log = log;
-  return(result);
-}
+/*   Ogl_Shader result = {0}; */
+/*   result.handle = program_id; */
+/*   result.log = log; */
+/*   return(result); */
+/* } */
 
-proc R_Texture
-render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params)
-{
-  U32 handle;
-  glGenTextures(1, &handle);
-  glBindTexture(GL_TEXTURE_2D, handle);
+/* proc R_Texture */
+/* render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params) */
+/* { */
+/*   U32 handle; */
+/*   glGenTextures(1, &handle); */
+/*   glBindTexture(GL_TEXTURE_2D, handle); */
 
-  GLint internal_fmt = ogl_fmts[params->internal_fmt];
-  GLint pixel_fmt = ogl_fmts[params->pixel_fmt];
-  S32 width = dim.width;
-  S32 height = dim.height;
-  glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, width, height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params->wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params->wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+/*   GLint internal_fmt = ogl_fmts[params->internal_fmt]; */
+/*   GLint pixel_fmt = ogl_fmts[params->pixel_fmt]; */
+/*   S32 width = dim.width; */
+/*   S32 height = dim.height; */
+/*   glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, width, height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels); */
+/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); */
+/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); */
+/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params->wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE); */
+/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params->wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE); */
 
-  R_Texture result = {0};
-  result.handle = ogl__render_handle_from_handle(handle);//.handle = PtrFromInt(handle);
-  result.dim = dim;
-  result.pixels = pixels;
-  return(result);
-}
+/*   R_Texture result = {0}; */
+/*   result.handle = ogl__render_handle_from_handle(handle);//.handle = PtrFromInt(handle); */
+/*   result.dim = dim; */
+/*   result.pixels = pixels; */
+/*   return(result); */
+/* } */
 
-proc void
-render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels)
-{
-  //U32 handle = (U32)IntFromPtr(texture->handle.handle);
-  GLuint handle = ogl__handle_from_render_handle(texture->handle);
-  glBindTexture(GL_TEXTURE_2D, handle);
+/* proc void */
+/* render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels) */
+/* { */
+/*   //U32 handle = (U32)IntFromPtr(texture->handle.handle); */
+/*   GLuint handle = ogl__handle_from_render_handle(texture->handle); */
+/*   glBindTexture(GL_TEXTURE_2D, handle); */
 
-  S32 x = pos.x;
-  S32 y = pos.y;
-  S32 w = dim.width;
-  S32 h = dim.height;
-  glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, ogl_fmts[pixel_format], GL_UNSIGNED_BYTE, pixels);
-}
+/*   S32 x = pos.x; */
+/*   S32 y = pos.y; */
+/*   S32 w = dim.width; */
+/*   S32 h = dim.height; */
+/*   glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, ogl_fmts[pixel_format], GL_UNSIGNED_BYTE, pixels); */
+/* } */
 
 proc R_Handle
 render_ogl_backend_init(Arena *arena)
 {
+  R_Handle result = {0};
+  if(!ogl_init()) return(result);
+
   ogl_renderer = arena_push_struct(arena, Ogl_Renderer);
 
-  glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   glDepthFunc(GL_LESS);
 
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
-  ogl_renderer->vert_shader = ogl__make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);
+  ogl_renderer->vert_shader = ogl_make_shader(scratch.arena, vert_shader_src, GL_VERTEX_SHADER);
   if(ogl_renderer->vert_shader.log.count)
   {
     fprintf(stderr, "ERROR: vert_shader: %.*s\n",
             (int)ogl_renderer->vert_shader.log.count, ogl_renderer->vert_shader.log.string);
   }
 
-  ogl_renderer->frag_shader = ogl__make_shader(scratch.arena, frag_shader_src, GL_FRAGMENT_SHADER);
+  ogl_renderer->frag_shader = ogl_make_shader(scratch.arena, frag_shader_src, GL_FRAGMENT_SHADER);
   if(ogl_renderer->frag_shader.log.count)
   {
     fprintf(stderr, "ERROR: frag_shader: %.*s\n",
@@ -147,7 +150,7 @@ render_ogl_backend_init(Arena *arena)
     ogl_renderer->vert_shader.handle,
     ogl_renderer->frag_shader.handle,
   };
-  ogl_renderer->shader_prog = ogl__make_program(scratch.arena, shaders, ArrayCount(shaders));
+  ogl_renderer->shader_prog = ogl_make_program(scratch.arena, shaders, ArrayCount(shaders));
   if(ogl_renderer->shader_prog.log.count)
   {
     fprintf(stderr, "ERROR: shader_program: %.*s\n",
@@ -177,13 +180,12 @@ render_ogl_backend_init(Arena *arena)
 
   arena_release_scratch(scratch);
 
-  R_Handle result = {0};
   result.handle = ogl_renderer;
   return(result);
 }
 
 proc void
-render_ogl_end_frame(void)
+render_ogl_flush_commands(void)
 {
   ProfileFunction()
   {
@@ -276,7 +278,7 @@ render_ogl_end_frame(void)
       }
     }
 
-    gfx_window_end_frame(commands->window);
+    //gfx_window_end_frame(commands->window);
   }
 }
 
@@ -292,11 +294,36 @@ render_backend_init(Arena *arena)
 proc R_Texture
 render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params)
 {
-  return(render_ogl_create_texture(v2s32(width, height), pixels, params));
+  //return(render_ogl_create_texture(v2s32(width, height), pixels, params));
+  GLuint handle = ogl_create_texture(v2s32(width, height), pixels,
+				     ogl_fmts[params->internal_fmt], ogl_fmts[params->pixel_fmt],
+				     params->wrap_x, params->wrap_y);
+
+  R_Texture result = {0};
+  result.handle = render__handle_from_ogl_handle(handle);
+  result.dim.width = width;
+  result.dim.height = height;
+  result.pixels = pixels;
+  return(result);
+}
+
+proc R_Handle
+render_create_framebuffer(S32 width, S32 height)
+{
+  GLuint fbo = ogl_create_framebuffer(width, height);
+
+  R_Handle result = render__handle_from_ogl_handle(fbo);
+  return(result);
 }
 
 proc void
-render_end_frame(void)
+render_flush_commands(void)
 {
-  render_ogl_end_frame();
+  render_ogl_flush_commands();
 }
+
+/* proc void */
+/* render_end_frame(void) */
+/* { */
+/*   render_ogl_end_frame(); */
+/* } */

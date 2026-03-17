@@ -1,8 +1,6 @@
-typedef struct Ogl_Shader
-{
-  GLuint handle;
-  String8 log;
-} Ogl_Shader;
+/* #define GL_GLEXT_PROTOTYPES */
+/* #include <GL/gl.h> */
+#include "OpenGL/ogl.h"
 
 typedef struct Ogl_Renderer
 {
@@ -17,13 +15,13 @@ typedef struct Ogl_Renderer
   Ogl_Shader shader_prog;
 } Ogl_Renderer;
 
-global Ogl_Renderer *ogl_renderer = 0;
-
 global GLint ogl_fmts[] ={
   [R_PixelFormat_rgba] = GL_RGBA,
   [R_PixelFormat_abgr] = GL_BGRA,
   [R_PixelFormat_red] = GL_RED,
 };
+
+global Ogl_Renderer *ogl_renderer = 0;
 
 global char vert_shader_src[] =
   "#version 330\n"
@@ -90,16 +88,13 @@ global V4 quad_pattern[] = {
 // helpers
 
 proc GLuint ogl__handle_from_render_handle(R_Handle handle);
-proc R_Handle ogl__render_handle_from_handle(GLuint handle);
-
-proc Ogl_Shader ogl__make_shader(Arena *arena, char *src, GLenum kind);
-proc Ogl_Shader ogl__make_program(Arena *arena, GLuint *shaders, U32 shader_count);
+proc R_Handle render__handle_from_ogl_handle(GLuint handle);
 
 // -----------------------------------------------------------------------------
 // render functions
 
-proc R_Texture render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params);
-proc void render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels);
+/* proc R_Texture render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params); */
+/* proc void render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels); */
 
 proc R_Handle render_ogl_backend_init(Arena *arena);
-proc void render_ogl_end_frame(void);
+proc void render_ogl_flush_commands(void);

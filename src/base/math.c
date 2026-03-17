@@ -117,6 +117,13 @@ v4(R32 x, R32 y, R32 z, R32 w)
   return(result);
 }
 
+proc V4
+v4_from_v3_xyz(V3 xyz, R32 w)
+{
+  V4 result = v4(xyz.x, xyz.y, xyz.z, w);
+  return(result);
+}
+
 proc V2
 v2_polar(R32 mag, R32 angle)
 {
@@ -166,6 +173,22 @@ v2_normalized(V2 v)
 {
   R32 length = v2_length(v);
   V2 result = v2_lmul(1.f/length, v);
+  return(result);
+}
+
+proc V3
+v3_normalized(V3 v)
+{
+  R32 length = v3_length(v);
+  V3 result = v3_lmul(1.f/length, v);
+  return(result);
+}
+
+proc V4
+v4_normalized(V4 v)
+{
+  R32 length = v4_length(v);
+  V4 result = v4_lmul(1.f/length, v);
   return(result);
 }
 
@@ -232,6 +255,13 @@ v2_hadamard(V2 v, V2 w)
   return(result);
 }
 
+proc R32
+v2_dot(V2 v, V2 w)
+{
+  R32 result = v.x*w.x + v.y*w.y;
+  return(result);
+}
+
 //
 // v3
 //
@@ -292,6 +322,20 @@ proc V3
 v3_hadamard(V3 v, V3 w)
 {
   V3 result = v3(v.x * w.x, v.y * w.y, v.z * w.z);
+  return(result);
+}
+
+proc R32
+v3_dot(V3 v, V3 w)
+{
+  R32 result = v.x*w.x + v.y*w.y + v.z*w.z;
+  return(result);
+}
+
+proc V3
+v3_cross(V3 v, V3 w)
+{
+  V3 result = v3(v.y*w.z - v.z*w.y, -v.x*w.z + v.z*w.x, v.x*w.y - v.y*w.x);
   return(result);
 }
 
@@ -374,7 +418,7 @@ v4_dot(V4 v, V4 w)
 proc R32
 v2_length(V2 v)
 {
-  R32 result = rygc_sqrt(v.x*v.x + v.y*v.y);
+  R32 result = rygc_sqrt(v2_dot(v, v));
   return(result);
 }
 
@@ -382,6 +426,20 @@ proc R32
 v2_angle(V2 v)
 {
   R32 result = rygc_atan2(v.x, v.y);
+  return(result);
+}
+
+proc R32
+v3_length(V3 v)
+{
+  R32 result = rygc_sqrt(v3_dot(v, v));
+  return(result);
+}
+
+proc R32
+v4_length(V4 v)
+{
+  R32 result = rygc_sqrt(v4_dot(v, v));
   return(result);
 }
 
@@ -716,6 +774,16 @@ proc Mat4
 mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels)
 {
   return(mat4_screen_from_world(screen_origin_in_world_space, world_units_from_pixels));
+}
+
+proc Mat4
+mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp)
+{
+  Mat4 result = mat4(v4_from_v3_xyz(cx, -v3_dot(cx, cp)),
+		     v4_from_v3_xyz(cy, -v3_dot(cy, cp)),
+		     v4_from_v3_xyz(cz, -v3_dot(cz, cp)),
+		     v4(0, 0, 0, 1));
+  return(result);
 }
 
 proc Mat3

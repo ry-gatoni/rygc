@@ -118,6 +118,9 @@ proc R_Handle render_backend_init(Arena *arena);
 /* typedef struct PackedFont R_Font; */
 /* proc R_Font* render_alloc_font(struct LooseFont *loose_font); */
 
+proc void render_flush_commands(void);
+
+#if defined GFX_LAYER
 // -----------------------------------------------------------------------------
 // windowing
 
@@ -126,13 +129,16 @@ proc void render_equip_window(Os_Handle window);
 proc void render_begin_frame(void);
 proc void render_end_frame(void);
 
+#endif
 // -----------------------------------------------------------------------------
 // textures
 
 #define render_create_texture(width, height, pixels, ...)\
-  render_create_texture_ex(width, height, pixels, &(R_TextureCreateParams){.pixel_fmt = R_PixelFormat_rgba, .internal_fmt = R_PixelFormat_rgba, __VA_ARGS__});
+  render_create_texture_ex(width, height, pixels, &(R_TextureCreateParams){.pixel_fmt = R_PixelFormat_rgba, .internal_fmt = R_PixelFormat_rgba, __VA_ARGS__})
 proc R_Texture render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params);
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
+
+proc R_Handle render_create_framebuffer(S32 width, S32 height);
 
 // -----------------------------------------------------------------------------
 // transforms

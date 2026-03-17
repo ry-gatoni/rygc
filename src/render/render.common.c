@@ -27,6 +27,7 @@ render_init(void)
 /*   return(result); */
 /* } */
 
+#if defined(GFX_LAYER)
 // -----------------------------------------------------------------------------
 // windowing
 
@@ -47,6 +48,14 @@ render_begin_frame(void)
   commands->transform_device_from_screen = mat4_screen_transform_ndc(commands->window_dim);
 }
 
+proc void
+render_end_frame(void)
+{
+  render_flush_commands();
+  gfx_window_end_frame();
+}
+
+#endif
 // -----------------------------------------------------------------------------
 // batch helpers
 

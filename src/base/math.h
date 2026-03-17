@@ -53,6 +53,8 @@ proc V2 v2(R32 x, R32 y);
 proc V3 v3(R32 x, R32 y, R32 z);
 proc V4 v4(R32 x, R32 y, R32 z, R32 w);
 
+proc V4 v4_from_v3_xyz(V3 xyz, R32 w);
+
 proc V2 v2_polar(R32 mag, R32 angle);
 
 // -----------------------------------------------------------------------------
@@ -71,6 +73,8 @@ proc V2 v2_from_v2s32(V2S32 v);
 // utils
 
 proc V2 v2_normalized(V2 v);
+proc V3 v3_normalized(V3 v);
+proc V4 v4_normalized(V4 v);
 
 // -----------------------------------------------------------------------------
 // binops
@@ -83,6 +87,7 @@ proc V2 v2_lmul(R32 a, V2 v);
 proc V2 v2_rmul(V2 v, R32 a);
 proc void v2_scale(V2 *v, R32 a);
 proc V2 v2_hadamard(V2 v, V2 w);
+proc R32 v2_dot(V2 v, V2 w);
 
 proc V3 v3_add(V3 v, V3 w);
 proc V3 v3_sub(V3 v, V3 w);
@@ -92,6 +97,8 @@ proc V3 v3_lmul(R32 a, V3 v);
 proc V3 v3_rmul(V3 v, R32 a);
 proc void v3_scale(V3 *v, R32 a);
 proc V3 v3_hadamard(V3 v, V3 w);
+proc R32 v3_dot(V3 v, V3 w);
+proc V3 v3_cross(V3 v, V3 w);
 
 proc V4 v4_add(V4 v, V4 w);
 proc V4 v4_sub(V4 v, V4 w);
@@ -108,6 +115,9 @@ proc R32 v4_dot(V4 v, V4 w);
 
 proc R32 v2_length(V2 v);
 proc R32 v2_angle(V2 v);
+
+proc R32 v3_length(V3 v);
+proc R32 v4_length(V4 v);
 
 // -----------------------------------------------------------------------------
 // interpolation
@@ -240,10 +250,12 @@ proc Mat3 mat3_id(void);
 
 proc Mat4 mat4(V4 r0, V4 r1, V4 r2, V4 r3);
 proc Mat4 mat4_id(void);
+
 proc Mat4 mat4_yflip(void);
 proc Mat4 mat4_screen_transform_ndc(V2S32 dim);
 proc Mat4 mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
 proc Mat4 mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels);
+proc Mat4 mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp);
 
 // -----------------------------------------------------------------------------
 // multiply

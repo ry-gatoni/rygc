@@ -1,6 +1,32 @@
 #if OS_WINDOWS
 #  include "OpenGl/windows/ogl_win32.c"
+#elif OS_LINUX
+#  include "ogl.linux.c"
 #endif
+
+proc B32
+ogl_init(void)
+{
+  B32 result = 1;
+
+#if OS_WINDOWS
+  result = ogl_win32_init();
+#elif OS_LINUX
+  result = ogl_linux_init();
+#endif
+
+  if(result)
+  {
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(ogl_debug_message_callback, 0);
+
+    glEnable(GL_BLEND);
+
+    glEnable(GL_DEPTH_TEST);
+  }
+
+  return(result);
+}
 
 proc Ogl_Shader
 ogl_make_shader(Arena *arena, char *src, GLenum kind)
@@ -69,6 +95,67 @@ ogl_make_program(Arena *arena, GLuint *shaders, U32 shader_count)
   return(result);
 }
 
+proc GLuint
+ogl_create_texture(V2S32 dim, void *pixels, GLint internal_fmt, GLint pixel_fmt, B32 wrap_x, B32 wrap_y)
+{
+  GLuint handle;
+  glGenTextures(1, &handle);
+  glBindTexture(GL_TEXTURE_2D, handle);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, dim.width, dim.height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+
+  return(handle);
+}
+
+proc void
+ogl_update_texture(GLuint tex, V2S32 pos, V2S32 dim, GLint pixel_fmt, void *pixels)
+{
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, pos.x, pos.y, dim.width, dim.height, pixel_fmt, GL_UNSIGNED_BYTE, pixels);
+}
+
+proc GLuint
+ogl_create_framebuffer(S32 width, S32 height)
+{
+  GLuint color_tex, depth_tex;
+  glGenTextures(1, &color_tex);
+  glGenTextures(1, &depth_tex);
+
+  glBindTexture(GL_TEXTURE_2D, color_tex);
+  GLTextureDefaultParams();
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+	       width, height, 0, GL_RGBA,
+	       GL_UNSIGNED_BYTE, 0);
+
+  glBindTexture(GL_TEXTURE_2D, depth_tex);
+  GLTextureDefaultParams();
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
+	       width, height, 0, GL_DEPTH_STENCIL,
+	       GL_UNSIGNED_INT_24_8, 0);
+
+  GLuint fbo;
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_tex, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_tex, 0);
+
+  return(fbo);
+}
+
+proc void
+ogl_debug_message_callback(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei len,
+			   const GLchar *msg, const void *user_param)
+{
+  Unused(user_param);
+  fprintf(stderr, "src=%u, type=%u, id=%u, severity=%u: %.*s\n", src, type, id, severity, len, msg);
+}
+
+
+#if 0
 // -----------------------------------------------------------------------------
 // render implementations
 
@@ -101,3 +188,4 @@ render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 h
 
   glTexSubImage2D(GL_TEXTURE_2D, 0, pos_x, pos_y, width, height, ogl_fmts[format], GL_UNSIGNED_BYTE, pixels);
 }
+#endif
