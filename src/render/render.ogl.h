@@ -54,7 +54,9 @@ global char vert_shader_src[] =
   "  vec2 rot_pattern = vec2(cosa*scaled_pattern.x - sina*scaled_pattern.y, sina*scaled_pattern.x + cosa*scaled_pattern.y);\n"
 
   "  vec2 pos = quad_center + rot_pattern;\n"
-  "  gl_Position = transform * vec4(pos, level, 1.0);\n"
+  /* "  gl_Position = transform * vec4(pos, level, 1.0);\n" */
+  "  vec4 transformed = transform * vec4(pos, 0, 1.0);\n"
+  "  gl_Position = vec4(transformed.xy, level*transformed.w, transformed.w);\n"
 
   "  f_uv = uv_min + uv_dim*pattern_uv;\n"
 

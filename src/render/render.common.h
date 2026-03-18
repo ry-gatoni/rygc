@@ -76,7 +76,10 @@ typedef struct R_Commands
   Arena *arena;
 
   Os_Handle window;
-  V2S32 window_dim;
+
+  V2S32 viewport_dim;
+
+  V4 clear_color;
 
   R_Texture white_texture;
 
@@ -139,15 +142,19 @@ proc R_Texture render_create_texture_ex(S32 width, S32 height, void *pixels, R_T
 proc void render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels);
 
 proc R_Handle render_create_framebuffer(S32 width, S32 height);
+proc void render_read_framebuffer_pixels(R_Handle framebuffer, V2S32 pos, V2S32 dim, U32 *pixels);
 
 // -----------------------------------------------------------------------------
 // transforms
 
+proc void render_set_viewport_dim(V2S32 dim);
 proc void render_set_world_transform(Mat4 mat);
 proc void render_equip_push_transform(R_TransformKind transform);
 
 // -----------------------------------------------------------------------------
 // drawing
+
+proc void render_set_clear_color(V4 color);
 
 // TODO: separate drawing layer?
 proc void render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V4 color);

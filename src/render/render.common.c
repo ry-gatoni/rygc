@@ -7,6 +7,8 @@ render_init(void)
 
   commands->renderer = render_backend_init(arena);
 
+  commands->clear_color = color_v4_from_rgba(0x40, 0x40, 0x40, 0xFF);
+
   // NOTE: generate white texture
   U32 white[] = { 0xFFFFFFFF };
   commands->white_texture = render_create_texture(1, 1, white);
@@ -122,6 +124,14 @@ render_batch_for_texture(R_Texture *texture)
 // transforms
 
 proc void
+render_set_viewport_dim(V2S32 dim)
+{
+  Mat4 mat = mat4_screen_transform_ndc(dim);
+  render_commands->transform_device_from_screen = mat;
+  render_commands->viewport_dim = dim;
+}
+
+proc void
 render_set_world_transform(Mat4 mat)
 {
   render_commands->transform_screen_from_world = mat;
@@ -135,6 +145,12 @@ render_equip_push_transform(R_TransformKind transform)
 
 // -----------------------------------------------------------------------------
 // drawing
+
+proc void
+render_set_clear_color(V4 color)
+{
+  render_commands->clear_color = color;
+}
 
 proc void
 render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V4 color)

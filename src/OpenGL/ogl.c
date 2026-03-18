@@ -147,6 +147,13 @@ ogl_create_framebuffer(S32 width, S32 height)
 }
 
 proc void
+ogl_read_framebuffer_pixels(GLuint fbo, V2S32 pos, V2S32 dim, void *pixels)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glReadPixels(pos.x, pos.y, dim.width, dim.height, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+}
+
+proc void
 ogl_debug_message_callback(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei len,
 			   const GLchar *msg, const void *user_param)
 {

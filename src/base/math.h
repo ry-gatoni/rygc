@@ -254,8 +254,9 @@ proc Mat4 mat4_id(void);
 proc Mat4 mat4_yflip(void);
 proc Mat4 mat4_screen_transform_ndc(V2S32 dim);
 proc Mat4 mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
-proc Mat4 mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels);
+proc Mat4 mat4_world_from_screen(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
 proc Mat4 mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp);
+proc Mat4 mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp);
 
 // -----------------------------------------------------------------------------
 // multiply

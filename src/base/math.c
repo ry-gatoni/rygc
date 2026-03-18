@@ -750,10 +750,10 @@ mat4_screen_transform_ndc(V2S32 dim)
 {
   R32 a = 2.f/(R32)dim.width;
   R32 b = 2.f/(R32)dim.height;
-  Mat4 result = mat4(v4(a, 0, 0, -1),
-                     v4(0, b, 0, -1),
-                     v4(0, 0, 1,  0),
-                     v4(0, 0, 0,  1));
+  Mat4 result = mat4(v4(a, 0,  0, -1),
+                     v4(0, b,  0, -1),
+                     v4(0, 0,  1,  0),
+                     v4(0, 0, -1,  0));
   return(result);
 }
 
@@ -771,9 +771,13 @@ mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_un
 }
 
 proc Mat4
-mat4_world_from_screen(V2 screen_origin_in_world_space, R32 world_units_from_pixels)
+mat4_world_from_screen(V2 world_origin_in_screen_space, R32 pixels_from_world_units)
 {
-  return(mat4_screen_from_world(screen_origin_in_world_space, world_units_from_pixels));
+  R32 world_units_from_pixels = 1.f / pixels_from_world_units;
+  Mat4 result = mat4_screen_from_world(v2_lmul(-world_units_from_pixels,
+					       world_origin_in_screen_space),
+				       world_units_from_pixels);
+  return(result);
 }
 
 proc Mat4
@@ -783,6 +787,16 @@ mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp)
 		     v4_from_v3_xyz(cy, -v3_dot(cy, cp)),
 		     v4_from_v3_xyz(cz, -v3_dot(cz, cp)),
 		     v4(0, 0, 0, 1));
+  return(result);
+}
+
+proc Mat4
+mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp)
+{
+  Mat4 result = mat4(v4(cx.x, cy.x, cz.x, cp.x),
+		     v4(cx.y, cy.y, cz.y, cp.y),
+		     v4(cx.z, cy.z, cz.z, cp.z),
+		     v4(   0,    0,    0,    1));
   return(result);
 }
 

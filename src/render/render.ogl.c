@@ -233,8 +233,10 @@ render_ogl_flush_commands(void)
     glVertexAttribPointer(5, 1, GL_FLOAT, 0, sizeof(R_Quad),
                           PtrFromInt(pattern_size + OffsetOf(R_Quad, level)));
 
-    glViewport(0, 0, commands->window_dim.width, commands->window_dim.height);
-    glClearColor(0.2, 0.2, 0.2, 1);
+    glViewport(0, 0, commands->viewport_dim.width, commands->viewport_dim.height);
+
+    V4 clear_color = commands->clear_color;
+    glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
     glClearDepth(1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -314,6 +316,13 @@ render_create_framebuffer(S32 width, S32 height)
 
   R_Handle result = render__handle_from_ogl_handle(fbo);
   return(result);
+}
+
+proc void
+render_read_framebuffer_pixels(R_Handle framebuffer, V2S32 pos, V2S32 dim, U32 *pixels)
+{
+  GLuint fbo = ogl__handle_from_render_handle(framebuffer);
+  ogl_read_framebuffer_pixels(fbo, pos, dim, pixels);
 }
 
 proc void
