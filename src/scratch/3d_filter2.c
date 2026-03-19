@@ -1,9 +1,11 @@
 #include "base/base.h"
 #include "file_formats/bmp.h"
+#include "font/font.h"
 #include "render/render.h"
 
 #include "base/base.c"
 #include "file_formats/bmp.c"
+#include "font/font.c"
 #include "render/render.c"
 
 #define IMAGE_WIDTH  640
@@ -42,10 +44,18 @@ main(int argc, char **argv)
   Unused(argc);
   Unused(argv);
 
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
   if(!render_init()) return(1);
 
   Arena *arena = arena_alloc();
   LoadedBmp bmp = bmp_alloc(arena, IMAGE_WIDTH, IMAGE_HEIGHT);
+
+  String8 font_file_path = Str8Lit(DATA_DIR"/font/LiberationMono-Regular.ttf");
+  U32 font_pt_size = 32;
+  LooseFont loose_font = font_parse(scratch.arena, font_file_path, font_pt_size);
+  PackedFont *packed_font = font_pack(arena, &loose_font);
+  R_Font font = render_alloc_font(packed_font);
 
   V2S32 image_dim = v2s32(IMAGE_WIDTH, IMAGE_HEIGHT);
   R_Handle framebuffer = render_create_framebuffer(IMAGE_WIDTH, IMAGE_HEIGHT);
@@ -119,15 +129,27 @@ main(int argc, char **argv)
   R32 const line_thickness = world_units_from_pixels * line_thickness_px;
   for(R32 x = floorf(image_left_world) + 1; x < image_right_world; x += 1.f)
   {
+    B32 on_axis = fabsf(x) < 1e-3;
+#if 0
+    if(on_axis)
+    {
+      render_equip_push_transform(R_Transform_device_from_screen);
+      render_string(&font, Str8Lit("Y"), image_center, RenderLevel(grid), v4(1, 1, 1, 1));
+      render_equip_push_transform(R_Transform_screen_from_world);
+    }
+#endif
+
     Rect2 vert_line = rect2_min_dim(v2(x, image_bottom_world),
 				    v2(line_thickness, image_dim_world.y));
-    render_rect(vert_line, 0, RenderLevel(grid), fabsf(x) < 1e-3 ? axis_color : line_color);
+    render_rect(vert_line, 0, RenderLevel(grid), on_axis ? axis_color : line_color);
   }
   for(R32 y = floorf(image_bottom_world) + 1; y < image_top_world; y += 1.f)
   {
+    B32 on_axis = fabsf(y) < 1e-3;
+
     Rect2 horz_line = rect2_min_dim(v2(image_left_world, y),
 				    v2(image_dim_world.x, line_thickness));
-    render_rect(horz_line, 0, RenderLevel(grid), fabsf(y) < 1e-3 ? axis_color : line_color);
+    render_rect(horz_line, 0, RenderLevel(grid), on_axis ? axis_color : line_color);
   }
 
   render_flush_commands();

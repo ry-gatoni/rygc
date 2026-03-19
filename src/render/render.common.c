@@ -18,17 +18,36 @@ render_init(void)
   return(result);
 }
 
+#if defined(FONT_LAYER)
 // -----------------------------------------------------------------------------
 // font
 
-/* proc R_Font* */
-/* render_alloc_font(LooseFont *loose_font) */
-/* { */
-/*   R_Commands *commands = render_commands; */
-/*   R_Font *result = font_pack(commands->arena, loose_font); */
-/*   return(result); */
-/* } */
+proc R_Font
+render_alloc_font(PackedFont *font)
+{
+  R_Texture texture = render_create_texture(font->atlas_width, font->atlas_height, font->atlas_pixels);
 
+  R_Font result = {0};
+  result.font = font;
+  result.atlas = texture;
+  return(result);
+}
+
+proc void
+render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
+{
+  for(U32 char_idx = 0; char_idx < string.count; ++char_idx)
+  {
+    U8 c = string.string[char_idx];
+    PackedGlyph *glyph = font_glyph_from_codepoint(font->font, c);
+
+    render_texture(&font->atlas, rect2_offset(glyph->rect, pos), glyph->uv, 0, level, color);
+
+    pos.x += glyph->advance;
+  }
+}
+
+#endif
 #if defined(GFX_LAYER)
 // -----------------------------------------------------------------------------
 // windowing

@@ -111,7 +111,7 @@ font_pack(Arena *arena, LooseFont *loose_font)
   //result->atlas = render_create_texture(atlas_w, atlas_h, 0);
   /* result->atlas_width = atlas_w; */
   /* result->atlas_height = atlas_h; */
-  U32 *atlas_pixels = os_memory_alloc(atlas_w*atlas_h*sizeof(*atlas_pixels));
+  U32 *atlas_pixels = arena_push_array(arena, U32, atlas_w*atlas_h);
 
   R32 atlas_inv_w = 1.f/(R32)atlas_w;
   R32 atlas_inv_h = 1.f/(R32)atlas_h;
@@ -197,28 +197,3 @@ font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx)
 
 // -----------------------------------------------------------------------------
 // rendering
-
-proc R_Font
-render_alloc_font(PackedFont *font)
-{
-  R_Texture texture = render_create_texture(font->atlas_width, font->atlas_height, font->atlas_pixels);
-
-  R_Font result = {0};
-  result.font = font;
-  result.texture = texture;
-  return(result);
-}
-
-proc void
-render_string(R_Font font, String8 string, V2 pos, R32 level, V4 color)
-{
-  for(U32 char_idx = 0; char_idx < string.count; ++char_idx)
-  {
-    U8 c = string.string[char_idx];
-    PackedGlyph *glyph = font_glyph_from_codepoint(font.font, c);
-
-    render_texture(font.atlas, rect2_offset(glyph->rect, pos), glyph->uv, 0, level, color);
-
-    pos.x += glyph->advance;
-  }
-}

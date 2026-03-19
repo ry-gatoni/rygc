@@ -86,15 +86,6 @@ typedef struct CodepointHashKey
 } CodepointHashKey;
 
 // -----------------------------------------------------------------------------
-// rendering
-
-typedef struct R_Font
-{
-  PackedFont *font;
-  R_Texture atlas;
-} R_Font;
-
-// -----------------------------------------------------------------------------
 // functions
 
 proc PackedFont* font_pack(Arena *arena, LooseFont *loose_font);
@@ -102,5 +93,7 @@ proc U32 font_glyph_index_from_codepoint(PackedFont *font, U32 codepoint);
 proc PackedGlyph* font_glyph_from_codepoint(PackedFont *font, U32 codepoint);
 proc U32 font_codepoint_from_glyph_index(PackedFont *font, U32 glyph_idx);
 
-proc R_Font render_alloc_font(PackedFont *font);
-proc void render_string(R_Font font, String8 string, V2 pos, R32 level, V4 color);
+/* proc R_Font render_alloc_font(PackedFont *font); */
+/* proc void render_string(R_Font font, String8 string, V2 pos, R32 level, V4 color); */
+
+#define FONT_LAYER

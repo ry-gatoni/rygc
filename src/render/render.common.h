@@ -1,3 +1,12 @@
+/** TODO:
+ * - sort out the various coordinate systems/projections (world, screen,
+ *   perspective, orthographic), how the transforms are created and how usage
+ *   code specifies which (combination of) transform(s) to use for a particular
+ *   push call.
+ * - clean up font integration: allocation, usage code, how we identify textures
+ *   when rendering from commands.
+ */
+
 typedef struct R_Handle
 {
   void *handle;
@@ -112,18 +121,24 @@ global R_Commands *render_commands = 0;
 proc B32 render_init(void);
 proc R_Handle render_backend_init(Arena *arena);
 
+#if defined(FONT_LAYER)
 // -----------------------------------------------------------------------------
 // font
 
-// TODO: these forward declarations are kinda weird. Maybe include font before
-//       render, and only have to forward declare the atlas texture
-/* struct LooseFont; */
-/* typedef struct PackedFont R_Font; */
-/* proc R_Font* render_alloc_font(struct LooseFont *loose_font); */
+typedef struct R_Font
+{
+  PackedFont *font;
+  R_Texture atlas;
+} R_Font;
+
+proc R_Font render_alloc_font(PackedFont *font);
+proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
+
+#endif
 
 proc void render_flush_commands(void);
 
-#if defined GFX_LAYER
+#if defined(GFX_LAYER)
 // -----------------------------------------------------------------------------
 // windowing
 
@@ -159,7 +174,6 @@ proc void render_set_clear_color(V4 color);
 // TODO: separate drawing layer?
 proc void render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V4 color);
 proc void render_rect(Rect2 rect, R32 angle, R32 level, V4 color);
-//proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
 proc void render_line_segment(V2 p0, V2 p1, R32 thickness, R32 level, V4 color);
 
 // -----------------------------------------------------------------------------
