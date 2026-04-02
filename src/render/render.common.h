@@ -3,6 +3,8 @@
  *   perspective, orthographic), how the transforms are created and how usage
  *   code specifies which (combination of) transform(s) to use for a particular
  *   push call.
+ * - store inverses of all transforms so we can unproject when doing text
+ *   rendering in a transformed coordinate system
  * - clean up font integration: allocation, usage code, how we identify textures
  *   when rendering from commands.
  */
