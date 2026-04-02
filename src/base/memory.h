@@ -1,4 +1,6 @@
-// NOTE: types
+// -----------------------------------------------------------------------------
+// types
+
 typedef struct Arena Arena;
 struct Arena
 {
@@ -12,7 +14,7 @@ struct Arena
 
   U64 base;
   U64 capacity;
-  
+
   U64 pos;
   U64 commit_pos;
 };
@@ -29,12 +31,16 @@ StaticAssert(sizeof(Arena) <= ARENA_HEADER_SIZE, arena_header_size_check);
 #define ARENA_DEFAULT_RESERVE_SIZE MB(64)
 #define ARENA_DEFAULT_COMMIT_SIZE KB(64)
 
-// NOTE: arena alloc/release
+// -----------------------------------------------------------------------------
+// arena alloc/release
+
 proc Arena* arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 growable);
 proc Arena* arena_alloc(void);
 proc void arena_release(Arena *arena);
 
-// NOTE: arena push/pop
+// -----------------------------------------------------------------------------
+// arena push/pop
+
 proc void* arena_push(Arena *arena, U64 size, U64 alginment);
 proc void* arena_push_z(Arena *arena, U64 size, U64 alginment);
 proc U64 arena_pos(Arena *arena);
@@ -48,7 +54,9 @@ proc void arena_clear(Arena *arena);
 #define arena_push_array_align(arena, type, count, align) (type *)arena_push(arena, (count)*sizeof(type), align)
 #define arena_push_array_align_z(arena, type, count, align) (type *)arena_push_z(arena, (count)*sizeof(type), align)
 
-// NOTE: arena temporary memory
+// -----------------------------------------------------------------------------
+// arena temporary memory
+
 proc ArenaTemp arena_begin_temp(Arena *arena);
 proc void arena_end_temp(ArenaTemp temp);
 

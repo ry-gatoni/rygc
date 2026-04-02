@@ -10,8 +10,6 @@ main(int argc, char **argv)
   Unused(argc);
   Unused(argv);
 
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-
   // parameters & constants
   R32 const eps = 1e-3;
 
@@ -41,8 +39,9 @@ main(int argc, char **argv)
   R32 const timestep = 1.f / (R32)sr;
 
   // memory
-  WavWriter *wav = begin_wav(sr, 1, WavSampleKind_R32);
-  R32 *samples = arena_push_array(scratch.arena, R32, duration_samples);
+  Arena *wav_arena = arena_alloc();
+  WavWriter *wav = wav_begin(wav_arena, sr, 1, WavSampleKind_R32);
+  R32 *samples = (R32*)wav_push_chunk(wav, duration_samples);
 
   // audio loop
   R32 in_buffer[2] = {0};
@@ -80,11 +79,8 @@ main(int argc, char **argv)
     phasor += w;
     if(phasor >= TAU32) phasor -= TAU32;
   }
-  wav_push_chunk(wav, duration_samples, samples);
 
   end_wav(wav, Str8Lit(DATA_DIR"/test/buzz.wav"));
-
-  arena_release_scratch(scratch);
 
   return(0);
 }

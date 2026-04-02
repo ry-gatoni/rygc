@@ -73,33 +73,33 @@ global WaveFormat wav_sample_formats[WavSampleKind_Count] = {
   [WavSampleKind_R32] = WaveFormat_ieee_float,
 };
 
-typedef struct WavChunkNode WavChunkNode;
-struct WavChunkNode
-{
-  WavChunkNode *next;
-  U64 frames_size;
-  void *frames;
-};
+/* typedef struct WavChunkNode WavChunkNode; */
+/* struct WavChunkNode */
+/* { */
+/*   WavChunkNode *next; */
+/*   U64 frames_size; */
+/*   void *frames; */
+/* }; */
 
-typedef struct WavChunkList
-{
-  WavChunkNode *first;
-  WavChunkNode *last;
-  U64 count;
-  U64 total_frames_size;
-} WavChunkList;
+/* typedef struct WavChunkList */
+/* { */
+/*   WavChunkNode *first; */
+/*   WavChunkNode *last; */
+/*   U64 count; */
+/*   U64 total_frames_size; */
+/* } WavChunkList; */
 
 typedef struct WavWriter
 {
   Arena *arena;
 
-  U32 sample_rate;
-  U32 channel_count;
-  WaveFormat sample_format;
-  U32 sample_size;
-  U32 frame_size;
+  RiffHeader *riff_header;
+  WaveHeader *wave_header;
+  WaveFormatChunk *fmt_chunk;
+  WaveDataChunk *data_chunk;
 
-  WavChunkList chunk_list;
+  U32 frame_size;
+  U32 total_frames_size;
 } WavWriter;
 
 proc inline U32
@@ -116,6 +116,11 @@ wav_sample_format(WavSampleKind kind)
   return(result);
 }
 
-proc WavWriter* begin_wav(U32 sample_rate, U32 channel_count, WavSampleKind sample_kind);
-proc void wav_push_chunk(WavWriter *writer, U64 frame_count, void *frames);
-proc void end_wav(WavWriter *writer, String8 file_path);
+proc WavWriter* wav_begin(Arena *arena, U32 sample_rate, U32 channel_count, WavSampleKind sample_kind);
+// TODO: it would be awesome if it were possible to auto-cast the result here
+proc void* wav_push_chunk(WavWriter *wav, U64 frame_count);
+proc void wav_end(WavWriter *wav, String8 file_path);
+
+/* proc WavWriter* begin_wav(U32 sample_rate, U32 channel_count, WavSampleKind sample_kind); */
+/* proc void wav_push_chunk(WavWriter *writer, U64 frame_count, void *frames); */
+/* proc void end_wav(WavWriter *writer, String8 file_path); */

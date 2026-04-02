@@ -26,9 +26,9 @@ arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 grow
     result->capacity = reserve_size;
     result->pos = ARENA_HEADER_SIZE;
     result->commit_pos = commit_size;
-  }  
+  }
 
-  
+
   return(result);
 }
 
@@ -55,6 +55,8 @@ arena_release(Arena *arena)
 proc void*
 arena_push(Arena *arena, U64 size, U64 alignment)
 {
+  Assert(alignment); // NOTE: don't use alignment == 0 for packing data. create a buffer with the desired total size and consume structs/arrays to get pointers to the individual pieces. if doing that becomes pratical, reconsider the way memory is used in general.
+
   void *result = 0;
   Arena *current = arena->current;
 
@@ -70,7 +72,7 @@ arena_push(Arena *arena, U64 size, U64 alignment)
       reserve_size = AlignPow2(size + ARENA_HEADER_SIZE, alignment);
       commit_size = reserve_size;
     }
-    
+
     Arena *new_block = arena_alloc_ex(reserve_size, commit_size, 0, 1);
     Assert(new_block);
     new_block->base = current->base + current->pos;
@@ -92,12 +94,12 @@ arena_push(Arena *arena, U64 size, U64 alignment)
   }
 
   // NOTE: increment the pos
-  Assert(new_pos <= arena->capacity);  
+  Assert(new_pos <= arena->capacity);
   Assert(new_pos <= arena->commit_pos);
   result = (U8 *)current + aligned_pos;
   current->pos = new_pos;
   AsanUnpoison(result, size);
-  
+
   return(result);
 }
 
@@ -124,10 +126,10 @@ arena_pop_to(Arena *arena, U64 pos)
   Arena *current = arena->current;
   // NOTE: pop chunks beyond the target position
   for(Arena *prev = 0; current->base >= pos; current = prev)
-    {
-      prev = current->prev;
-      os_mem_release(current, current->capacity);
-    }
+  {
+    prev = current->prev;
+    os_mem_release(current, current->capacity);
+  }
 
   arena->current = current;
   U64 new_pos = pos - current->base;
@@ -190,7 +192,7 @@ arena_get_scratch(Arena **conflicts, U64 count)
 	break;
       }
     }
-    
+
     if(is_non_conflict) {
       result = arena_begin_temp(*scratch_slot);
       break;

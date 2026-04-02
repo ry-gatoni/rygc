@@ -1,3 +1,4 @@
+#if 0
 proc WavWriter*
 begin_wav(U32 sample_rate, U32 channel_count, WavSampleKind sample_kind)
 {
@@ -69,3 +70,69 @@ end_wav(WavWriter *writer, String8 file_path)
   Unused(result);
   arena_release(writer->arena);
 }
+#else
+proc WavWriter*
+wav_begin(Arena *arena, U32 sample_rate, U32 channel_count, WavSampleKind sample_kind)
+{
+  WavWriter *wav = arena_push_struct(arena, WavWriter);
+  wav->arena = arena;
+  wav->frame_size = channel_count * wav_sample_size(sample_kind);
+
+  U32 headers_size =
+    sizeof(*wav->riff_header) +
+    sizeof(*wav->wave_header) +
+    sizeof(*wav->fmt_chunk) +
+    sizeof(*wav->data_chunk);
+  Buffer header_buf = buffer_alloc(arena, headers_size);
+
+  wav->riff_header = buf_consume_struct(&header_buf, RiffHeader);
+  wav->riff_header->chunk_id.id = RIFF("RIFF");
+
+  wav->wave_header = buf_consume_struct(&header_buf, WaveHeader);
+  wav->wave_header->wave_id.id = RIFF("WAVE");
+
+  wav->fmt_chunk = buf_consume_struct(&header_buf, WaveFormatChunk);
+  wav->fmt_chunk->header.chunk_id.id = RIFF("fmt ");
+  wav->fmt_chunk->format_tag = wav_sample_format(sample_kind);
+  wav->fmt_chunk->channel_count = channel_count;
+  wav->fmt_chunk->sample_rate = sample_rate;
+  wav->fmt_chunk->avg_bytes_per_sec = sample_rate * wav->frame_size;
+  wav->fmt_chunk->data_block_size = wav->frame_size;
+  wav->fmt_chunk->bits_per_sample = 8*wav->frame_size;
+
+  wav->data_chunk = buf_consume_struct(&header_buf, WaveDataChunk);
+  wav->data_chunk->chunk_id.id = RIFF("data");
+
+  return(wav);
+}
+
+proc void*
+wav_push_chunk(WavWriter *wav, U64 frame_count)
+{
+  U64 frames_size = AlignPow2(frame_count * wav->frame_size, 2);
+  void *result = arena_push_array_align(wav->arena, U8, frames_size, 0);
+  wav->total_frames_size += frames_size;
+  return(result);
+}
+
+proc void
+end_wav(WavWriter *wav, String8 file_path)
+{
+  U32 headers_size =
+    sizeof(*wav->riff_header) +
+    sizeof(*wav->wave_header) +
+    sizeof(*wav->fmt_chunk) +
+    sizeof(*wav->data_chunk);
+  U32 wav_size = headers_size + wav->total_frames_size;
+
+  wav->riff_header->chunk_size = wav_size - sizeof(*wav->riff_header);
+
+  wav->fmt_chunk->header.chunk_size = sizeof(*wav->fmt_chunk) - sizeof(*wav->riff_header);
+
+  wav->data_chunk->chunk_size = wav->total_frames_size;
+
+  Os_Handle file = os_file_open(file_path, Os_FileOpenFlag_write);
+  Buffer file_contents = { .mem = (U8*)wav->riff_header, .size = wav_size };
+  os_file_write(file_contents, file);
+}
+#endif
