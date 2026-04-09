@@ -42,7 +42,8 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/square_wave.c -o square_wave && ./square_wave
 # clang $CFLAGS $SRC/scratch/3d_filter.c -o 3d_filter -lxkbcommon -lEGL -lGL
 # clang $CFLAGS $SRC/scratch/3d_filter2.c -o 3d_filter -lEGL -lGL -lfreetype
-clang $CFLAGS $SRC/scratch/buzz.c -o buzz && ./buzz
+# clang $CFLAGS $SRC/scratch/buzz.c -o buzz && ./buzz
+clang $CFLAGS -O3 -mavx2 $SRC/scratch/fft_bench.c -o fft_bench  && ./fft_bench
 
 popd > /dev/null # ./build -> ./src
 

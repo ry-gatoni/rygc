@@ -58,40 +58,43 @@ profile_end(void)
       if(entry != profile_entry_null)
       {
         if(entry->thread_id == active_profiler->thread_id)
-        {
-          U64 tsc_elapsed__self = entry->tsc_elapsed - entry->tsc_elapsed_children;
-          R64 percent = 100.0 * ((R64)tsc_elapsed__self/(R64)tsc_elapsed);
-          if(entry->tsc_elapsed_root != tsc_elapsed__self)
-          {
-            R64 percent_with_children = 100.0 * ((R64)entry->tsc_elapsed_root/(R64)tsc_elapsed);
-            log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%, %.2f%% w/ children)",
-                      (int)entry->label.count, entry->label.string,
-                      entry->hit_count,
-                      tsc_elapsed__self,
-                      entry->tsc_elapsed_root,
-                      percent,
-                      percent_with_children);
-          }
-          else
-          {
-            log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%)",
-                      (int)entry->label.count, entry->label.string,
-                      entry->hit_count,
-                      tsc_elapsed__self,
-                      entry->tsc_elapsed_root,
-                      percent);
-          }
+	{
+	  if(entry->hit_count)
+	  {
+	    U64 tsc_elapsed__self = entry->tsc_elapsed - entry->tsc_elapsed_children;
+	    R64 percent = 100.0 * ((R64)tsc_elapsed__self/(R64)tsc_elapsed);
+	    if(entry->tsc_elapsed_root != tsc_elapsed__self)
+	    {
+	      R64 percent_with_children = 100.0 * ((R64)entry->tsc_elapsed_root/(R64)tsc_elapsed);
+	      log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%, %.2f%% w/ children)",
+			(int)entry->label.count, entry->label.string,
+			entry->hit_count,
+			tsc_elapsed__self,
+			entry->tsc_elapsed_root,
+			percent,
+			percent_with_children);
+	    }
+	    else
+	    {
+	      log_infof("%.*s[%lu]: %lu(%lu) (%.2f%%)",
+			(int)entry->label.count, entry->label.string,
+			entry->hit_count,
+			tsc_elapsed__self,
+			entry->tsc_elapsed_root,
+			percent);
+	    }
 
-          // NOTE: write log messages to console
-          /* LogScopeResult profile_log = log_end_scope(); */
-          /* String8 profile_log_info = profile_log.msgs[LogMessageKind_info]; */
-          /* fprintf(stdout, "%.*s", (int)profile_log_info.count, profile_log_info.string); */
+	    // NOTE: write log messages to console
+	    /* LogScopeResult profile_log = log_end_scope(); */
+	    /* String8 profile_log_info = profile_log.msgs[LogMessageKind_info]; */
+	    /* fprintf(stdout, "%.*s", (int)profile_log_info.count, profile_log_info.string); */
 
-          // NOTE: clear entry
-          entry->tsc_elapsed = 0;
-          entry->tsc_elapsed_children = 0;
-          entry->tsc_elapsed_root = 0;
-          entry->hit_count = 0;
+	    // NOTE: clear entry
+	    entry->tsc_elapsed = 0;
+	    entry->tsc_elapsed_children = 0;
+	    entry->tsc_elapsed_root = 0;
+	    entry->hit_count = 0;
+	  }
         }
       }
     }

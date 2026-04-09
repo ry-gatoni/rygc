@@ -8,18 +8,25 @@ is_pow_2(U32 num)
 proc U32
 bit_reverse_u32(U32 num)
 {
+#if COMPILER_CLANG
+  U32 result = __builtin_bitreverse32(num);
+#else
   U32 result = num;
   result = ((result >>  1) & 0x55555555) | ((result & 0x55555555) <<  1); // NOTE: swap odd and even bits
   result = ((result >>  2) & 0x33333333) | ((result & 0x33333333) <<  2); // NOTE: swap consecutive pairs
   result = ((result >>  4) & 0x0F0F0F0F) | ((result & 0x0F0F0F0F) <<  4); // NOTE: swap nibbles
   result = ((result >>  8) & 0x00FF00FF) | ((result & 0x00FF00FF) <<  8); // NOTE: swap bytes
   result = ((result >> 16)             ) | ((result             ) << 16); // NOTE: swap words
+#endif
   return(result);
 }
 
 proc U64
 bit_reverse_u64(U64 num)
 {
+#if COMPILER_CLANG
+  U64 result = __builtin_bitreverse64(num);
+#else
   U64 result = num;
   result = ((result >>  1) & 0x5555555555555555) | ((result & 0x5555555555555555) <<  1); // swap odd and even bits
   result = ((result >>  2) & 0x3333333333333333) | ((result & 0x3333333333333333) <<  2); // swap consecutive pairs
@@ -27,6 +34,7 @@ bit_reverse_u64(U64 num)
   result = ((result >>  8) & 0x00FF00FF00FF00FF) | ((result & 0x00FF00FF00FF00FF) <<  8); // swap bytes
   result = ((result >> 16) & 0x0000FFFF0000FFFF) | ((result & 0x0000FFFF0000FFFF) << 16); // swap words
   result = ((result >> 32)                     ) | ((result                     ) << 32); // swap dwords
+#endif
   return(result);
 }
 

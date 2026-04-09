@@ -3,6 +3,8 @@ typedef struct String8 {
   U64 count;
 } String8;
 
+#define Str8F(str) (int)str.count, str.string
+
 proc U64 cstr_get_count(char *cstr);
 
 #define Str8Lit(lit) (String8){.string = (U8 *)lit, .count = (ArrayCount(lit) - 1)}
