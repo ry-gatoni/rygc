@@ -14,8 +14,6 @@ arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 grow
     }
   }
   if(base) {
-    AsanPoison(base, reserve_size);
-    AsanUnpoison(base, ARENA_HEADER_SIZE);
     result = (Arena *)base;
     result->current = result;
     result->prev = 0;
@@ -26,6 +24,9 @@ arena_alloc_ex(U64 reserve_size, U64 commit_size, void *backing_buffer, B32 grow
     result->capacity = reserve_size;
     result->pos = ARENA_HEADER_SIZE;
     result->commit_pos = commit_size;
+
+    AsanPoison(base, reserve_size);
+    AsanUnpoison(base, ARENA_HEADER_SIZE);
   }
 
 

@@ -22,7 +22,7 @@ proc FFT_TEST_PROC(fft_test__iterative_dit_radix2_ps_avx2);
 
 proc void
 fft_re__recursive_dit_radix2(R32 *in, C64 *out, U64 count, U64 stride)
-{ProfileFunction(){
+{//ProfileFunction(){
 
   if(count == 1)
   {
@@ -46,7 +46,7 @@ fft_re__recursive_dit_radix2(R32 *in, C64 *out, U64 count, U64 stride)
 
     w = c64_mul(w, wk);
   }
-}}
+}//}
 
 proc void
 fft_re__naive(R32 *in, C64 *out, U64 count)
@@ -486,6 +486,130 @@ tester_run(FftRepetitionTester *tester)
 // -----------------------------------------------------------------------------
 // driving code
 
+#if 1
+
+#include "bench/bench.h"
+#include "bench/bench.c"
+
+typedef struct Fft_Args
+{
+  R32 *in;
+  C64 *out;
+  U64 count;
+} Fft_Args;
+
+proc void
+fft_bench__recursive(void *args)
+{
+  Fft_Args *fft_args = args;
+  R32 *in = fft_args->in;
+  C64 *out = fft_args->out;
+  U64 count = fft_args->count;
+
+  fft_re__recursive_dit_radix2(in, out, count, 1);
+}
+
+proc void
+fft_bench__naive(void *args)
+{
+  Fft_Args *fft_args = args;
+  R32 *in = fft_args->in;
+  C64 *out = fft_args->out;
+  U64 count = fft_args->count;
+
+  fft_re__naive(in, out, count);
+}
+
+proc void
+fft_bench__iterative(void *args)
+{
+  Fft_Args *fft_args = args;
+  R32 *in = fft_args->in;
+  C64 *out = fft_args->out;
+  U64 count = fft_args->count;
+
+  fft_re__iterative_dit_radix2_ss(in, out, count);
+}
+
+int
+main(int argc, char **argv)
+{
+  Unused(argc);
+  Unused(argv);
+
+  if(!os_init()) return(1);
+  if(!bench_init()) return(1);
+
+  Bench_Counter counters[] = {
+    Bench_Counter_cpu_cycles,
+    Bench_Counter_cache_references,
+    Bench_Counter_cache_misses,
+    Bench_Counter_branch_instructions,
+    Bench_Counter_branch_misses,
+  };
+  if(!bench_use_counters(counters, ArrayCount(counters))) return 1;
+
+  bench_repetition_time_ms(500);
+
+  Arena *arena = arena_alloc();
+  U64 const fft_count = 2048;
+  R32 *signal = arena_push_array(arena, R32, fft_count);
+  {
+    R32 const freq = 4;
+    R32 const dp = TAU32 * freq / (R32)fft_count;
+    R32 phasor = 0.f;
+    for(U32 i = 0; i < fft_count; ++i)
+    {
+      signal[i] = sinf(phasor);
+      phasor += dp;
+      if(phasor >= TAU32) phasor -= TAU32;
+    }
+  }
+  C64 *out = arena_push_array(arena, C64, fft_count);
+
+  Fft_Args fft_bench_args = { .in = signal, .out = out, .count = fft_count, };
+  Bench_Proc *fft_procs[] = {
+    fft_bench__naive,
+    fft_bench__recursive,
+    fft_bench__iterative,
+  };
+  String8 proc_names[] = {
+    Str8Lit("naive"),
+    Str8Lit("recursive"),
+    Str8Lit("iterative"),
+  };
+
+  printf("fft: %lu samples\n", fft_count);
+  for(U32 p_idx = 0; p_idx < ArrayCount(fft_procs); ++p_idx)
+  {
+    Bench_Proc *fft_proc = fft_procs[p_idx];
+    String8 fft_proc_name = proc_names[p_idx];
+
+#if 0
+    fft_proc(&fft_bench_args);
+    printf("\n%.*s:\n", Str8F(fft_proc_name));
+    for(U64 i = 0; i < fft_count; ++i)
+    {
+      printf("[%2lu] = (%8.4f, %8.4f)\n", i, out[i].re, out[i].im);
+    }
+#else
+    Bench_Result res = bench_run_proc(fft_proc, &fft_bench_args);
+    printf("\n%.*s:\n", Str8F(fft_proc_name));
+    printf("  cycle count: %16lu\n",
+	   res.counters[0]);
+    printf("  cache misses: %15lu/%lu\n",
+	   res.counters[2], res.counters[1]);
+    printf("  branch misses: %14lu/%lu\n",
+	   res.counters[4], res.counters[3]);
+#endif
+    ZeroArray(out, C64, fft_count);
+  }
+
+  return(0);
+}
+
+#else
+
 int
 main(int argc, char **argv)
 {
@@ -559,3 +683,4 @@ main(int argc, char **argv)
 
   return(0);
 }
+#endif
