@@ -25,6 +25,7 @@ typedef struct Bench_LinuxState
 {
   int *fds;
   U64 *counter_buf;
+  Bench_CounterResult *result_buf;
 } Bench_LinuxState;
 
 global Bench_LinuxState *bench_linux_state = 0;

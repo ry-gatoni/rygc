@@ -1,28 +1,15 @@
 #include "base/base.h"
+#include "bench/bench.h"
 
 #include "base/base.c"
-
-typedef struct FftResult
-{
-  R32 *out_re;
-  R32 *out_im;
-} FftResult;
-
-#define FFT_TEST_PROC(name) FftResult name (Arena *arena, R32 *in, U64 count);
-typedef FFT_TEST_PROC(FftTestProc);
-
-proc FFT_TEST_PROC(fft_test__recursive_dit_radix2);
-proc FFT_TEST_PROC(fft_test__naive);
-proc FFT_TEST_PROC(fft_test__iterative_dit_radix2_ss);
-proc FFT_TEST_PROC(fft_test__iterative_dit_radix2_ps_sse);
-proc FFT_TEST_PROC(fft_test__iterative_dit_radix2_ps_avx2);
+#include "bench/bench.c"
 
 // -----------------------------------------------------------------------------
 // fft implementations
 
 proc void
 fft_re__recursive_dit_radix2(R32 *in, C64 *out, U64 count, U64 stride)
-{//ProfileFunction(){
+{ProfileFunction(){
 
   if(count == 1)
   {
@@ -46,7 +33,7 @@ fft_re__recursive_dit_radix2(R32 *in, C64 *out, U64 count, U64 stride)
 
     w = c64_mul(w, wk);
   }
-}//}
+}}
 
 proc void
 fft_re__naive(R32 *in, C64 *out, U64 count)
@@ -304,192 +291,7 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
 }}
 
 // -----------------------------------------------------------------------------
-// test wrappers
-
-proc FftResult
-fft_test__recursive_dit_radix2(Arena *arena, R32 *in, U64 count)
-{
-  R32 *out_re = 0;
-  R32 *out_im = 0;
-  ProfileScope(recursive_setup)
-  {
-    ArenaTemp scratch = arena_get_scratch(&arena, 1);
-
-    C64 *out_complex = arena_push_array_z(scratch.arena, C64, count);
-    fft_re__recursive_dit_radix2(in, out_complex, count, 1);
-
-    out_re = arena_push_array(arena, R32, 2*count);
-    out_im = out_re + count;
-    for(U64 i = 0; i < count; ++i)
-    {
-      out_re[i] = out_complex[i].re;
-      out_im[i] = out_complex[i].im;
-    }
-
-    arena_release_scratch(scratch);
-  }
-
-  FftResult result = {0};
-  result.out_re = out_re;
-  result.out_im = out_im;
-  return(result);
-}
-
-proc FftResult
-fft_test__naive(Arena *arena, R32 *in, U64 count)
-{
-  R32 *out_re = 0;
-  R32 *out_im = 0;
-  ProfileScope(naive_setup)
-  {
-    ArenaTemp scratch = arena_get_scratch(&arena, 1);
-
-    C64 *out_complex = arena_push_array_z(scratch.arena, C64, count);
-    fft_re__naive(in, out_complex, count);
-
-    out_re = arena_push_array(arena, R32, 2*count);
-    out_im = out_re + count;
-    for(U64 i = 0; i < count; ++i)
-    {
-      out_re[i] = out_complex[i].re;
-      out_im[i] = out_complex[i].im;
-    }
-
-    arena_release_scratch(scratch);
-  }
-
-  FftResult result = {0};
-  result.out_re = out_re;
-  result.out_im = out_im;
-  return(result);
-}
-
-proc FftResult
-fft_test__iterative_dit_radix2_ss(Arena *arena, R32 *in, U64 count)
-{
-  R32 *out_re = 0;
-  R32 *out_im = 0;
-  ProfileScope(iterative_ss_setup)
-  {
-    ArenaTemp scratch = arena_get_scratch(&arena, 1);
-
-    C64 *out_complex = arena_push_array_z(scratch.arena, C64, count);
-    fft_re__iterative_dit_radix2_ss(in, out_complex, count);
-
-    out_re = arena_push_array(arena, R32, 2*count);
-    out_im = out_re + count;
-    for(U64 i = 0; i < count; ++i)
-    {
-      out_re[i] = out_complex[i].re;
-      out_im[i] = out_complex[i].im;
-    }
-
-    arena_release_scratch(scratch);
-  }
-
-  FftResult result = {0};
-  result.out_re = out_re;
-  result.out_im = out_im;
-  return(result);
-}
-
-proc FftResult
-fft_test__iterative_dit_radix2_ps_sse(Arena *arena, R32 *in, U64 count)
-{
-  R32 *out_re = 0;
-  R32 *out_im = 0;
-  ProfileScope(iterative_ps_sse_setup)
-  {
-    U32 const padding = 4;
-    out_re = arena_push_array_z(arena, R32, 2*(count + padding));
-    out_im = out_re + count + padding;
-    fft_re__iterative_dit_radix2_ps_sse(in, out_re, out_im, count);
-  }
-
-  FftResult result = {0};
-  result.out_re = out_re;
-  result.out_im = out_im;
-  return(result);
-}
-
-proc FftResult
-fft_test__iterative_dit_radix2_ps_avx2(Arena *arena, R32 *in, U64 count)
-{
-  R32 *out_re = 0;
-  R32 *out_im = 0;
-  ProfileScope(iterative_ps_avx2_setup)
-  {
-    U32 const padding = 8;
-    out_re = arena_push_array_z(arena, R32, 2*(count + padding));
-    out_im = out_re + count + padding;
-    fft_re__iterative_dit_radix2_ps_avx2(in, out_re, out_im, count);
-  }
-
-  FftResult result = {0};
-  result.out_re = out_re;
-  result.out_im = out_im;
-  return(result);
-}
-
-#define FFT_TEST_XLIST\
-  X("recursive_dit_radix2", fft_test__recursive_dit_radix2)\
-  X("naive", fft_test__naive)\
-  X("iterative_dit_radix2_ss", fft_test__iterative_dit_radix2_ss)\
-  X("iterative_dit_radix2_ps_sse", fft_test__iterative_dit_radix2_ps_sse)\
-  X("iterative_dit_radix2_ps_avx2", fft_test__iterative_dit_radix2_ps_avx2)
-
-typedef struct FftRepetitionTester
-{
-  String8 name;
-  FftTestProc *test_proc;
-  FftResult result;
-  Profiler *profiler;
-} FftRepetitionTester;
-
-FftRepetitionTester fft_testers[] = {
-#define X(n, p) (FftRepetitionTester){ .name = Str8Lit(n), .test_proc = p },
-  FFT_TEST_XLIST
-#undef X
-};
-
-#if 0
-proc void
-init_testers(void)
-{
-  for(U32 i = 0; i < ArrayCount(fft_testers); ++i)
-  {
-    fft_testers[i].profiler = profile_alloc();
-  }
-}
-
-proc void
-tester_run(FftRepetitionTester *tester)
-{
-  profile_select(tester->profiler);
-  profile_begin();
-  profile_end();
-}
-#endif
-
-/* FftTestProc *fft_test_procs[] = { */
-/*   fft_test__recursive_dit_radix2, */
-/*   fft_test__naive, */
-/*   fft_test__iterative_dit_radix2, */
-/* }; */
-
-/* String8 fft_test_proc_names[] = { */
-/*   Str8Lit("recursive_dit_radix2"), */
-/*   Str8Lit("naive"), */
-/*   Str8Lit("iterative_dit_radix2"), */
-/* }; */
-
-// -----------------------------------------------------------------------------
-// driving code
-
-#if 1
-
-#include "bench/bench.h"
-#include "bench/bench.c"
+// benchmark wrappers
 
 typedef struct Fft_Args
 {
@@ -497,6 +299,14 @@ typedef struct Fft_Args
   C64 *out;
   U64 count;
 } Fft_Args;
+
+typedef struct Fft_ArgsDeinterleaved
+{
+  R32 *in;
+  R32 *out_re;
+  R32 *out_im;
+  U64 count;
+} Fft_ArgsDeinterleaved;
 
 proc void
 fft_bench__recursive(void *args)
@@ -521,7 +331,7 @@ fft_bench__naive(void *args)
 }
 
 proc void
-fft_bench__iterative(void *args)
+fft_bench__iterative_radix2_scalar(void *args)
 {
   Fft_Args *fft_args = args;
   R32 *in = fft_args->in;
@@ -530,6 +340,48 @@ fft_bench__iterative(void *args)
 
   fft_re__iterative_dit_radix2_ss(in, out, count);
 }
+
+proc void
+fft_bench__iterative_radix2_sse(void *args)
+{
+  Fft_ArgsDeinterleaved *fft_args = args;
+  R32 *in = fft_args->in;
+  R32 *out_re = fft_args->out_re;
+  R32 *out_im = fft_args->out_im;
+  U64 count = fft_args->count;
+
+  fft_re__iterative_dit_radix2_ps_sse(in, out_re, out_im, count);
+}
+
+proc void
+fft_bench__iterative_radix2_avx2(void *args)
+{
+  Fft_ArgsDeinterleaved *fft_args = args;
+  R32 *in = fft_args->in;
+  R32 *out_re = fft_args->out_re;
+  R32 *out_im = fft_args->out_im;
+  U64 count = fft_args->count;
+
+  fft_re__iterative_dit_radix2_ps_avx2(in, out_re, out_im, count);
+}
+
+typedef struct Fft_Bench
+{
+  Bench_Proc *fft_proc;
+  void *fft_args;
+  String8 proc_name;
+} Fft_Bench;
+
+// (name, arg_kind)
+#define FFT_BENCH_XLIST\
+  X(naive, interleaved)\
+  X(recursive, interleaved)\
+  X(iterative_radix2_scalar, interleaved)\
+  X(iterative_radix2_sse, deinterleaved)\
+  X(iterative_radix2_avx2, deinterleaved)\
+
+// -----------------------------------------------------------------------------
+// driving code
 
 int
 main(int argc, char **argv)
@@ -567,120 +419,90 @@ main(int argc, char **argv)
   }
   C64 *out = arena_push_array(arena, C64, fft_count);
 
-  Fft_Args fft_bench_args = { .in = signal, .out = out, .count = fft_count, };
-  Bench_Proc *fft_procs[] = {
-    fft_bench__naive,
-    fft_bench__recursive,
-    fft_bench__iterative,
+  U64 const padding = 16;
+  R32 *out_re = arena_push_array(arena, R32, fft_count + padding);
+  R32 *out_im = arena_push_array(arena, R32, fft_count + padding);
+
+  Fft_Args fft_bench_args__interleaved = {
+    .in = signal,
+    .out = out,
+    .count = fft_count,
   };
-  String8 proc_names[] = {
-    Str8Lit("naive"),
-    Str8Lit("recursive"),
-    Str8Lit("iterative"),
+
+  Fft_ArgsDeinterleaved fft_bench_args__deinterleaved = {
+    .in = signal,
+    .out_re = out_re,
+    .out_im = out_im,
+    .count = fft_count,
+  };
+
+  Fft_Bench fft_benches[] = {
+#define X(name, arg_kind) (Fft_Bench){			\
+      .fft_proc  = Glue(fft_bench__, name),		\
+      .fft_args  = &Glue(fft_bench_args__, arg_kind),	\
+      .proc_name = Str8Lit(Stringify(name)),		\
+    },
+    FFT_BENCH_XLIST
+#undef X
   };
 
   printf("fft: %lu samples\n", fft_count);
-  for(U32 p_idx = 0; p_idx < ArrayCount(fft_procs); ++p_idx)
+  for(U32 p_idx = 0; p_idx < ArrayCount(fft_benches); ++p_idx)
   {
-    Bench_Proc *fft_proc = fft_procs[p_idx];
-    String8 fft_proc_name = proc_names[p_idx];
+    Fft_Bench *bench = fft_benches + p_idx;
+    Bench_Proc *fft_proc = bench->fft_proc;
+    void *args = bench->fft_args;
+    String8 proc_name = bench->proc_name;
 
 #if 0
-    fft_proc(&fft_bench_args);
-    printf("\n%.*s:\n", Str8F(fft_proc_name));
-    for(U64 i = 0; i < fft_count; ++i)
+    fft_proc(args);
+    printf("\n%.*s:\n", Str8F(proc_name));
+    if(IntFromPtr(args) == IntFromPtr(&fft_bench_args__interleaved))
     {
-      printf("[%2lu] = (%8.4f, %8.4f)\n", i, out[i].re, out[i].im);
+      for(U64 i = 0; i < fft_count; ++i)
+      {
+	printf("[%4lu] = (%8.4f, %8.4f)\n", i, out[i].re, out[i].im);
+      }
+    }
+    else
+    {
+      for(U64 i = 0; i < fft_count; ++i)
+      {
+	printf("[%4lu] = (%8.4f, %8.4f)\n", i, out_re[i], out_im[i]);
+      }
     }
 #else
-    Bench_Result res = bench_run_proc(fft_proc, &fft_bench_args);
-    printf("\n%.*s:\n", Str8F(fft_proc_name));
-    printf("  cycle count: %16lu\n",
-	   res.counters[0]);
-    printf("  cache misses: %15lu/%lu\n",
-	   res.counters[2], res.counters[1]);
-    printf("  branch misses: %14lu/%lu\n",
-	   res.counters[4], res.counters[3]);
+    Bench_Result res = bench_run_proc(fft_proc, args);
+    printf("\n%.*s: %*lu iterations\n",
+	   Str8F(proc_name), (int)(32 - proc_name.count - 1), res.run_count);
+    printf("  cycle count:\n"
+	   "    avg: %24lu,\n"
+	   "    min: %24lu,\n"
+	   "    max: %24lu,\n",
+	   res.counters[0].avg,
+	   res.counters[0].min,
+	   res.counters[0].max);
+
+    printf("  cache misses:\n"
+	   "    avg: %24lu,\n"
+	   "    min: %24lu/%lu,\n"
+	   "    max: %24lu/%lu,\n",
+	   res.counters[2].avg,
+	   res.counters[2].min, res.counters[1].min,
+	   res.counters[2].max, res.counters[1].max);
+
+    printf("  branch misses:\n"
+	   "    avg: %24lu,\n"
+	   "    min: %24lu/%lu,\n"
+	   "    max: %24lu/%lu,\n",
+	   res.counters[4].avg,
+	   res.counters[4].min, res.counters[3].min,
+	   res.counters[4].max, res.counters[3].max);
 #endif
     ZeroArray(out, C64, fft_count);
+    ZeroArray(out_re, R32, fft_count);
+    ZeroArray(out_im, R32, fft_count);
   }
 
   return(0);
 }
-
-#else
-
-int
-main(int argc, char **argv)
-{
-  Unused(argc);
-  Unused(argv);
-
-  if(!os_init()) return(1);
-
-  Arena *arena = arena_alloc();
-
-  Log *logger = log_alloc();
-  log_select(logger);
-
-  Profiler *profiler = profile_alloc();
-  profile_select(profiler);
-
-  U64 signal_count = 1024;
-  R32 *signal = arena_push_array(arena, R32, signal_count);
-  {
-    R32 phasor_freq = 4.f;
-    R32 pv = TAU32 * phasor_freq / (R32)signal_count;
-    R32 phasor = 0;
-
-    for(U64 i = 0; i < signal_count; ++i)
-    {
-      signal[i] = cosf(phasor);
-
-      phasor += pv;
-      if(phasor >= TAU32) phasor -= TAU32;
-    }
-  }
-
-  R64 ms_from_os_counter = 1000.0 / (R64)os_counter_freq();
-  R64 time_to_run = 500.0;
-
-  ArenaTemp scratch = arena_get_scratch(0, 0);
-
-
-  for(U32 test_idx = 0; test_idx < ArrayCount(fft_testers); ++test_idx)
-  {
-    FftRepetitionTester *tester = fft_testers + test_idx;
-
-    log_begin_scope(tester->name);
-
-    U64 time_start = os_counter();
-    U64 time_elapsed = ms_from_os_counter*(os_counter() - time_start);
-
-    profile_begin();
-    //while(time_elapsed < time_to_run)
-    //{
-      FftResult result = tester->test_proc(scratch.arena, signal, signal_count);
-      time_elapsed = ms_from_os_counter*(os_counter() - time_start);
-      //}
-    profile_end();
-
-    LogScopeResult log_scope = log_end_scope();
-    printf("\n%.*s\n", Str8F(log_scope.msgs[LogMessageKind_info]));
-
-#if 0
-    printf("\n%.*s:\n", Str8F(tester->name));
-    for(U64 i = 0; i < signal_count; ++i)
-    {
-      printf("[%2lu] = (%8.4f, %8.4f)\n", i, result.out_re[i], result.out_im[i]);
-    }
-#endif
-
-    arena_clear(scratch.arena);
-  }
-
-  arena_release_scratch(scratch);
-
-  return(0);
-}
-#endif

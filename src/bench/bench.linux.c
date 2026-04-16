@@ -103,14 +103,19 @@ bench_use_counters__linux(void)
     }
   }
 
+  U64 *counter_buf = 0;
+  Bench_CounterResult *result_buf = 0;
   if(result)
   {
     // NOTE: enable counters
     ioctl(bench_linux_state->fds[0], PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
 
-    // NOTE:
-    bench_linux_state->counter_buf = arena_push_array(bench_state->arena, U64, bench_state->counter_count + 1);
+    // NOTE: buffer for reading (first entry is number of counters, rest is counter results)
+    counter_buf = arena_push_array(bench_state->arena, U64, bench_state->counter_count + 1);
+    result_buf = arena_push_array(bench_state->arena, Bench_CounterResult, bench_state->counter_count);
   }
+  bench_linux_state->counter_buf = counter_buf;
+  bench_linux_state->result_buf = result_buf;
 
   return(result);
 }
@@ -118,24 +123,65 @@ bench_use_counters__linux(void)
 proc Bench_Result
 bench_run_proc__linux(Bench_Proc *p, void *args)
 {
-  int group_fd = bench_linux_state->fds[0];
-  ioctl(group_fd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP);
-  ioctl(group_fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
-  p(args);
-  ioctl(group_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
-
-  Bench_Result result = {0};
   U64 counter_count = bench_state->counter_count;
-  U64 *counter_buf = bench_linux_state->counter_buf;
-  int read_result = read(group_fd, counter_buf, (counter_count+1)*sizeof(*counter_buf));
-  if(read_result != -1)
+  Bench_CounterResult *result_buf = bench_linux_state->result_buf;
+
+  // NOTE: init counts
+  ZeroArray(result_buf, Bench_CounterResult, counter_count);
+  for(U64 counter_idx = 0; counter_idx < counter_count; ++counter_idx)
   {
-    if(counter_buf[0] == counter_count)
-    {
-      result.counters = counter_buf + 1;
-      result.counters_count = counter_count;
-    }
+    result_buf[counter_idx].min = U64_MAX;
   }
 
+  U64 run_count = 0;
+  U64 time_elapsed = 0;
+  U64 time_to_run = bench_state->repetition_time_ms * os_counter_freq() / 1000;
+  U64 time_start = os_counter();
+  while(time_elapsed < time_to_run)
+  {
+    int group_fd = bench_linux_state->fds[0];
+    ioctl(group_fd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP);
+    ioctl(group_fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+    p(args);
+    ioctl(group_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+    time_elapsed = os_counter() - time_start;
+
+    U64 *counter_buf = bench_linux_state->counter_buf;
+    int read_result = read(group_fd, counter_buf, (counter_count+1)*sizeof(*counter_buf));
+    if(read_result != -1)
+    {
+      if(counter_buf[0] == counter_count)
+      {
+	counter_buf = counter_buf + 1;
+	for(U64 counter_idx = 0; counter_idx < counter_count; ++counter_idx)
+	{
+	  U64 counter = counter_buf[counter_idx];
+
+	  U64 min = result_buf[counter_idx].min;
+	  result_buf[counter_idx].min = Min(min, counter);
+
+	  U64 max = result_buf[counter_idx].max;
+	  result_buf[counter_idx].max = Max(max, counter);
+
+	  result_buf[counter_idx].avg += counter;
+	}
+      }
+    }
+
+    ++run_count;
+  }
+
+  // NOTE: compute averages
+  for(U64 counter_idx = 0; counter_idx < counter_count; ++counter_idx)
+  {
+    U64 sum = result_buf[counter_idx].avg;
+    result_buf[counter_idx].avg = (U64)((R64)sum/(R64)run_count);
+  }
+
+  Bench_Result result = {0};
+  result.counters = result_buf;
+  result.counters_count = counter_count;
+  result.run_count = run_count;
   return(result);
 }

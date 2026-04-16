@@ -1,7 +1,5 @@
 /** TODO:
  * - features:
- *   - run procedure many times
- *   - min/max/avg counts across many runs
  *   - more counters
  * - bugs:
  *   - investigate amd leaf 0x80000022 being unavailable (fedora 43)
