@@ -38,6 +38,9 @@ bitpair_reverse_u64(U64 num)
 global C64 twiddle_table__radix2[(MAX_FFT_COUNT / 2) * 2] = {0};
 global C64 twiddle_table__radix4[(MAX_FFT_COUNT / 4) * 2] = {0};
 
+global R32 twiddle_table_re__radix2[(MAX_FFT_COUNT / 2) * 2] = {0};
+global R32 twiddle_table_im__radix2[(MAX_FFT_COUNT / 2) * 2] = {0};
+
 proc void
 init_twiddle_tables(void)
 {
@@ -48,10 +51,17 @@ init_twiddle_tables(void)
   {
     R64 step = -TAU32 / (R64)(N*2);
     C64 *twiddles = twiddle_table__radix2 + N;
+    R32 *twiddles_re = twiddle_table_re__radix2 + N;
+    R32 *twiddles_im = twiddle_table_im__radix2 + N;
     for(U64 k = 0; k < N; ++k)
     {
       R64 phase = step * (R64)k;
-      twiddles[k] = c64((R32)cos(phase), (R32)sin(phase));
+      R32 re = (R32)cos(phase);
+      R32 im = (R32)sin(phase);
+
+      twiddles[k] = c64(re, im);
+      twiddles_re[k] = re;
+      twiddles_im[k] = im;
     }
   }
 
@@ -159,11 +169,6 @@ fft_re__iterative_dit_radix4_ss(R32 *in, C64 *out, U64 count)
     C64 *twiddles = twiddle_table__radix4 + s/4;
     for(U64 k = 0; k < count; k += s)
     {
-      /* C64 w = c64(1, 0); */
-      /* C64 iw = c64(0, 1); */
-      /* C64 nw = c64(-1, 0); */
-      /* C64 niw = c64(0, -1); */
-
       for(U64 j = 0; j < s/4; ++j)
       {
 	C64 w = twiddles[j];
@@ -202,13 +207,6 @@ fft_re__iterative_dit_radix4_ss(R32 *in, C64 *out, U64 count)
 						     c64_mul(iw,
 							     c64_add(c,
 								     c64_mul(iw, d))))));
-	/* w = c64_mul(w, ws); */
-
-	/* iw = c64_mul(iw, ws); */
-
-	/* nw = c64_mul(nw, ws); */
-
-	/* niw = c64_mul(niw, ws); */
       }
     }
   }
@@ -275,98 +273,181 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
     out_re[i_rev] = in[i];
   }
 
-  for(U64 s = 2; s <= count; s <<= 1)
+  // NOTE: scalar when half count is smaller than vector width. inner loops are
+  // inlined without twiddle loads
+#if 1
+  // s = 2
   {
-    R32 f = -TAU32 / (R32)s;
-    if(s/2 >= 4)
+    for(U64 k = 0; k < count; k += 2)
     {
-      R32 ws1_re = cosf(f);//c64(cosf(f), sinf(f));
-      R32 ws1_im = sinf(f);
-      R32 ws2_re = ws1_re*ws1_re - ws1_im*ws1_im;
-      R32 ws2_im = ws1_re*ws1_im + ws1_im*ws1_re;
-      R32 ws3_re = ws2_re*ws1_re - ws2_im*ws1_im;
-      R32 ws3_im = ws2_re*ws1_im + ws2_im*ws1_re;
-      R32 ws4_re = ws2_re*ws2_re - ws2_im*ws2_im;
-      R32 ws4_im = ws2_re*ws2_im + ws2_im*ws2_re;
-      __m128 ws_re = _mm_setr_ps(ws4_re, ws4_re, ws4_re, ws4_re);
-      __m128 ws_im = _mm_setr_ps(ws4_im, ws4_im, ws4_im, ws4_im);
+      R32 *inout0_re = out_re + k + 0;
+      R32 *inout0_im = out_im + k + 0;
+      R32 *inout1_re = out_re + k + 1;
+      R32 *inout1_im = out_im + k + 1;
 
-      for(U64 k = 0; k < count; k += s)
+      R32 in0_re = inout0_re[0];
+      R32 in0_im = inout0_im[0];
+      R32 in1_re = inout1_re[0];
+      R32 in1_im = inout1_im[0];
+
+      R32 out0_re = in0_re + in1_re;
+      R32 out0_im = in0_im + in1_im;
+      R32 out1_re = in0_re - in1_re;
+      R32 out1_im = in0_im - in1_im;
+
+      inout0_re[0] = out0_re;
+      inout0_im[0] = out0_im;
+      inout1_re[0] = out1_re;
+      inout1_im[0] = out1_im;
+    }
+  }
+
+  // s = 4
+  {
+    for(U64 k = 0; k < count; k += 4)
+    {
+      R32 *inout0_re = out_re + k + 0*2;
+      R32 *inout0_im = out_im + k + 0*2;
+      R32 *inout1_re = out_re + k + 1*2;
+      R32 *inout1_im = out_im + k + 1*2;
+
+      // j = 0
       {
-	//C64 w = c64(1, 0);
-	__m128 w_re = _mm_setr_ps(1, ws1_re, ws2_re, ws3_re);
-	__m128 w_im = _mm_setr_ps(0, ws1_im, ws2_im, ws3_im);
+	R32 in0_re = inout0_re[0];
+	R32 in0_im = inout0_im[0];
+	R32 in1_re = inout1_re[0];
+	R32 in1_im = inout1_im[0];
 
-	R32 *out_e_re = out_re + k;
-	R32 *out_e_im = out_im + k;
-	R32 *out_o_re = out_re + k + s/2;
-	R32 *out_o_im = out_im + k + s/2;
-	for(U64 j = 0; j < s/2; j += 4)
-	{
-	  __m128 p_re = _mm_loadu_ps(out_e_re);
-	  __m128 p_im = _mm_loadu_ps(out_e_im);
-	  __m128 t_re = _mm_loadu_ps(out_o_re);
-	  __m128 t_im = _mm_loadu_ps(out_o_im);
-	  __m128 q_re = _mm_sub_ps(_mm_mul_ps(w_re, t_re),
-				   _mm_mul_ps(w_im, t_im));
-	  __m128 q_im = _mm_add_ps(_mm_mul_ps(w_re, t_im),
-				   _mm_mul_ps(w_im, t_re));
-	  /* C64 p = out[k + j]; */
-	  /* C64 q = c64_mul(w, out[k + s/2 + j]); */
+	R32 out0_re = in0_re + in1_re;
+	R32 out0_im = in0_im + in1_im;
+	R32 out1_re = in1_re - in1_re;
+	R32 out1_im = in1_im - in1_im;
 
-	  /* out[k + j]       = c64_add(p, q); */
-	  /* out[k + s/2 + j] = c64_sub(p, q); */
-	  __m128 dest_e_re = _mm_add_ps(p_re, q_re);
-	  __m128 dest_e_im = _mm_add_ps(p_im, q_im);
-	  __m128 dest_o_re = _mm_sub_ps(p_re, q_re);
-	  __m128 dest_o_im = _mm_sub_ps(p_im, q_im);
-	  _mm_storeu_ps(out_e_re, dest_e_re);
-	  _mm_storeu_ps(out_e_im, dest_e_im);
-	  _mm_storeu_ps(out_o_re, dest_o_re);
-	  _mm_storeu_ps(out_o_im, dest_o_im);
+	inout0_re[0] = out0_re;
+	inout0_im[0] = out0_im;
+	inout1_re[0] = out1_re;
+	inout1_im[0] = out1_im;
+      }
 
-	  //w = c64_mul(w, ws);
-	  __m128 w_re_old = w_re;
-	  w_re = _mm_sub_ps(_mm_mul_ps(w_re, ws_re),
-			    _mm_mul_ps(w_im, ws_im));
-	  w_im = _mm_add_ps(_mm_mul_ps(w_re_old, ws_im),
-			    _mm_mul_ps(w_im, ws_re));
+      // j = 1
+      {
+	R32 in0_re = inout0_re[1];
+	R32 in0_im = inout0_im[1];
+	R32 in1_re = inout1_re[1];
+	R32 in1_im = inout1_im[1];
 
-	  out_e_re += 4;
-	  out_e_im += 4;
-	  out_o_re += 4;
-	  out_o_im += 4;
-	}
+	R32 out0_re = in0_re + in1_im;
+	R32 out0_im = in0_im - in1_re;
+	R32 out1_re = in1_re - in1_im;
+	R32 out1_im = in1_im + in1_re;
+
+	inout0_re[1] = out0_re;
+	inout0_im[1] = out0_im;
+	inout1_re[1] = out1_re;
+	inout1_im[1] = out1_im;
+      }
+
+      /* for(U64 j = 0; j < s/2; ++j) */
+      /* { */
+      /* 	R32 w_re = twiddles_re[j]; */
+      /* 	R32 w_im = twiddles_im[j]; */
+
+      /* 	R32 in0_re = inout0_re[j]; */
+      /* 	R32 in0_im = inout0_im[j]; */
+      /* 	R32 in1_re = inout1_re[j]; */
+      /* 	R32 in1_im = inout1_im[j]; */
+
+      /* 	R32 out0_re = in0_re + w_re*in1_re - w_im*in1_im; */
+      /* 	R32 out0_im = in0_im + w_re*in1_im + w_im*in1_re; */
+      /* 	R32 out1_re = in0_re - w_re*in1_re + w_im*in1_im; */
+      /* 	R32 out1_im = in0_im - w_re*in1_im - w_im*in1_re; */
+
+      /* 	inout0_re[j] = out0_re; */
+      /* 	inout0_im[j] = out0_im; */
+      /* 	inout1_re[j] = out1_re; */
+      /* 	inout1_im[j] = out1_im; */
+      /* } */
+    }
+  }
+#else
+  for(U64 s = 2; s < 8; s *= 2)
+  {
+    R32 *twiddles_re = twiddle_table_re__radix2 + s/2;
+    R32 *twiddles_im = twiddle_table_im__radix2 + s/2;
+
+    for(U64 k = 0; k < count; k += s)
+    {
+      R32 *inout0_re = out_re + k + 0*s/2;
+      R32 *inout0_im = out_im + k + 0*s/2;
+      R32 *inout1_re = out_re + k + 1*s/2;
+      R32 *inout1_im = out_im + k + 1*s/2;
+
+      for(U64 j = 0; j < s/2; ++j)
+      {
+	R32 w_re = twiddles_re[j];
+	R32 w_im = twiddles_im[j];
+
+	R32 in0_re = inout0_re[j];
+	R32 in0_im = inout0_im[j];
+	R32 in1_re = inout1_re[j];
+	R32 in1_im = inout1_im[j];
+
+	R32 out0_re = in0_re + w_re*in1_re - w_im*in1_im;
+	R32 out0_im = in0_im + w_re*in1_im + w_im*in1_re;
+	R32 out1_re = in0_re - w_re*in1_re + w_im*in1_im;
+	R32 out1_im = in0_im - w_re*in1_im - w_im*in1_re;
+
+	inout0_re[j] = out0_re;
+	inout0_im[j] = out0_im;
+	inout1_re[j] = out1_re;
+	inout1_im[j] = out1_im;
       }
     }
-    else
+  }
+#endif
+
+  // NOTE: vector when half count is at least vector width
+  for(U64 s = 8; s <= count; s *= 2)
+  {
+    for(U64 k = 0; k < count; k += s)
     {
-      C64 ws = c64(cosf(f), sinf(f));
+      R32 *twiddles_re = twiddle_table_re__radix2 + s/2;
+      R32 *twiddles_im = twiddle_table_im__radix2 + s/2;
 
-      for(U64 k = 0; k < count; k += s)
+      R32 *out_e_re = out_re + k;
+      R32 *out_e_im = out_im + k;
+      R32 *out_o_re = out_re + k + s/2;
+      R32 *out_o_im = out_im + k + s/2;
+      for(U64 j = 0; j < s/2; j += 4)
       {
-	C64 w = c64(1, 0);
+	__m128 w_re = _mm_load_ps(twiddles_re);
+	__m128 w_im = _mm_load_ps(twiddles_im);
 
-	for(U64 j = 0; j < s/2; ++j)
-	{
-	  R32 out_e_re = out_re[k + j];
-	  R32 out_e_im = out_im[k + j];
-	  R32 out_o_re = out_re[k + s/2 + j];
-	  R32 out_o_im = out_im[k + s/2 + j];
+	__m128 p_re = _mm_load_ps(out_e_re);
+	__m128 p_im = _mm_load_ps(out_e_im);
+	__m128 t_re = _mm_load_ps(out_o_re);
+	__m128 t_im = _mm_load_ps(out_o_im);
+	__m128 q_re = _mm_sub_ps(_mm_mul_ps(w_re, t_re),
+				 _mm_mul_ps(w_im, t_im));
+	__m128 q_im = _mm_add_ps(_mm_mul_ps(w_re, t_im),
+				 _mm_mul_ps(w_im, t_re));
 
-	  C64 p = c64(out_e_re, out_e_im);
-	  C64 t = c64(out_o_re, out_o_im);
-	  C64 q = c64_mul(w, t);
+	__m128 dest_e_re = _mm_add_ps(p_re, q_re);
+	__m128 dest_e_im = _mm_add_ps(p_im, q_im);
+	__m128 dest_o_re = _mm_sub_ps(p_re, q_re);
+	__m128 dest_o_im = _mm_sub_ps(p_im, q_im);
+	_mm_store_ps(out_e_re, dest_e_re);
+	_mm_store_ps(out_e_im, dest_e_im);
+	_mm_store_ps(out_o_re, dest_o_re);
+	_mm_store_ps(out_o_im, dest_o_im);
 
-	  C64 dest_e = c64_add(p, q);
-	  C64 dest_o = c64_sub(p, q);
-	  out_re[k + j]       = dest_e.re;
-	  out_im[k + j]       = dest_e.im;
-	  out_re[k + s/2 + j] = dest_o.re;
-	  out_im[k + s/2 + j] = dest_o.im;
+	out_e_re += 4;
+	out_e_im += 4;
+	out_o_re += 4;
+	out_o_im += 4;
 
-	  w = c64_mul(w, ws);
-	}
+	twiddles_re += 4;
+	twiddles_im += 4;
       }
     }
   }
@@ -383,36 +464,52 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
     out_re[i_rev] = in[i];
   }
 
-  __m256 const two_m256 = _mm256_set1_ps(2.f);
-
-  for(U64 s = 2; s <= count; s <<= 1)
+  // NOTE: scalar for the first few iterations, where the count is smaller than the vecto width
+  // TODO: maybe inline the first couple iterations, eliminating twiddle loads
+  for(U64 s = 2; s < 16; s *= 2)
   {
-    R32 f = -TAU32 / (R32)s;
-    //C64 ws = c64(cosf(f), sinf(f));
-    R32 ws1_re = cosf(f);
-    R32 ws1_im = sinf(f);
-    R32 ws2_re = ws1_re*ws1_re - ws1_im*ws1_im;
-    R32 ws2_im = ws1_re*ws1_im + ws1_im*ws1_re;
-    R32 ws3_re = ws2_re*ws1_re - ws2_im*ws1_im;
-    R32 ws3_im = ws2_re*ws1_im + ws2_im*ws1_re;
-    R32 ws4_re = ws2_re*ws2_re - ws2_im*ws2_im;
-    R32 ws4_im = ws2_re*ws2_im + ws2_im*ws2_re;
-    R32 ws5_re = ws3_re*ws2_re - ws3_im*ws2_im;
-    R32 ws5_im = ws3_re*ws2_im + ws3_im*ws2_re;
-    R32 ws6_re = ws3_re*ws3_re - ws3_im*ws3_im;
-    R32 ws6_im = ws3_re*ws3_im + ws3_im*ws3_re;
-    R32 ws7_re = ws4_re*ws3_re - ws4_im*ws3_im;
-    R32 ws7_im = ws4_re*ws3_im + ws4_im*ws3_re;
-    R32 ws8_re = ws4_re*ws4_re - ws4_im*ws4_im;
-    R32 ws8_im = ws4_re*ws4_im + ws4_im*ws4_re;
-    __m256 ws_re = _mm256_set1_ps(ws8_re);
-    __m256 ws_im = _mm256_set1_ps(ws8_im);
+    R32 *twiddles_re = twiddle_table_re__radix2 + s/2;
+    R32 *twiddles_im = twiddle_table_im__radix2 + s/2;
 
     for(U64 k = 0; k < count; k += s)
     {
-      //C64 w = c64(1, 0);
-      __m256 w_re = _mm256_setr_ps(1, ws1_re, ws2_re, ws3_re, ws4_re, ws5_re, ws6_re, ws7_re);
-      __m256 w_im = _mm256_setr_ps(0, ws1_im, ws2_im, ws3_im, ws4_im, ws5_im, ws6_im, ws7_im);
+      R32 *inout0_re = out_re + 0*s/2 + k;
+      R32 *inout0_im = out_im + 0*s/2 + k;
+      R32 *inout1_re = out_re + 1*s/2 + k;
+      R32 *inout1_im = out_im + 1*s/2 + k;
+
+      for(U64 j = 0; j < s/2; ++j)
+      {
+	R32 w_re = twiddles_re[j];
+	R32 w_im = twiddles_im[j];
+
+	R32 in0_re = inout0_re[j];
+	R32 in0_im = inout0_im[j];
+	R32 in1_re = inout1_re[j];
+	R32 in1_im = inout1_im[j];
+
+	R32 out0_re = in0_re + w_re*in1_re - w_im*in1_im;
+	R32 out0_im = in0_im + w_re*in1_im + w_im*in1_re;
+	R32 out1_re = in0_re - w_re*in1_re + w_im*in1_im;
+	R32 out1_im = in0_im - w_re*in1_im - w_im*in1_re;
+
+	inout0_re[j] = out0_re;
+	inout0_im[j] = out0_im;
+	inout1_re[j] = out1_re;
+	inout1_im[j] = out1_im;
+      }
+    }
+  }
+
+  // NOTE: vector for the rest
+  __m256 const two_m256 = _mm256_set1_ps(2.f);
+
+  for(U64 s = 16; s <= count; s *= 2)
+  {
+    for(U64 k = 0; k < count; k += s)
+    {
+      R32 *twiddles_re = twiddle_table_re__radix2 + s/2;
+      R32 *twiddles_im = twiddle_table_im__radix2 + s/2;
 
       R32 *out_e_re = out_re + k;
       R32 *out_e_im = out_im + k;
@@ -421,21 +518,13 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
 
       for(U64 j = 0; j < s/2; j += 8)
       {
-	__m256i mask = _mm256_setr_epi32(((j + 0) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 1) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 2) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 3) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 4) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 5) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 6) < s/2) ? 0xFFFFFFFF : 0,
-					 ((j + 7) < s/2) ? 0xFFFFFFFF : 0);
+	__m256 w_re = _mm256_load_ps(twiddles_re);
+	__m256 w_im = _mm256_load_ps(twiddles_im);
 
-	/* C64 p = out[k + j]; */
-	/* C64 q = c64_mul(w, out[k + s/2 + j]); */
-	__m256 in0_re = _mm256_loadu_ps(out_e_re);
-	__m256 in0_im = _mm256_loadu_ps(out_e_im);
-	__m256 in1_re = _mm256_loadu_ps(out_o_re);
-	__m256 in1_im = _mm256_loadu_ps(out_o_im);
+	__m256 in0_re = _mm256_load_ps(out_e_re);
+	__m256 in0_im = _mm256_load_ps(out_e_im);
+	__m256 in1_re = _mm256_load_ps(out_o_re);
+	__m256 in1_im = _mm256_load_ps(out_o_im);
 
 	__m256 out0_re = _mm256_fnmadd_ps(w_im, in1_im,
 					  _mm256_fmadd_ps(w_re, in1_re,
@@ -445,33 +534,19 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
 							 in0_im));
 	__m256 out1_re = _mm256_fmsub_ps(two_m256, in0_re, out0_re);
 	__m256 out1_im = _mm256_fmsub_ps(two_m256, in0_im, out0_im);
-	/* __m256 q_re = _mm256_sub_ps(_mm256_mul_ps(w_re, t_re), */
-	/* 			    _mm256_mul_ps(w_im, t_im)); */
-	/* __m256 q_im = _mm256_add_ps(_mm256_mul_ps(w_re, t_im), */
-	/* 			    _mm256_mul_ps(w_im, t_re)); */
 
-	/* out[k + j]       = c64_add(p, q); */
-	/* out[k + s/2 + j] = c64_sub(p, q); */
-	/* __m256 dest_e_re = _mm256_add_ps(p_re, q_re); */
-	/* __m256 dest_e_im = _mm256_add_ps(p_im, q_im); */
-	/* __m256 dest_o_re = _mm256_sub_ps(p_re, q_re); */
-	/* __m256 dest_o_im = _mm256_sub_ps(p_im, q_im); */
-	_mm256_maskstore_ps(out_e_re, mask, out0_re);
-	_mm256_maskstore_ps(out_e_im, mask, out0_im);
-	_mm256_maskstore_ps(out_o_re, mask, out1_re);
-	_mm256_maskstore_ps(out_o_im, mask, out1_im);
-
-	//w = c64_mul(w, ws);
-	__m256 w_re_old = w_re;
-	w_re = _mm256_sub_ps(_mm256_mul_ps(w_re, ws_re),
-			     _mm256_mul_ps(w_im, ws_im));
-	w_im = _mm256_add_ps(_mm256_mul_ps(w_re_old, ws_im),
-			     _mm256_mul_ps(w_im, ws_re));
+	_mm256_store_ps(out_e_re, out0_re);
+	_mm256_store_ps(out_e_im, out0_im);
+	_mm256_store_ps(out_o_re, out1_re);
+	_mm256_store_ps(out_o_im, out1_im);
 
 	out_e_re += 8;
 	out_e_im += 8;
 	out_o_re += 8;
 	out_o_im += 8;
+
+	twiddles_re += 8;
+	twiddles_im += 8;
       }
     }
   }

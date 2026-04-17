@@ -1,6 +1,7 @@
 /** TODO:
  * - features:
  *   - more counters
+ *   - integrate with profile system, showing info for each profiled scope in passed function
  * - bugs:
  *   - investigate amd leaf 0x80000022 being unavailable (fedora 43)
  */
