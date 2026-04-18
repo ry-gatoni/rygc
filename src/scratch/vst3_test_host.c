@@ -13,8 +13,12 @@ main(int argc, char **argv)
   vst3_host_init();
 
   String8 plugin_path = Str8Lit("/home/rycurrier/.vst3/Granade.vst3/Contents/x86_64-linux/Granade.so");
-  Os_Handle plugin_handle = vst3_host_load_plugin(plugin_path);
-  vst3_host_unload_plugin(plugin_handle);
+  Vst3_PluginImage *plugin_image = vst3_host_plugin_load(plugin_path);
+
+  Vst3_PluginInstance *plugin = vst3_host_plugin_instantiate(plugin_image);
+  vst3_host_plugin_uninstantiate(plugin);
+
+  vst3_host_plugin_unload(plugin_image);
 
   vst3_host_uninit();
 
