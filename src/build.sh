@@ -43,7 +43,8 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/3d_filter.c -o 3d_filter -lxkbcommon -lEGL -lGL
 # clang $CFLAGS $SRC/scratch/3d_filter2.c -o 3d_filter -lEGL -lGL -lfreetype
 # clang $CFLAGS $SRC/scratch/buzz.c -o buzz && ./buzz
-clang $CFLAGS -O3 -mavx2 -mfma $SRC/scratch/fft_bench.c -o fft_bench && ./fft_bench
+# clang $CFLAGS -O3 -mavx2 -mfma $SRC/scratch/fft_bench.c -o fft_bench && ./fft_bench
+clang $CFLAGS $SRC/scratch/vst3_test_host.c -o vst3_test_host
 
 popd > /dev/null # ./build -> ./src
 

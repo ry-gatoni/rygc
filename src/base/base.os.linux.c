@@ -383,6 +383,9 @@ os_thread_id(void)
   return(result);
 }
 
+// -----------------------------------------------------------------------------
+// libraries
+
 proc void*
 os_this_image(void)
 {
@@ -401,6 +404,44 @@ os_this_image(void)
   return(result);
 }
 
+proc Os_Handle
+os_lib_open(String8 path)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  char *path_cstr = arena_push_array(scratch.arena, char, path.count + 1);
+  CopyArray(path_cstr, path.string, char, path.count);
+  path_cstr[path.count] = 0;
+
+  Os_Handle result = {0};
+  result.handle = dlopen(path_cstr, RTLD_NOW);
+
+  arena_release_scratch(scratch);
+
+  return(result);
+}
+
+proc void
+os_lib_close(Os_Handle lib)
+{
+  dlclose(lib.handle);
+}
+
+proc void*
+os_lib_get_sym(Os_Handle lib, String8 sym_name)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  char *sym_name_cstr = arena_push_array(scratch.arena, char, sym_name.count + 1);
+  CopyArray(sym_name_cstr, sym_name.string, char, sym_name.count);
+  sym_name_cstr[sym_name.count] = 0;
+
+  void *result = dlsym(lib.handle, sym_name_cstr);
+
+  arena_release_scratch(scratch);
+
+  return(result);
+}
 
 // -----------------------------------------------------------------------------
 // time

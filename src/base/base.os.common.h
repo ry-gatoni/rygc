@@ -64,6 +64,10 @@ proc U64 os_thread_id(void);
 
 proc void* os_this_image(void);
 
+proc Os_Handle os_lib_open(String8 path);
+proc void os_lib_close(Os_Handle lib);
+proc void* os_lib_get_sym(Os_Handle lib, String8 sym_name);
+
 // -----------------------------------------------------------------------------
 // time
 
