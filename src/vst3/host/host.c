@@ -39,8 +39,22 @@ vst3_host_plugin_load(String8 path_to_plugin_binary)
 
   Os_Handle handle = os_lib_open(path_to_plugin_binary);
   Vst3_GetFactoryProc *get_factory_proc = os_lib_get_sym(handle, Str8Lit("GetPluginFactory"));
-  void *init_proc = os_lib_get_sym(handle, vst3_init_proc_name_for_os);
-  void *exit_proc = os_lib_get_sym(handle, vst3_exit_proc_name_for_os);
+  Vst3_InitModuleProc *init_proc = os_lib_get_sym(handle, vst3_init_proc_name_for_os);
+  Vst3_ExitModuleProc *exit_proc = os_lib_get_sym(handle, vst3_exit_proc_name_for_os);
+
+  // NOTE: init the module if it has an init function
+  if(init_proc)
+  {
+#if OS_MAC || OS_LINUX
+    init_proc(handle.handle);
+#elif OS_WINDOWS
+    init_proc();
+#endif
+  }
+  else
+  {
+    // TODO: error on mac and linux
+  }
 
   // NOTE: enumerate plugin classes
   IPluginFactory *plugin_factory = get_factory_proc();
@@ -195,7 +209,21 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
     // NOTE: the plugin implements processor and controller on the same class
   }
 
-  // TODO: get/set states for component and controller
+  // TODO: set component handler for edit controller
+
+  // NOTE: get/set states for component and controller
+  Vst3_HostStream *stream = vst3_host_stream_alloc(arena, VST3_HOST_STREAM_SIZE_DEFAULT);
+  IComponent_GetState(component, &stream->i);
+  IEditController_SetComponentState(edit_controller, &stream->i);
+
+  // NOTE: get parameter info
+  U64 param_count = IEditController_GetParameterCount(edit_controller);
+  ParameterInfo *param_infos = arena_push_array(arena, ParameterInfo, param_count);
+  for(U64 param_idx = 0; param_idx < param_count; ++param_idx)
+  {
+    ParameterInfo *param_info = param_infos + param_idx;
+    IEditController_GetParameterInfo(edit_controller, param_idx, param_info);
+  }
 
   // NOTE: initialize audio processor
   Fuid audio_processor_iid = vst3_iid_for_interface(Vst3_Interface_IAudioProcessor);
@@ -207,6 +235,8 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
   result->component = component;
   result->edit_controller = edit_controller;
   result->audio_processor = audio_processor;
+  result->param_count = param_count;
+  result->param_infos = param_infos;
   return(result);
 }
 
@@ -333,6 +363,132 @@ IHostApplication_CreateInstance(IHostApplication *_this, Tuid cid, Tuid iid, voi
   Unused(cid);
   Unused(iid);
   *obj = 0;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// IBStream implementations
+
+proc Vst3_HostStream*
+vst3_host_stream_alloc(Arena *arena, U64 size)
+{
+  Vst3_HostStream *result = arena_push_struct(arena, Vst3_HostStream);
+  result->i.v = (void*)arena_push_array(arena, void*, ArrayCount(result->i.v->table));
+  result->i.v->query_interface = vst3_host_stream_query_interface;
+  result->i.v->add_ref = vst3_host_stream_add_ref;
+  result->i.v->release = vst3_host_stream_release;
+  result->i.v->read = vst3_host_stream_read;
+  result->i.v->write = vst3_host_stream_write;
+  result->i.v->seek = vst3_host_stream_seek;
+  result->i.v->tell = vst3_host_stream_tell;
+  result->size = size;
+  result->pos = 0;
+  result->data = arena_push_array(arena, U8, size);
+  return(result);
+}
+
+proc TResult
+vst3_host_stream_query_interface(IBStream *_this, const Tuid iid, void **obj)
+{
+  Unused(_this);
+  Unused(iid);
+  *obj = 0;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc U32
+vst3_host_stream_add_ref(IBStream *_this)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  ++stream->ref_count;
+
+  U32 result = stream->ref_count;
+  return(result);
+}
+
+proc U32
+vst3_host_stream_release(IBStream *_this)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  --stream->ref_count;
+
+  // TODO: free when ref count hits 0
+  U32 result = stream->ref_count;
+  return(result);
+}
+
+proc TResult
+vst3_host_stream_read(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_read)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  U8 *src = stream->data + stream->pos;
+  U64 bytes_remaining = stream->size - stream->pos;
+
+  U8 *dest = buffer;
+  U64 bytes_to_read = Min((U64)num_bytes, bytes_remaining);
+  CopyArray(dest, src, U8, bytes_to_read);
+  stream->pos += bytes_to_read;
+  *num_bytes_read = bytes_to_read;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc TResult
+vst3_host_stream_write(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_written)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  U8 *dest = stream->data + stream->pos;
+  U64 bytes_remaining = stream->size - stream->pos;
+
+  U8 *src = buffer;
+  U64 bytes_to_write = Min((U64)num_bytes, bytes_remaining);
+  CopyArray(dest, src, U8, bytes_to_write);
+  stream->pos += bytes_to_write;
+  *num_bytes_written = bytes_to_write;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc TResult
+vst3_host_stream_seek(IBStream *_this, S64 pos, S32 mode, S64 *result)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  S64 new_pos = stream->pos;
+  switch(mode)
+  {
+    case KIBStream_seek_set:
+    {
+      new_pos = pos;
+    }break;
+    case KIBStream_seek_cur:
+    {
+      new_pos = stream->pos + pos;
+    }break;
+    case KIBStream_seek_end:
+    {
+      new_pos = stream->size - pos;
+    }break;
+    // TODO: report error for unrecognized mode
+  }
+
+  stream->pos = new_pos;
+  *result = new_pos;
+
+  TResult status = KResult_ok;
+  return(status);
+}
+
+proc TResult
+vst3_host_stream_tell(IBStream *_this, S64 *pos)
+{
+  Vst3_HostStream *stream = (Vst3_HostStream*)_this;
+  *pos = stream->pos;
 
   TResult result = KResult_ok;
   return(result);

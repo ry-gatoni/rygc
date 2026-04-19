@@ -15,6 +15,13 @@ typedef enum TResult
   KResult_out_of_memory		= 0x8007000E, // E_OUTOFMEMORY
 } TResult;
 
+typedef enum IBStream_Flags
+{
+  KIBStream_seek_set = 0,
+  KIBStream_seek_cur,
+  KIBStream_seek_end,
+} IBStream_Flags;
+
 typedef char Tuid[16];
 typedef const char* FidString;
 
@@ -39,7 +46,10 @@ typedef struct Fuid
 
 typedef const char *FidString;
 #include <uchar.h>
-typedef char16_t Vst3_String128[128];
+typedef char16_t TChar;
+typedef TChar Vst3_String128[128];
+
+typedef U8 TBool;
 
 typedef struct PFactoryInfo
 {
@@ -58,6 +68,42 @@ typedef struct PClassInfo
   U8 category[32];
   U8 name[64];
 } PClassInfo;
+
+typedef U32 ParamId;
+typedef R64 ParamValue;
+typedef S32 UnitId;
+typedef struct ParameterInfo
+{
+  ParamId id;
+  Vst3_String128 title;
+  Vst3_String128 short_title;
+  Vst3_String128 units;
+  S32 step_count;
+  ParamValue default_normalized_value; // normalized 0-1
+  UnitId unit_id;
+  S32 flags;
+} ParameterInfo;
+
+typedef S32 MediaType;
+typedef S32 BusDirection;
+typedef S32 BusType;
+typedef S32 IoMode;
+typedef struct BusInfo
+{
+  MediaType media_type;
+  BusDirection direction;
+  S32 channel_count;
+  Vst3_String128 name;
+  BusType type;
+  U32 flags;
+} BusInfo;
+
+typedef struct RoutingInfo
+{
+  MediaType media_type;
+  S32 bus_index;
+  S32 channel;
+} RoutingInfo;
 
 typedef struct FUnknown FUnknown;
 struct FUnknown
@@ -139,14 +185,14 @@ struct IEditController
       TResult (*set_state)(IEditController *_this, IBStream *state);
       TResult (*get_state)(IEditController *_this, IBStream *state);
       S32 (*get_parameter_count)(IEditController *_this);
-#if 0 // TODO: define necessary structs/interfaces
       TResult (*get_parameter_info)(IEditController *_this, S32 param_index, ParameterInfo *info);
-      TResult (*get_param_string_by_value)(IEditController *_this, ParamID id, ParamValue value_normalized, String128 string);
-      TResult (*get_param_value_by_string)(IEditController *_this, ParamID id, TChar *string, ParamValue *value_normalized);
-      ParamValue (*normalized_param_to_plain)(IEditController *_this, ParamID id, ParamValue value_normalized);
-      ParamValue (*plain_param_to_normalized)(IEditController *_this, ParamID id, ParamValue plain_value);
-      ParamValue (*get_param_normalized)(IEditController *_this, ParamID id);
-      TResult (*set_param_normalized)(IEditController *_this, ParamID id, ParamValue value);
+      TResult (*get_param_string_by_value)(IEditController *_this, ParamId id, ParamValue value_normalized, Vst3_String128 string);
+      TResult (*get_param_value_by_string)(IEditController *_this, ParamId id, TChar *string, ParamValue *value_normalized);
+      ParamValue (*normalized_param_to_plain)(IEditController *_this, ParamId id, ParamValue value_normalized);
+      ParamValue (*plain_param_to_normalized)(IEditController *_this, ParamId id, ParamValue plain_value);
+      ParamValue (*get_param_normalized)(IEditController *_this, ParamId id);
+      TResult (*set_param_normalized)(IEditController *_this, ParamId id, ParamValue value);
+#if 0 // TODO: define necessary structs/interfaces
       TResult (*set_component_handler)(IEditController *_this, IComponentHandler *handler);
       IPlugView* (*create_view)(IEditController *_this, FidString name);
 #endif
@@ -168,14 +214,12 @@ struct IComponent
       TResult (*terminate)(IComponent *_this);
 
       TResult (*get_controller_class_id)(IComponent *_this, Tuid class_id);
-#if 0 // TODO: define structs/interfaces
       TResult (*set_io_mode)(IComponent *_this, IoMode mode);
       S32 (*get_bus_count)(IComponent *_this, MediaType type, BusDirection dir);
       TResult (*get_bus_info)(IComponent *_this, MediaType type, BusDirection dir, S32 index, BusInfo *bus);
       TResult (*get_routing_info)(IComponent *_this, RoutingInfo *in_info, RoutingInfo *out_info);
       TResult (*activate_bus)(IComponent *_this, MediaType type, BusDirection dir, S32 index, TBool state);
       TResult (*set_active)(IComponent *_this, TBool state);
-#endif
       TResult (*set_state)(IComponent *_this, IBStream *state);
       TResult (*get_state)(IComponent *_this, IBStream *state);
     };
@@ -224,6 +268,18 @@ struct IHostApplication
 };
 
 typedef IPluginFactory* (Vst3_GetFactoryProc)(void);
+#if OS_WINDOWS
+typedef TBool (Vst3_InitModuleProc)(void);
+typedef TBool (Vst3_ExitModuleProc)(void);
+#elif OS_LINUX
+typedef TBool (Vst3_InitModuleProc)(void *dlopen_handle);
+typedef TBool (Vst3_ExitModuleProc)(void);
+#elif OS_MAC
+typedef TBool (Vst3_InitModuleProc)(CFBundleRef bundle_ref);
+typedef TBool (Vst3_ExitModuleProc)(void);
+#else
+#  error unsupported os
+#endif
 
 typedef enum Vst3_Interface
 {
@@ -311,6 +367,14 @@ IEditController_Release(IEditController *_this)
 proc inline TResult
 IEditController_SetComponentState(IEditController *_this, IBStream *state)
 { return(_this->v->set_component_state(_this, state)); }
+
+proc inline S32
+IEditController_GetParameterCount(IEditController *_this)
+{ return(_this->v->get_parameter_count(_this)); }
+
+proc inline TResult
+IEditController_GetParameterInfo(IEditController *_this, S32 param_index, ParameterInfo *info)
+{ return(_this->v->get_parameter_info(_this, param_index, info)); }
 
 // IAudioProcessor
 proc inline U32
@@ -409,12 +473,27 @@ typedef struct Vst3_PluginInstance
   IComponent *component;
   IEditController *edit_controller;
   IAudioProcessor *audio_processor;
+
+  U64 param_count;
+  ParameterInfo *param_infos;
 } Vst3_PluginInstance;
 
 typedef struct Vst3_HostApplicationImpl
 {
   U32 ref_count;
 } Vst3_HostApplicationImpl;
+
+typedef struct Vst3_HostStream
+{
+  IBStream i;
+
+  U64 size;
+  U64 pos;
+  U8 *data;
+
+  U32 ref_count;
+} Vst3_HostStream;
+#define VST3_HOST_STREAM_SIZE_DEFAULT KB(64)
 
 typedef struct Vst3_HostState
 {
@@ -509,3 +588,17 @@ proc U32 IHostApplication_Release(IHostApplication *_this);
 
 proc TResult IHostApplication_GetName(IHostApplication *_this, Vst3_String128 name);
 proc TResult IHostApplication_CreateInstance(IHostApplication *_this, Tuid cid, Tuid iid, void **obj);
+
+// -----------------------------------------------------------------------------
+// IBStream implementations
+
+proc Vst3_HostStream* vst3_host_stream_alloc(Arena *arena, U64 size);
+
+proc TResult vst3_host_stream_query_interface(IBStream *_this, const Tuid iid, void **obj);
+proc U32 vst3_host_stream_add_ref(IBStream *_this);
+proc U32 vst3_host_stream_release(IBStream *_this);
+
+proc TResult vst3_host_stream_read(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_read);
+proc TResult vst3_host_stream_write(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_written);
+proc TResult vst3_host_stream_seek(IBStream *_this, S64 pos, S32 mode, S64 *result);
+proc TResult vst3_host_stream_tell(IBStream *_this, S64 *pos);
