@@ -105,6 +105,24 @@ struct IPluginBase
   } *v;
 };
 
+typedef struct IBStream IBStream;
+struct IBStream
+{
+  union{
+    struct{
+      TResult (*query_interface)(IBStream *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IBStream *_this);
+      U32 (*release)(IBStream *_this);
+
+      TResult (*read)(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_read);
+      TResult (*write)(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_written);
+      TResult (*seek)(IBStream *_this, S64 pos, S32 mode, S64 *result);
+      TResult (*tell)(IBStream *_this, S64 *pos);
+    };
+    void *table[7];
+  } *v;
+};
+
 typedef struct IEditController IEditController;
 struct IEditController
 {
@@ -117,11 +135,11 @@ struct IEditController
       TResult (*initialize)(IEditController *_this, FUnknown *context);
       TResult (*terminate)(IEditController *_this);
 
-#if 0 // TODO: define necessary structs/interfaces
       TResult (*set_component_state)(IEditController *_this, IBStream *state);
       TResult (*set_state)(IEditController *_this, IBStream *state);
       TResult (*get_state)(IEditController *_this, IBStream *state);
       S32 (*get_parameter_count)(IEditController *_this);
+#if 0 // TODO: define necessary structs/interfaces
       TResult (*get_parameter_info)(IEditController *_this, S32 param_index, ParameterInfo *info);
       TResult (*get_param_string_by_value)(IEditController *_this, ParamID id, ParamValue value_normalized, String128 string);
       TResult (*get_param_value_by_string)(IEditController *_this, ParamID id, TChar *string, ParamValue *value_normalized);
@@ -157,9 +175,9 @@ struct IComponent
       TResult (*get_routing_info)(IComponent *_this, RoutingInfo *in_info, RoutingInfo *out_info);
       TResult (*activate_bus)(IComponent *_this, MediaType type, BusDirection dir, S32 index, TBool state);
       TResult (*set_active)(IComponent *_this, TBool state);
+#endif
       TResult (*set_state)(IComponent *_this, IBStream *state);
       TResult (*get_state)(IComponent *_this, IBStream *state);
-#endif
     };
     void *table[14];
   } *v;
@@ -273,6 +291,10 @@ proc inline U32
 IComponent_Release(IComponent *_this)
 { return(_this->v->release(_this)); }
 
+proc inline TResult
+IComponent_GetState(IComponent *_this, IBStream *state)
+{ return(_this->v->get_state(_this, state)); }
+
 // IEditController
 proc inline TResult
 IEditController_Initialize(IEditController *_this, FUnknown *context)
@@ -284,6 +306,15 @@ IEditController_Terminate(IEditController *_this)
 
 proc inline U32
 IEditController_Release(IEditController *_this)
+{ return(_this->v->release(_this)); }
+
+proc inline TResult
+IEditController_SetComponentState(IEditController *_this, IBStream *state)
+{ return(_this->v->set_component_state(_this, state)); }
+
+// IAudioProcessor
+proc inline U32
+IAudioProcessor_Release(IAudioProcessor *_this)
 { return(_this->v->release(_this)); }
 
 // -----------------------------------------------------------------------------

@@ -195,9 +195,18 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
     // NOTE: the plugin implements processor and controller on the same class
   }
 
+  // TODO: get/set states for component and controller
+
+  // NOTE: initialize audio processor
+  Fuid audio_processor_iid = vst3_iid_for_interface(Vst3_Interface_IAudioProcessor);
+  IAudioProcessor *audio_processor = 0;
+  ok = IComponent_QueryInterface(component, audio_processor_iid.data, (void**)&audio_processor);
+  Assert(ok == KResult_ok); // TODO: actual error handling/logging
+
   result->image = plugin;
   result->component = component;
   result->edit_controller = edit_controller;
+  result->audio_processor = audio_processor;
   return(result);
 }
 
@@ -213,6 +222,10 @@ vst3_host_plugin_uninstantiate(Vst3_PluginInstance *plugin)
   IEditController_Terminate(edit_controller);
   IEditController_Release(edit_controller);
   plugin->edit_controller = 0;
+
+  IAudioProcessor *audio_processor = plugin->audio_processor;
+  IAudioProcessor_Release(audio_processor);
+  plugin->audio_processor = 0;
 
   plugin->image = 0;
 }
@@ -258,13 +271,6 @@ vst3_cid_for_interface(Vst3_Interface i)
   FidString result = vst3_fuids[i].data;
   return(result);
 }
-
-/* proc Vst3_Iid */
-/* vst3_iid_for_interface(Vst3_Interface i) */
-/* { */
-/*   Vst3_Iid result = vst3_tuids[i].iid; */
-/*   return(result); */
-/* } */
 
 Vst3_HostApplicationImpl*
 vst3_get_host_application_impl(IHostApplication *_this)
