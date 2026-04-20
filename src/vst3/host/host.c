@@ -211,6 +211,23 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
     // NOTE: the plugin implements processor and controller on the same class
   }
 
+  // NOTE: try to connect component and controller
+  {
+    Fuid connection_point_iid = vst3_iid_for_interface(Vst3_Interface_IConnectionPoint);
+    IConnectionPoint *component_connection = 0;
+    IConnectionPoint *controller_connection = 0;
+    IComponent_QueryInterface(component, connection_point_iid.data, (void**)&component_connection);
+    IEditController_QueryInterface(edit_controller, connection_point_iid.data, (void**)&controller_connection);
+    if(component_connection != 0 && controller_connection != 0)
+    {
+      IConnectionPoint_Connect(component_connection, controller_connection);
+      IConnectionPoint_Connect(controller_connection, component_connection);
+
+      IConnectionPoint_Release(component_connection);
+      IConnectionPoint_Release(controller_connection);
+    }
+  }
+
   // NOTE: set component handler for edit controller
   IComponentHandler *icomponent_handler = &vst3_host_state->component_handler->i;
   IEditController_SetComponentHandler(edit_controller, icomponent_handler);
@@ -436,7 +453,7 @@ vst3_host_stream_read(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_byt
   U64 bytes_to_read = Min((U64)num_bytes, bytes_remaining);
   CopyArray(dest, src, U8, bytes_to_read);
   stream->pos += bytes_to_read;
-  *num_bytes_read = bytes_to_read;
+  if(num_bytes_read != 0) *num_bytes_read = bytes_to_read;
 
   TResult result = KResult_ok;
   return(result);
@@ -453,7 +470,7 @@ vst3_host_stream_write(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_by
   U64 bytes_to_write = Min((U64)num_bytes, bytes_remaining);
   CopyArray(dest, src, U8, bytes_to_write);
   stream->pos += bytes_to_write;
-  *num_bytes_written = bytes_to_write;
+  if(num_bytes_written != 0) *num_bytes_written = bytes_to_write;
 
   TResult result = KResult_ok;
   return(result);
@@ -482,7 +499,7 @@ vst3_host_stream_seek(IBStream *_this, S64 pos, S32 mode, S64 *result)
   }
 
   stream->pos = new_pos;
-  *result = new_pos;
+  if(result != 0) *result = new_pos;
 
   TResult status = KResult_ok;
   return(status);
@@ -492,7 +509,7 @@ proc TResult
 vst3_host_stream_tell(IBStream *_this, S64 *pos)
 {
   Vst3_HostStream *stream = (Vst3_HostStream*)_this;
-  *pos = stream->pos;
+  *pos = stream->pos; // NOTE: this should never be null
 
   TResult result = KResult_ok;
   return(result);

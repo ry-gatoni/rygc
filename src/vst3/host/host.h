@@ -17,6 +17,9 @@ typedef struct IParameterChanges IParameterChanges;
 typedef struct IEventList IEventList;
 typedef struct IAudioProcessor IAudioProcessor;
 typedef struct IHostApplication IHostApplication;
+typedef struct IAttributeList IAttributeList;
+typedef struct IMessage IMessage;
+typedef struct IConnectionPoint IConnectionPoint;
 
 // -----------------------------------------------------------------------------
 // other types
@@ -416,6 +419,59 @@ struct IHostApplication
   } *v;
 };
 
+struct IAttributeList
+{
+  union{
+    struct{
+      TResult (*query_interface)(IAttributeList *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IAttributeList *_this);
+      U32 (*release)(IAttributeList *_this);
+
+      TResult (*set_int)(const char *id, S64 value);
+      TResult (*get_int)(const char *id, S64 *value);
+      TResult (*set_float)(const char *id, R64 value);
+      TResult (*get_float)(const char *id, R64 *value);
+      TResult (*set_string)(const char *id, const TChar *string);
+      TResult (*get_string)(const char *id, const TChar *string, U32 size_in_bytes);
+      TResult (*set_binary)(const char *id, const void *data, U32 size_in_bytes);
+      TResult (*get_binary)(const char *id, const void **data, U32* size_in_bytes);
+    };
+    void *table[11];
+  } *v;
+};
+
+struct IMessage
+{
+  union{
+    struct{
+      TResult (*query_interface)(IMessage *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IMessage *_this);
+      U32 (*release)(IMessage *_this);
+
+      FidString (*get_message_id)(IMessage *_this);
+      void (*set_message_id)(IMessage *_this, FidString id);
+      IAttributeList* (*get_attributes)(IMessage *_this);
+    };
+    void *table[6];
+  } *v;
+};
+
+struct IConnectionPoint
+{
+  union{
+    struct{
+      TResult (*query_interface)(IConnectionPoint *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IConnectionPoint *_this);
+      U32 (*release)(IConnectionPoint *_this);
+
+      TResult (*connect)(IConnectionPoint *_this, IConnectionPoint *other);
+      TResult (*disconnect)(IConnectionPoint *_this, IConnectionPoint *other);
+      TResult (*notify)(IConnectionPoint *_this, IMessage *message);
+    };
+    void *table[6];
+  } *v;
+};
+
 typedef IPluginFactory* (Vst3_GetFactoryProc)(void);
 #if OS_WINDOWS
 typedef TBool (Vst3_InitModuleProc)(void);
@@ -430,15 +486,26 @@ typedef TBool (Vst3_ExitModuleProc)(void);
 #  error unsupported os
 #endif
 
+// TODO: is it possible to generate the interface definitions as well, by
+// somehow saying which functions should be in each interface's vtable? how to
+// get the table count?
+
+// X(name, id0, id1, id2, id3)
+#define VST3_INTERFACE_XLIST\
+  X(FUnknown, 0x00000000, 0x00000000, 0xC0000000, 0x00000046)\
+  X(IPluginFactory, 0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F)\
+  X(IPluginBase, 0x22888DDB, 0x156E45AE, 0x8358B348, 0x08190625)\
+  X(IEditController, 0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E)\
+  X(IComponent, 0xE831FF31, 0xF2D54301, 0x928EBBEE, 0x25697802)\
+  X(IAudioProcessor, 0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D)\
+  X(IHostApplication, 0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5)\
+  X(IConnectionPoint, 0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1)
+
 typedef enum Vst3_Interface
 {
-  Vst3_Interface_FUnknown,
-  Vst3_Interface_IPluginFactory,
-  Vst3_Interface_IPluginBase,
-  Vst3_Interface_IEditController,
-  Vst3_Interface_IComponent,
-  Vst3_Interface_IAudioProcessor,
-  Vst3_Interface_IHostApplication,
+#define X(name, id0, id1, id2, id3) Glue(Vst3_Interface_, name),
+  VST3_INTERFACE_XLIST
+#undef X
   Vst3_Interface_COUNT,
 } Vst3_Interface;
 
@@ -502,6 +569,10 @@ IComponent_GetState(IComponent *_this, IBStream *state)
 
 // IEditController
 proc inline TResult
+IEditController_QueryInterface(IEditController *_this, Tuid iid, void **obj)
+{ return(_this->v->query_interface(_this, iid, obj)); }
+
+proc inline TResult
 IEditController_Initialize(IEditController *_this, FUnknown *context)
 { return(_this->v->initialize(_this, context)); }
 
@@ -534,33 +605,27 @@ proc inline U32
 IAudioProcessor_Release(IAudioProcessor *_this)
 { return(_this->v->release(_this)); }
 
+// IConnectionPoint
+proc inline TResult
+IConnectionPoint_Connect(IConnectionPoint *_this, IConnectionPoint *other)
+{ return(_this->v->connect(_this, other)); }
+
+proc inline TResult
+IConnectionPoint_Release(IConnectionPoint *_this)
+{ return(_this->v->release(_this)); }
+
 // -----------------------------------------------------------------------------
 // vst3 constants
 
 // fuids/iids
-#define VST3_CLASS_IID(c, dw0, dw1, dw2, dw3) global Tuid const Glue(Glue(Vst3_Interface_, c), _tuid) VST3_UID(dw0, dw1, dw2, dw3)
-global Fuid const Vst3_Interface_FUnknown_fuid = VST3_UID(0x00000000, 0x00000000, 0xC0000000, 0x00000046);
-//VST3_CLASS_IID(FUnknown, 0x00000000, 0x00000000, 0xC0000000, 0x00000046);
-global Fuid const Vst3_Interface_IPluginFactory_fuid = VST3_UID(0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F);
-//VST3_CLASS_IID(IPluginFactory, 0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F);
-global Fuid const Vst3_Interface_IPluginBase_fuid = VST3_UID(0x22888DDB, 0x156E45AE, 0x8358B348, 0x08190625);
-//VST3_CLASS_IID(IPluginBase, 0x22888DDB, 0x156E45AE, 0x8358B348, 0x08190625);
-global Fuid const Vst3_Interface_IEditController_fuid = VST3_UID(0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E);
-//VST3_CLASS_IID(IEditController, 0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E);
-global Fuid const Vst3_Interface_IComponent_fuid = VST3_UID(0xE831FF31, 0xF2D54301, 0x928EBBEE, 0x25697802);
-//VST3_CLASS_IID(IComponent, 0xE831FF31, 0xF2D54301, 0x928EBBEE, 0x25697802);
-global Fuid const Vst3_Interface_IAudioProcessor_fuid = VST3_UID(0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D);
-//VST3_CLASS_IID(IAudioProcessor, 0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D);
-global Fuid const Vst3_Interface_IHostApplication_fuid = VST3_UID(0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5);
+#define X(name, id0, id1, id2, id3) global Fuid const Glue(Glue(Vst3_Interface_, name), _fuid) = VST3_UID(id0, id1, id2, id3);
+VST3_INTERFACE_XLIST
+#undef X
 
 global Fuid const vst3_fuids[] = {
-  [Vst3_Interface_FUnknown]		= Vst3_Interface_FUnknown_fuid,
-  [Vst3_Interface_IPluginFactory]	= Vst3_Interface_IPluginFactory_fuid,
-  [Vst3_Interface_IPluginBase]		= Vst3_Interface_IPluginBase_fuid,
-  [Vst3_Interface_IEditController]	= Vst3_Interface_IEditController_fuid,
-  [Vst3_Interface_IComponent]		= Vst3_Interface_IComponent_fuid,
-  [Vst3_Interface_IAudioProcessor]	= Vst3_Interface_IAudioProcessor_fuid,
-  [Vst3_Interface_IHostApplication]	= Vst3_Interface_IHostApplication_fuid,
+#define X(name, id0, id1, id2, id3) [Glue(Vst3_Interface_, name)] = Glue(Glue(Vst3_Interface_, name), _fuid),
+  VST3_INTERFACE_XLIST
+#undef X
 };
 
 // categories/interfaces
