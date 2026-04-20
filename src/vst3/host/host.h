@@ -1,6 +1,26 @@
 // -----------------------------------------------------------------------------
 // vst3 types/interfaces
 
+// -----------------------------------------------------------------------------
+// interface forward declarations
+
+typedef struct FUnknown FUnknown;
+typedef struct IPluginFactory IPluginFactory;
+typedef struct IPluginBase IPluginBase;
+typedef struct IBStream IBStream;
+typedef struct IComponentHandler IComponentHandler;
+typedef struct IPlugView IPlugView;
+typedef struct IPlugFrame IPlugFrame;
+typedef struct IEditController IEditController;
+typedef struct IComponent IComponent;
+typedef struct IParameterChanges IParameterChanges;
+typedef struct IEventList IEventList;
+typedef struct IAudioProcessor IAudioProcessor;
+typedef struct IHostApplication IHostApplication;
+
+// -----------------------------------------------------------------------------
+// other types
+
 typedef enum TResult
 {
   KResult_ok			= 0,
@@ -105,7 +125,92 @@ typedef struct RoutingInfo
   S32 channel;
 } RoutingInfo;
 
-typedef struct FUnknown FUnknown;
+typedef U64 SpeakerArrangement;
+typedef U64 Speaker;
+typedef R64 SampleRate;
+typedef struct ProcessSetup
+{
+  S32 process_mode;
+  S32 symbolic_sample_size;
+  S32 max_samples_per_block;
+  SampleRate sample_rate;
+} ProcessSetup;
+
+typedef R32 Sample32;
+typedef R64 Sample64;
+typedef struct AudioBusBuffers
+{
+  S32 num_channels;
+  U64 silence_flags;
+  union{
+    Sample32 **channel_buffer__32;
+    Sample64 **channel_buffer__64;
+  };
+} AudioBusBuffers;
+
+typedef struct Chord
+{
+  U8 key_note;
+  U8 root_note;
+  S16 chord_mask;
+} Chord;
+
+typedef struct FrameRate
+{
+  U32 frames_per_second;
+  U32 flags;
+} FrameRate;
+
+typedef S64 TSamples;
+typedef R64 TQuarterNotes;
+typedef struct ProcessContext
+{
+  U32 state;
+  R64 sample_rate;
+  TSamples project_time_samples;
+  S64 system_time;
+  TSamples continuous_time_samples;
+  TQuarterNotes project_time_music;
+  TQuarterNotes bar_position_music;
+  TQuarterNotes cycle_start_music;
+  TQuarterNotes cycle_end_music;
+  R64 tempo;
+  S32 time_sig_numerator;
+  S32 time_sig_denominator;
+  Chord chord;
+  S32 smpte_offset_subframes;
+  FrameRate frame_rate;
+  S32 samples_to_next_clock;
+} ProcessContext;
+
+typedef struct ProcessData
+{
+  S32 process_mode;
+  S32 symbolic_sample_size;
+  S32 num_samples;
+  S32 num_inputs;
+  S32 num_outputs;
+  AudioBusBuffers *inputs;
+  AudioBusBuffers *outputs;
+  IParameterChanges *input_parameter_changes;
+  IParameterChanges *output_parameter_changes;
+  IEventList *input_events;
+  IEventList *output_events;
+  ProcessContext *process_context;
+} ProcessData;
+
+typedef struct ViewRect
+{
+  // vtable?
+  S32 left;
+  S32 top;
+  S32 right;
+  S32 bottom;
+} ViewRect;
+
+// -----------------------------------------------------------------------------
+// interface definitions
+
 struct FUnknown
 {
   union{
@@ -118,7 +223,6 @@ struct FUnknown
   } *v;
 };
 
-typedef struct IPluginFactory IPluginFactory;
 struct IPluginFactory
 {
   union{
@@ -135,7 +239,6 @@ struct IPluginFactory
   } *v;
 };
 
-typedef struct IPluginBase IPluginBase;
 struct IPluginBase
 {
   union{
@@ -151,7 +254,6 @@ struct IPluginBase
   } *v;
 };
 
-typedef struct IBStream IBStream;
 struct IBStream
 {
   union{
@@ -169,7 +271,61 @@ struct IBStream
   } *v;
 };
 
-typedef struct IEditController IEditController;
+struct IComponentHandler
+{
+  union{
+    struct{
+      TResult (*query_interface)(IComponentHandler *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IComponentHandler *_this);
+      U32 (*release)(IComponentHandler *_this);
+
+      TResult (*begin_edit)(IComponentHandler *_this, ParamId id);
+      TResult (*perform_edit)(IComponentHandler *_this, ParamId id, ParamValue value_normalized);
+      TResult (*end_edit)(IComponentHandler *_this, ParamId id);
+      TResult (*restart_component)(IComponentHandler *_this, S32 flags);
+    };
+    void *table[7];
+  } *v;
+};
+
+struct IPlugFrame
+{
+  union{
+    struct{
+      TResult (*query_interface)(IPlugFrame *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IPlugFrame *_this);
+      U32 (*release)(IPlugFrame *_this);
+
+      TResult (*resize_view)(IPlugFrame *_this, IPlugView *view, ViewRect *new_size);
+    };
+    void *table[14];
+  } *v;
+};
+
+struct IPlugView
+{
+  union{
+    struct{
+      TResult (*query_interface)(IPlugView *_this, const Tuid iid, void **obj);
+      U32 (*add_ref)(IPlugView *_this);
+      U32 (*release)(IPlugView *_this);
+
+      TResult (*attached)(IPlugView *_this, void *parent, FidString type);
+      TResult (*removed)(IPlugView *_this);
+      TResult (*on_wheel)(IPlugView *_this, R32 distance);
+      TResult (*on_key_down)(IPlugView *_this, U16 key, S16 key_code, S16 modifiers);
+      TResult (*on_key_up)(IPlugView *_this, U16 key, S16 key_code, S16 modifiers);
+      TResult (*get_size)(IPlugView *_this, ViewRect *size);
+      TResult (*on_size)(IPlugView *_this, ViewRect *new_size);
+      TResult (*on_focus)(IPlugView *_this, TBool state);
+      TResult (*set_frame)(IPlugView *_this, IPlugFrame *frame);
+      TResult (*can_resize)(IPlugView *_this);
+      TResult (*check_size_constraint)(IPlugView *_this, ViewRect *rect);
+    };
+    void *table[14];
+  } *v;
+};
+
 struct IEditController
 {
   union{
@@ -192,16 +348,13 @@ struct IEditController
       ParamValue (*plain_param_to_normalized)(IEditController *_this, ParamId id, ParamValue plain_value);
       ParamValue (*get_param_normalized)(IEditController *_this, ParamId id);
       TResult (*set_param_normalized)(IEditController *_this, ParamId id, ParamValue value);
-#if 0 // TODO: define necessary structs/interfaces
       TResult (*set_component_handler)(IEditController *_this, IComponentHandler *handler);
       IPlugView* (*create_view)(IEditController *_this, FidString name);
-#endif
     };
     void *table[18];
   } *v;
 };
 
-typedef struct IComponent IComponent;
 struct IComponent
 {
   union{
@@ -227,7 +380,6 @@ struct IComponent
   } *v;
 };
 
-typedef struct IAudioProcessor IAudioProcessor;
 struct IAudioProcessor
 {
   union{
@@ -236,7 +388,6 @@ struct IAudioProcessor
       U32 (*add_ref)(IAudioProcessor *_this);
       U32 (*release)(IAudioProcessor *_this);
 
-#if 0 // TODO: define structs/interfaces
       TResult (*set_bus_arrangements)(IAudioProcessor *_this, SpeakerArrangement *inputs, S32 num_ins, SpeakerArrangement *outputs, S32 num_outs);
       TResult (*get_bus_arrangements)(IAudioProcessor *_this, BusDirection dir, S32 index, SpeakerArrangement *arr);
       TResult (*can_process_sample_size)(IAudioProcessor *_this, S32 symbolic_sample_size);
@@ -245,13 +396,11 @@ struct IAudioProcessor
       TResult (*set_processing)(IAudioProcessor *_this, TBool state);
       TResult (*process)(IAudioProcessor *_this, ProcessData *data);
       U32 (*get_tail_samples)(IAudioProcessor *_this);
-#endif
     };
     void *table[11];
   } *v;
 };
 
-typedef struct IHostApplication IHostApplication;
 struct IHostApplication
 {
   union{
@@ -363,6 +512,10 @@ IEditController_Terminate(IEditController *_this)
 proc inline U32
 IEditController_Release(IEditController *_this)
 { return(_this->v->release(_this)); }
+
+proc inline TResult
+IEditController_SetComponentHandler(IEditController *_this, IComponentHandler *handler)
+{ return(_this->v->set_component_handler(_this, handler)); }
 
 proc inline TResult
 IEditController_SetComponentState(IEditController *_this, IBStream *state)
@@ -495,6 +648,13 @@ typedef struct Vst3_HostStream
 } Vst3_HostStream;
 #define VST3_HOST_STREAM_SIZE_DEFAULT KB(64)
 
+typedef struct Vst3_ComponentHandler
+{
+  IComponentHandler i;
+
+  U32 ref_count;
+} Vst3_ComponentHandler;
+
 typedef struct Vst3_HostState
 {
   Arena *arena;
@@ -524,6 +684,8 @@ typedef struct Vst3_HostState
 
   IHostApplication ihost_application;
   Vst3_HostApplicationImpl host_application_impl;
+
+  Vst3_ComponentHandler *component_handler;
 
   // TODO: multiple images
   Vst3_PluginImage *image;
@@ -602,3 +764,15 @@ proc TResult vst3_host_stream_read(IBStream *_this, void *buffer, S32 num_bytes,
 proc TResult vst3_host_stream_write(IBStream *_this, void *buffer, S32 num_bytes, S32 *num_bytes_written);
 proc TResult vst3_host_stream_seek(IBStream *_this, S64 pos, S32 mode, S64 *result);
 proc TResult vst3_host_stream_tell(IBStream *_this, S64 *pos);
+
+// -----------------------------------------------------------------------------
+// IComponentHandler implementations
+
+proc Vst3_ComponentHandler *vst3_component_handler_alloc(Arena *arena);
+proc TResult vst3_component_handler_query_interface(IComponentHandler *_this, const Tuid iid, void **obj);
+proc U32 vst3_component_handler_add_ref(IComponentHandler *_this);
+proc U32 vst3_component_handler_release(IComponentHandler *_this);
+proc TResult vst3_component_handler_begin_edit(IComponentHandler *_this, ParamId id);
+proc TResult vst3_component_handler_perform_edit(IComponentHandler *_this, ParamId id, ParamValue value_normalized);
+proc TResult vst3_component_handler_end_edit(IComponentHandler *_this, ParamId id);
+proc TResult vst3_component_handler_restart_component(IComponentHandler *_this, S32 flags);

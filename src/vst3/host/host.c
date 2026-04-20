@@ -19,6 +19,8 @@ vst3_host_init(void)
   vst3_host_state->ihost_application.v->release = IHostApplication_Release;
   vst3_host_state->ihost_application.v->get_name = IHostApplication_GetName;
   vst3_host_state->ihost_application.v->create_instance = IHostApplication_CreateInstance;
+
+  vst3_host_state->component_handler = vst3_component_handler_alloc(arena);
 }
 
 proc void
@@ -209,12 +211,20 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
     // NOTE: the plugin implements processor and controller on the same class
   }
 
-  // TODO: set component handler for edit controller
+  // NOTE: set component handler for edit controller
+  IComponentHandler *icomponent_handler = &vst3_host_state->component_handler->i;
+  IEditController_SetComponentHandler(edit_controller, icomponent_handler);
 
   // NOTE: get/set states for component and controller
   Vst3_HostStream *stream = vst3_host_stream_alloc(arena, VST3_HOST_STREAM_SIZE_DEFAULT);
   IComponent_GetState(component, &stream->i);
   IEditController_SetComponentState(edit_controller, &stream->i);
+
+  // NOTE: initialize audio processor
+  Fuid audio_processor_iid = vst3_iid_for_interface(Vst3_Interface_IAudioProcessor);
+  IAudioProcessor *audio_processor = 0;
+  ok = IComponent_QueryInterface(component, audio_processor_iid.data, (void**)&audio_processor);
+  Assert(ok == KResult_ok); // TODO: actual error handling/logging
 
   // NOTE: get parameter info
   U64 param_count = IEditController_GetParameterCount(edit_controller);
@@ -224,12 +234,6 @@ vst3_host_plugin_instantiate(Vst3_PluginImage *plugin)
     ParameterInfo *param_info = param_infos + param_idx;
     IEditController_GetParameterInfo(edit_controller, param_idx, param_info);
   }
-
-  // NOTE: initialize audio processor
-  Fuid audio_processor_iid = vst3_iid_for_interface(Vst3_Interface_IAudioProcessor);
-  IAudioProcessor *audio_processor = 0;
-  ok = IComponent_QueryInterface(component, audio_processor_iid.data, (void**)&audio_processor);
-  Assert(ok == KResult_ok); // TODO: actual error handling/logging
 
   result->image = plugin;
   result->component = component;
@@ -489,6 +493,97 @@ vst3_host_stream_tell(IBStream *_this, S64 *pos)
 {
   Vst3_HostStream *stream = (Vst3_HostStream*)_this;
   *pos = stream->pos;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// IComponentHandler implementations
+
+proc Vst3_ComponentHandler*
+vst3_component_handler_alloc(Arena *arena)
+{
+  Vst3_ComponentHandler *result = arena_push_struct(arena, Vst3_ComponentHandler);
+  result->i.v = (void*)arena_push_array(arena, void*, ArrayCount(result->i.v->table));
+  result->i.v->query_interface = vst3_component_handler_query_interface;
+  result->i.v->add_ref = vst3_component_handler_add_ref;
+  result->i.v->release = vst3_component_handler_release;
+  result->i.v->begin_edit = vst3_component_handler_begin_edit;
+  result->i.v->perform_edit = vst3_component_handler_perform_edit;
+  result->i.v->end_edit = vst3_component_handler_end_edit;
+  result->i.v->restart_component = vst3_component_handler_restart_component;
+  return(result);
+}
+
+proc TResult
+vst3_component_handler_query_interface(IComponentHandler *_this, const Tuid iid, void **obj)
+{
+  Unused(_this);
+  Unused(iid);
+  *obj = 0;
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc U32
+vst3_component_handler_add_ref(IComponentHandler *_this)
+{
+  Vst3_ComponentHandler *handler = (Vst3_ComponentHandler*)_this;
+  ++handler->ref_count;
+
+  U32 result = handler->ref_count;
+  return(result);
+}
+
+proc U32
+vst3_component_handler_release(IComponentHandler *_this)
+{
+  Vst3_ComponentHandler *handler = (Vst3_ComponentHandler*)_this;
+  --handler->ref_count;
+  // TODO: free when ref count hits zero
+
+  U32 result = handler->ref_count;
+  return(result);
+}
+
+proc TResult
+vst3_component_handler_begin_edit(IComponentHandler *_this, ParamId id)
+{
+  Unused(_this);
+  Unused(id);
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc TResult
+vst3_component_handler_perform_edit(IComponentHandler *_this, ParamId id, ParamValue value_normalized)
+{
+  Unused(_this);
+  Unused(id);
+  Unused(value_normalized);
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc TResult
+vst3_component_handler_end_edit(IComponentHandler *_this, ParamId id)
+{
+  Unused(_this);
+  Unused(id);
+
+  TResult result = KResult_ok;
+  return(result);
+}
+
+proc TResult
+vst3_component_handler_restart_component(IComponentHandler *_this, S32 flags)
+{
+  Unused(_this);
+  Unused(flags);
 
   TResult result = KResult_ok;
   return(result);
