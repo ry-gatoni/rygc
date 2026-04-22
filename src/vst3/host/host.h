@@ -1,25 +1,34 @@
 // -----------------------------------------------------------------------------
 // vst3 types/interfaces
 
+// X(name, id0, id1, id2, id3)
+#define VST3_INTERFACE_XLIST\
+  X(FUnknown, 0x00000000, 0x00000000, 0xC0000000, 0x00000046)\
+  X(IPluginFactory, 0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F)\
+  X(IPluginBase, 0x22888DDB, 0x156E45AE, 0x8358B348, 0x08190625)\
+  X(IEditController, 0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E)\
+  X(IComponent, 0xE831FF31, 0xF2D54301, 0x928EBBEE, 0x25697802)\
+  X(IAudioProcessor, 0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D)\
+  X(IHostApplication, 0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5)\
+  X(IConnectionPoint, 0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1)\
+  X(IParameterChanges, 0xA4779663, 0x0BB64A56, 0xB44384A8, 0x466FEB9D)\
+  X(IEventList, 0x3A2C4214, 0x346349FE, 0xB2C4F397, 0xB9695A44)\
+  X(IBStream, 0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B)\
+  X(IComponentHandler, 0x93A0BEA3, 0x0BD045DB, 0x8E890B0C, 0xC1E46AC6)\
+  X(IPlugFrame, 0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3)\
+  X(IPlugView, 0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B755B29)\
+  X(IAttributeList, 0x1E5F0AEB, 0xCC7F4533, 0xA2544011, 0x38AD5EE4)\
+  X(IMessage, 0x936F033B, 0xC6C047DB, 0xBB0882F8, 0x13C1E613)
+
 // -----------------------------------------------------------------------------
 // interface forward declarations
 
-typedef struct FUnknown FUnknown;
-typedef struct IPluginFactory IPluginFactory;
-typedef struct IPluginBase IPluginBase;
-typedef struct IBStream IBStream;
-typedef struct IComponentHandler IComponentHandler;
-typedef struct IPlugView IPlugView;
-typedef struct IPlugFrame IPlugFrame;
-typedef struct IEditController IEditController;
-typedef struct IComponent IComponent;
-typedef struct IParameterChanges IParameterChanges;
-typedef struct IEventList IEventList;
-typedef struct IAudioProcessor IAudioProcessor;
-typedef struct IHostApplication IHostApplication;
-typedef struct IAttributeList IAttributeList;
-typedef struct IMessage IMessage;
-typedef struct IConnectionPoint IConnectionPoint;
+//#define VST3_INTERFACES
+#define X(name, id0, id1, id2, id3) typedef struct name name;
+//#  include "vst3/vst3_api_defs.h"
+VST3_INTERFACE_XLIST
+#undef X
+#undef VST3_INTERFACES
 
 // -----------------------------------------------------------------------------
 // other types
@@ -214,6 +223,29 @@ typedef struct ViewRect
 // -----------------------------------------------------------------------------
 // interface definitions
 
+#if 0
+#define VST3_INTERFACES
+#undef X
+#undef Y
+#undef Z
+#define X(name, id0, id1, id2, id3)\
+  struct name\
+  {\
+    union{\
+      struct{
+#define Y(ret, name, args)\
+        ret (*name)args;
+#define Z(count)\
+      };\
+      void *table[count];\
+    } *v;\
+  };
+#include "vst3/vst3_api_defs.h"
+#undef Z
+#undef Y
+#undef X
+#undef VST3_INTERFACES
+#else
 struct FUnknown
 {
   union{
@@ -471,6 +503,7 @@ struct IConnectionPoint
     void *table[6];
   } *v;
 };
+#endif
 
 typedef IPluginFactory* (Vst3_GetFactoryProc)(void);
 #if OS_WINDOWS
@@ -486,26 +519,14 @@ typedef TBool (Vst3_ExitModuleProc)(void);
 #  error unsupported os
 #endif
 
-// TODO: is it possible to generate the interface definitions as well, by
-// somehow saying which functions should be in each interface's vtable? how to
-// get the table count?
-
-// X(name, id0, id1, id2, id3)
-#define VST3_INTERFACE_XLIST\
-  X(FUnknown, 0x00000000, 0x00000000, 0xC0000000, 0x00000046)\
-  X(IPluginFactory, 0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F)\
-  X(IPluginBase, 0x22888DDB, 0x156E45AE, 0x8358B348, 0x08190625)\
-  X(IEditController, 0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E)\
-  X(IComponent, 0xE831FF31, 0xF2D54301, 0x928EBBEE, 0x25697802)\
-  X(IAudioProcessor, 0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D)\
-  X(IHostApplication, 0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5)\
-  X(IConnectionPoint, 0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1)
-
 typedef enum Vst3_Interface
 {
+//#define VST3_INTERFACES
 #define X(name, id0, id1, id2, id3) Glue(Vst3_Interface_, name),
+//#  include "vst3/vst3_api_defs.h"
   VST3_INTERFACE_XLIST
 #undef X
+#undef VST3_INTERFACES
   Vst3_Interface_COUNT,
 } Vst3_Interface;
 
@@ -618,14 +639,20 @@ IConnectionPoint_Release(IConnectionPoint *_this)
 // vst3 constants
 
 // fuids/iids
+//#define VST3_INTERFACES
 #define X(name, id0, id1, id2, id3) global Fuid const Glue(Glue(Vst3_Interface_, name), _fuid) = VST3_UID(id0, id1, id2, id3);
+//#  include "vst3/vst3_api_defs.h"
 VST3_INTERFACE_XLIST
 #undef X
+#undef VST3_INTERFACES
 
 global Fuid const vst3_fuids[] = {
+//#define VST3_INTERFACES
 #define X(name, id0, id1, id2, id3) [Glue(Vst3_Interface_, name)] = Glue(Glue(Vst3_Interface_, name), _fuid),
+//#  include "vst3/vst3_api_defs.h"
   VST3_INTERFACE_XLIST
 #undef X
+#undef VST3_INTERFACES
 };
 
 // categories/interfaces
