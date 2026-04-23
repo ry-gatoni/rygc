@@ -345,6 +345,7 @@ struct IPlugView
       U32 (*add_ref)(IPlugView *_this);
       U32 (*release)(IPlugView *_this);
 
+      TResult (*is_platform_type_supported)(IPlugView *_this, FidString type);
       TResult (*attached)(IPlugView *_this, void *parent, FidString type);
       TResult (*removed)(IPlugView *_this);
       TResult (*on_wheel)(IPlugView *_this, R32 distance);
@@ -357,7 +358,7 @@ struct IPlugView
       TResult (*can_resize)(IPlugView *_this);
       TResult (*check_size_constraint)(IPlugView *_this, ViewRect *rect);
     };
-    void *table[14];
+    void *table[15];
   } *v;
 };
 

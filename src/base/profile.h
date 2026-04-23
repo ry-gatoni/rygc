@@ -1,3 +1,84 @@
+#if 1
+typedef struct ProfileSite ProfileSite;
+typedef struct ProfileEvent ProfileEvent;
+
+struct ProfileSite
+{
+  // NOTE: profile data for a particular location in the program. is referenced
+  // by and stores data for runtime `ProfileEvent`s. These are stored
+  // contiguously in a special section whose address is obtained at load time.
+  String8 label;
+
+  // TODO: this only supports a site only being executed on a single thread. we
+  // should support mutlithreaded profiling
+  U64 hit_count;
+  U64 bytes_allocated;
+
+  U64 tsc_elapsed; // cumulative elapsed time stamp count accross all calls
+  U64 tsc_elapsed_children; // cumulative elapsed time stamp count of all children accross all calls
+  U64 tsc_elapsed_root; // elapsed time stamp count with this site as root
+};
+
+struct ProfileEvent
+{
+  // NOTE: runtime profile data for a `ProfileSite` location. These are
+  // allocated on the stack at runtime.
+  ProfileEvent *parent;
+
+  ProfileSite *site;
+
+  U64 tsc_start; // counter when scope entered
+  U64 tsc_elapsed_root_old; // parent site's root counter when scope entered
+};
+
+global U64 profile_site_count = 0;
+global ProfileSite *profile_sites = 0;
+// TODO: once we support multithreaded profiling, these should become
+// thread-local (or go into thread-local context)
+global ProfileSite *profile__current_parent;
+global ProfileEvent *profile__open_scope;
+
+// -----------------------------------------------------------------------------
+// public interface
+
+#if !defined(PROFILE_DISABLE)
+
+#define ProfileFunction() ProfileScope(__func__)
+#define ProfileScope(name)\
+  ProfileData(name);\
+  for(U32 Glue(_i_, __LINE__) = (profile_begin_scope(), 0); \
+      Glue(_i_, __LINE__) < 1;\
+      ++Glue(_i_, __LINE__), profile_end_scope())
+#define ProfileData(name)\
+    PROFILE_SITE_DEFINE = { .label = Str8Lit(name), };\
+    profile__current_parent = &PROFILE_SITE_NAME;\
+    PROFILE_EVENT_DEFINE = { .parent = profile__open_scope, .site = profile__current_parent, };\
+    profile__open_scope = &PROFILE_EVENT_NAME;
+
+#define PROFILE_SITE_DEFINE static Section("rygcPROF") ProfileSite PROFILE_SITE_NAME
+#define PROFILE_EVENT_DEFINE ProfileEvent PROFILE_EVENT_NAME
+#define PROFILE_SITE_NAME Glue(__profile_site_, __LINE__)
+#define PROFILE_EVENT_NAME Glue(__profile_event_, __LINE__)
+
+#else
+
+#define ProfileFunction()
+#define ProfileScope(name)
+#define ProfileData(name)
+
+#endif
+
+// NOTE: clang/linux only
+// TODO: support on other platforms
+extern ProfileSite __start_rygcPROF[];
+extern ProfileSite __stop_rygcPROF[];
+proc inline ProfileSite* profile_site_array_base(void) { return(__start_rygcPROF); }
+proc inline U64 profile_site_array_count(void) { return(__stop_rygcPROF - __start_rygcPROF); }
+
+proc void profile_begin_scope(void);
+proc void profile_end_scope(void);
+
+#else
 typedef struct ProfileEntry
 {
   String8 label;
@@ -83,3 +164,4 @@ static inline U64 profile_entry_array_count(void) { return(__stop_rygcPROF - __s
 /* #define ProfileRaw(name) SymbolRaw(RYGC_SYMBOL_SET, name) */
 /* #define ProfileDecl(name) SymbolDecl(RYGC_SYMBOL_SET, name) */
 /* #undef RYGC_SYMBOL_SET */
+#endif

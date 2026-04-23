@@ -1,5 +1,6 @@
 // profiling runs are stored in data/prof/fft_bench
 
+#define PROFILE_DISABLE
 #include "base/base.h"
 #include "bench/bench.h"
 
@@ -31,7 +32,7 @@ bitpair_reverse_u64(U64 num)
 }
 
 // -----------------------------------------------------------------------------
-// fft implementations
+// fft utilities
 
 // TODO: separate real and imag parts for vector kernels
 #define MAX_FFT_COUNT 2048
@@ -81,6 +82,116 @@ init_twiddle_tables(void)
 }
 
 proc void
+bit_reverse_copy_re(C64 *dest, R32 *src, U64 count)
+{
+  U64 count_log2 = MSB(count);
+  for(U64 i = 0; i < count; ++i)
+  {
+    U64 i_rev = bit_reverse_u64(i) >> (64 - count_log2);
+    dest[i_rev] = c64(src[i], 0);
+  }
+}
+
+// TODO: separate fft kernels (operating fully in place) so we can profile them
+// individually, and assemble full fft implementations from them + input
+// permutation
+
+// -----------------------------------------------------------------------------
+// fft kernels
+
+/**
+   inout: input/output data
+   count: total number of points
+   level: size of sublists being merged (in range [1, count/<radix_base>])
+ */
+typedef void (FftKernel)(C64 *inout, U64 count, U64 level);
+
+proc void
+fft_kernel__radix2_scalar(C64 *inout, U64 count, U64 level)
+{
+  for(U64 k = 0; k < count; k += 2*level)
+  {
+    C64 *twiddles = twiddle_table__radix2 + level;
+    C64 *inout0 = inout + 0*level + k;
+    C64 *inout1 = inout + 1*level + k;
+
+    for(U64 j = 0; j < level; ++j)
+    {
+      C64 w = twiddles[j];
+
+      C64 in0 = inout0[j];
+      C64 in1 = inout1[j];
+
+      C64 t = c64_mul(in1, w);
+      C64 out0 = c64_add(in0, t);
+      C64 out1 = c64_sub(in0, t);
+
+      inout0[j] = out0;
+      inout1[j] = out1;
+    }
+  }
+}
+
+proc void
+fft_kernel__radix4_scalar(C64 *inout, U64 count, U64 level)
+{
+  for(U64 k = 0; k < count; k += 4*level)
+  {
+    C64 *twiddles = twiddle_table__radix4 + level;
+    C64 *inout0 = inout + 0*level + k;
+    C64 *inout1 = inout + 1*level + k;
+    C64 *inout2 = inout + 2*level + k;
+    C64 *inout3 = inout + 3*level + k;
+
+    for(U64 j = 0; j < level; ++j)
+    {
+      C64 w = twiddles[j];
+      C64 nw = c64(-w.re, -w.im);
+      C64 iw = c64(-w.im, w.re);
+      C64 niw = c64(w.im, -w.re);
+
+      C64 in0 = inout0[j];
+      C64 in1 = inout1[j];
+      C64 in2 = inout2[j];
+      C64 in3 = inout3[j];
+
+      C64 out0 = c64_add(in0,
+			 c64_mul(w,
+				 c64_add(in1,
+					 c64_mul(w,
+						 c64_add(in2,
+							 c64_mul(w, in3))))));
+      C64 out1 = c64_add(in0,
+			 c64_mul(niw,
+				 c64_add(in1,
+					 c64_mul(niw,
+						 c64_add(in2,
+							 c64_mul(niw, in3))))));
+      C64 out2 = c64_add(in0,
+			 c64_mul(nw,
+				 c64_add(in1,
+					 c64_mul(nw,
+						 c64_add(in2,
+							 c64_mul(nw, in3))))));
+      C64 out3 = c64_add(in0,
+			 c64_mul(iw,
+				 c64_add(in1,
+					 c64_mul(iw,
+						 c64_add(in2,
+							 c64_mul(iw, in3))))));
+
+	inout0[j] = out0;
+	inout1[j] = out1;
+	inout2[j] = out2;
+	inout3[j] = out3;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// fft implementations
+
+proc void
 fft_re__recursive_dit_radix2(R32 *in, C64 *out, U64 count, U64 stride)
 {ProfileFunction(){
 
@@ -126,7 +237,13 @@ fft_re__naive(R32 *in, C64 *out, U64 count)
 proc void
 fft_re__iterative_dit_radix2_ss(R32 *in, C64 *out, U64 count)
 {ProfileFunction(){
-
+#if 0
+  bit_reverse_copy_re(out, in, count);
+  for(U64 s = 1; s < count; s *= 2)
+  {
+    fft_kernel__radix2_scalar(out, count, s);
+  }
+#else
   U64 count_log2 = MSB(count);
   for(U64 i = 0; i < count; ++i)
   {
@@ -150,6 +267,7 @@ fft_re__iterative_dit_radix2_ss(R32 *in, C64 *out, U64 count)
       }
     }
   }
+#endif
 }}
 
 proc void
@@ -593,6 +711,17 @@ fft_bench__naive(void *args)
 }
 
 proc void
+fft_bench__bit_reverse_copy(void *args)
+{
+  Fft_Args *fft_args = args;
+  R32 *in = fft_args->in;
+  C64 *out = fft_args->out;
+  U64 count = fft_args->count;
+
+  bit_reverse_copy_re(out, in, count);
+}
+
+proc void
 fft_bench__iterative_radix2_scalar(void *args)
 {
   Fft_Args *fft_args = args;
@@ -660,6 +789,7 @@ typedef struct Fft_Bench
 #define FFT_BENCH_XLIST\
   X(naive, interleaved)\
   X(recursive, interleaved)\
+  X(bit_reverse_copy, interleaved)\
   X(iterative_radix2_scalar, interleaved)\
   X(iterative_radix4_scalar, interleaved)\
   X(iterative_radix2_2_scalar, interleaved)\

@@ -1,3 +1,26 @@
+#if 1
+proc void
+profile_begin_scope(void)
+{
+  profile__open_scope->tsc_elapsed_root_old = profile__open_scope->parent->site->tsc_elapsed_root;
+  profile__open_scope->tsc_start = cpu_counter();
+}
+
+proc void
+profile_end_scope(void)
+{
+  U64 tsc_elapsed = cpu_counter() - profile__open_scope->tsc_start;
+  ProfileEvent *event = profile__open_scope;
+  ProfileSite *site = event->site;
+  ProfileSite *parent = event->parent->site;
+  site->tsc_elapsed += tsc_elapsed;
+  site->tsc_elapsed_root = event->tsc_elapsed_root_old + tsc_elapsed;
+  parent->tsc_elapsed_children += tsc_elapsed;
+  site->hit_count++;
+  profile__current_parent = parent;
+  profile__open_scope = 0;
+}
+#else
 // -----------------------------------------------------------------------------
 // allocate, release, select
 
@@ -133,3 +156,4 @@ profile_end_block(ProfileEntry *entry)
     entry->hit_count += 1;
   }
 }
+#endif
