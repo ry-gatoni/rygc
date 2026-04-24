@@ -55,7 +55,7 @@ ProfileDefineNil;
       ++Glue(_i_, __LINE__), profile_end_scope(&__profile__event))
 #define ProfileData(name)\
   AllowAliasingOn\
-  ProfileSite *last_site = ProfileMetadata;\
+  ProfileSite *last_site = profile__current_parent;\
   static Section("rygcPROF") ProfileSite __profile__ = { .label = Str8Lit(name), };\
   ProfileSite *current_site = ProfileMetadata;\
   ProfileEvent __profile__event = { .parent = last_site, .site = current_site, };\
@@ -65,24 +65,24 @@ ProfileDefineNil;
     /* PROFILE_EVENT_DEFINE = { .parent = profile__open_scope, .site = profile__current_parent, };\ */
     /* profile__open_scope = &PROFILE_EVENT_NAME; */
 
-#define PROFILE_SITE_DEFINE static Section("rygcPROF") ProfileSite PROFILE_SITE_NAME
-#define PROFILE_EVENT_DEFINE ProfileEvent PROFILE_EVENT_NAME
-#define PROFILE_SITE_NAME Glue(__profile_site_, __LINE__)
-#define PROFILE_EVENT_NAME Glue(__profile_event_, __LINE__)
+/* #define PROFILE_SITE_DEFINE static Section("rygcPROF") ProfileSite PROFILE_SITE_NAME */
+/* #define PROFILE_EVENT_DEFINE ProfileEvent PROFILE_EVENT_NAME */
+/* #define PROFILE_SITE_NAME Glue(__profile_site_, __LINE__) */
+/* #define PROFILE_EVENT_NAME Glue(__profile_event_, __LINE__) */
 
 #else
-
-#define ProfileMetadata 0
 
 #define ProfileFunction()
 #define ProfileScope(name)
 #define ProfileData(name)
 
+#define ProfileMetadata 0
+
 #endif
 
 // TODO: once we support multithreaded profiling, these should become
 // thread-local (or go into thread-local context)
-//global ProfileSite *profile__current_parent = ProfileMetadata;
+global ProfileSite *profile__current_parent = ProfileMetadata;
 //global ProfileEvent *profile__open_scope = 0;
 
 // NOTE: clang/linux only

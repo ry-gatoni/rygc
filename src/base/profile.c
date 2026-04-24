@@ -2,6 +2,7 @@
 proc void
 profile_begin_scope(ProfileEvent *event)
 {
+  profile__current_parent = event->site;
   event->tsc_elapsed_root_old = event->parent->tsc_elapsed_root;
   event->tsc_start = cpu_counter();
 }
@@ -16,7 +17,7 @@ profile_end_scope(ProfileEvent *event)
   site->tsc_elapsed_root = event->tsc_elapsed_root_old + tsc_elapsed;
   parent->tsc_elapsed_children += tsc_elapsed;
   site->hit_count++;
-  //profile__current_parent = parent;
+  profile__current_parent = parent;
 }
 #else
 // -----------------------------------------------------------------------------

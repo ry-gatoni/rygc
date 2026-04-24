@@ -43,14 +43,17 @@ proc Buffer buf_from_str8(String8 str);
 // -----------------------------------------------------------------------------
 // consume
 
+#define buf_consume_char(buf) buf_consume_struct(buf, U8)
 #define buf_consume_struct(buf, type) (type*)buf_consume_size(buf, sizeof(type))
 #define buf_consume_array(buf, type, count) (type*)buf_consume_size(buf, (count)*sizeof(type))
 proc U8* buf_consume_size(Buffer *buf, U64 size);
+proc void buf_consume_whitespace(Buffer *buf);
 
 // -----------------------------------------------------------------------------
 // peek
 
-proc B32 buf_peek_char(Buffer buf, U8 c);
+proc B32 buf_peek_char(Buffer *buf, U8 c);
+proc B32 buf_peek_number(Buffer *buf);
 
 // -----------------------------------------------------------------------------
 // push buffer

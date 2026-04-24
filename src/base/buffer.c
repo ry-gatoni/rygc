@@ -52,13 +52,35 @@ buf_consume_size(Buffer *buf, U64 size)
   return(result);
 }
 
+proc void
+buf_consume_whitespace(Buffer *buf)
+{
+  while(buf->size && is_whitespace(buf->mem[0]))
+  {
+    buf->mem += 1;
+    buf->size -= 1;
+  }
+}
+
 proc B32
-buf_peek_char(Buffer buf, U8 c)
+buf_peek_char(Buffer *buf, U8 c)
 {
   B32 result = 0;
-  if(buf.size)
+  if(buf->size)
   {
-    result = *buf.mem == c;
+    result = *buf->mem == c;
+  }
+  return(result);
+}
+
+proc B32
+buf_peek_number(Buffer *buf)
+{
+  B32 result = 0;
+  if(buf->size)
+  {
+    U8 c = *buf->mem;
+    result = (c >= '0' && c <= '9');
   }
   return(result);
 }
