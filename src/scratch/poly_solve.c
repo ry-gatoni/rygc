@@ -2,12 +2,6 @@
 
 #include "base/base.c"
 
-typedef struct Polynomial
-{
-  U64 order;
-  R64 *coeffs; // NOTE: order+1 coefficients, starting with highest order
-} Polynomial;
-
 typedef struct PolynomialTermLoose PolynomialTermLoose;
 struct PolynomialTermLoose
 {
@@ -23,6 +17,13 @@ typedef struct PolynomialLoose
   U64 term_count;
   U64 max_power;
 } PolynomialLoose;
+
+typedef struct Polynomial
+{
+  U64 order;
+  R64 *coeffs; // NOTE: order+1 coefficients, starting with highest order
+  PolynomialLoose loose; // for transforming polynomial, ie differentiation
+} Polynomial;
 
 proc U64
 poly_parse_u64(Buffer *buf)
@@ -122,13 +123,10 @@ poly_loose_from_string(Arena *arena, String8 str)
 }
 
 proc Polynomial*
-poly_from_string(Arena *arena, String8 str)
+poly_from_loose(Arena *arena, PolynomialLoose loose_poly)
 {
   Polynomial *result = arena_push_struct(arena, Polynomial);
 
-  ArenaTemp scratch = arena_get_scratch(&arena, 1);
-
-  PolynomialLoose loose_poly = poly_loose_from_string(scratch.arena, str);
   U64 order = loose_poly.max_power;
   R64 *coeffs = arena_push_array_z(arena, R64, order + 1);
   for(PolynomialTermLoose *term = loose_poly.first; term; term = term->next)
@@ -137,15 +135,50 @@ poly_from_string(Arena *arena, String8 str)
     coeffs[coeff_idx] = term->coeff;
   }
 
-  arena_release_scratch(scratch);
-
   result->order = order;
   result->coeffs = coeffs;
+  result->loose = loose_poly;
+  return(result);
+}
+
+proc Polynomial*
+poly_from_string(Arena *arena, String8 str)
+{
+  PolynomialLoose loose_poly = poly_loose_from_string(arena, str);
+  Polynomial *result = poly_from_loose(arena, loose_poly);
+  return(result);
+}
+
+proc PolynomialLoose
+poly_differentiate_loose(Arena *arena, PolynomialLoose loose_poly)
+{
+  PolynomialLoose result = {0};
+  for(PolynomialTermLoose *term = loose_poly.first; term; term = term->next)
+  {
+    if(term->power > 0)
+    {
+      PolynomialTermLoose *new_term = arena_push_struct(arena, PolynomialTermLoose);
+      new_term->coeff = term->coeff * term->power;
+      new_term->power = term->power - 1;
+
+      SLLQueuePush(result.first, result.last, new_term);
+      ++result.term_count;
+      result.max_power = Max(result.max_power, new_term->power);
+    }
+  }
+  return(result);
+}
+
+proc Polynomial*
+poly_differentiate(Arena *arena, Polynomial *poly)
+{
+  PolynomialLoose loose_poly = poly_differentiate_loose(arena, poly->loose);
+  Polynomial *result = poly_from_loose(arena, loose_poly);
   return(result);
 }
 
 proc C64
-poly_evaluate_at(Polynomial *p, C64 v)
+poly_eval_at(Polynomial *p, C64 v)
 {
   U64 order = p->order;
   R64 *coeffs = p->coeffs;
@@ -175,6 +208,44 @@ typedef struct PolynomialSolutions
   U64 count;
 } PolynomialSolutions;
 
+// NOTE: newton-raphson solver
+proc PolynomialSolutions
+poly_solve(Arena *arena, Polynomial *poly)
+{
+  PolynomialSolutions result = {0};
+
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  R64 const eps = 1e-3;
+  C64 guess_unity = c64(1, 0);
+  C64 guess_scale = c64_polar(1, TAU32 / (R32)poly->order);
+  while(poly->order)
+  {
+    PolynomialRoot *root = arena_push_struct(arena, PolynomialRoot);
+
+    C64 guess = guess_unity;
+    Polynomial *derivative = poly_differentiate(scratch.arena, poly);
+    C64 eval = poly_eval_at(poly, guess);
+    B32 root_found = c64_mag(eval) < eps;
+    while(!root_found)
+    {
+      C64 deval = poly_eval_at(derivative, guess);
+      guess = c64_sub(guess, c64_div(eval, deval)); // TODO: handle derivative being 0
+
+      eval = poly_eval_at(poly, guess);
+      root_found = c64_mag(eval) < eps;
+    }
+    root->value = guess;
+    root->order = 1; // ???
+
+    guess_unity = c64_mul(guess_unity, guess_scale);
+    // TODO: new polynomial with root factored out
+  }
+
+  arena_release_scratch(scratch);
+
+  return(result);
+}
 
 int
 main(int argc, char **argv)
@@ -183,10 +254,17 @@ main(int argc, char **argv)
   Unused(argv);
 
   Arena *arena = arena_alloc();
-  Polynomial *poly = poly_from_string(arena, Str8Lit("1.5 - 0.2z - z^2"));
+  Polynomial *poly = poly_from_string(arena, Str8Lit("z^2 + 1"));
   for(U64 i = 0; i <= poly->order; ++i)
   {
     printf("[%lu]: %.2f\n", poly->order - i, poly->coeffs[i]);
+  }
+
+  PolynomialSolutions solutions = poly_solve(arena, poly);
+  printf("\n roots: \n");
+  for(PolynomialRoot *root = solutions.first; root; root = root->next)
+  {
+    printf("  (%.2f, %.2f)^%lu\n", root->value.re, root->value.im, root->order);
   }
 
   return(0);

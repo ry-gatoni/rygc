@@ -641,6 +641,13 @@ c64(R32 re, R32 im)
 }
 
 proc C64
+c64_polar(R32 mag, R32 arg)
+{
+  C64 result = c64(mag*cosf(arg), mag*sinf(arg));
+  return(result);
+}
+
+proc C64
 c64_from_v2(V2 v)
 {
   C64 result = c64(v.x, v.y);
@@ -651,6 +658,16 @@ proc V2
 v2_from_c64(C64 z)
 {
   V2 result = v2(z.re, z.im);
+  return(result);
+}
+
+// -----------------------------------------------------------------------------
+// scalar from complex
+
+proc R32
+c64_mag(C64 z)
+{
+  R32 result = sqrtf(c64_mag_sq(z));
   return(result);
 }
 
