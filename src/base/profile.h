@@ -23,8 +23,7 @@ struct ProfileEvent
 {
   // NOTE: runtime profile data for a `ProfileSite` location. These are
   // allocated on the stack at runtime.
-  ProfileEvent *parent;
-
+  ProfileSite *parent;
   ProfileSite *site;
 
   U64 tsc_start; // counter when scope entered
@@ -33,27 +32,38 @@ struct ProfileEvent
 
 global U64 profile_site_count = 0;
 global ProfileSite *profile_sites = 0;
-// TODO: once we support multithreaded profiling, these should become
-// thread-local (or go into thread-local context)
-global ProfileSite *profile__current_parent;
-global ProfileEvent *profile__open_scope;
 
 // -----------------------------------------------------------------------------
 // public interface
 
 #if !defined(PROFILE_DISABLE)
 
+#define ProfileDeclare static Section("rygcPROF") ProfileSite __profile__
+#define ProfileDefine(name) ProfileDeclare = { .label = Str8Lit(name), }
+#define ProfileDefineNil ProfileDefine("nil__profile")
+#define ProfileMetadata &__profile__
+#define ProfileRaw IntFromPtr(ProfileMetadata)
+#define ProfileId ProfileRaw - profile_sites
+
+ProfileDefineNil;
+
 #define ProfileFunction() ProfileScope(__func__)
 #define ProfileScope(name)\
   ProfileData(name);\
-  for(U32 Glue(_i_, __LINE__) = (profile_begin_scope(), 0); \
+  for(U32 Glue(_i_, __LINE__) = (profile_begin_scope(&__profile__event), 0); \
       Glue(_i_, __LINE__) < 1;\
-      ++Glue(_i_, __LINE__), profile_end_scope())
+      ++Glue(_i_, __LINE__), profile_end_scope(&__profile__event))
 #define ProfileData(name)\
-    PROFILE_SITE_DEFINE = { .label = Str8Lit(name), };\
-    profile__current_parent = &PROFILE_SITE_NAME;\
-    PROFILE_EVENT_DEFINE = { .parent = profile__open_scope, .site = profile__current_parent, };\
-    profile__open_scope = &PROFILE_EVENT_NAME;
+  AllowAliasingOn\
+  ProfileSite *last_site = ProfileMetadata;\
+  static Section("rygcPROF") ProfileSite __profile__ = { .label = Str8Lit(name), };\
+  ProfileSite *current_site = ProfileMetadata;\
+  ProfileEvent __profile__event = { .parent = last_site, .site = current_site, };\
+  AllowAliasingOff
+    /* PROFILE_SITE_DEFINE = { .label = Str8Lit(name), };\ */
+    /* profile__current_parent = &PROFILE_SITE_NAME;\ */
+    /* PROFILE_EVENT_DEFINE = { .parent = profile__open_scope, .site = profile__current_parent, };\ */
+    /* profile__open_scope = &PROFILE_EVENT_NAME; */
 
 #define PROFILE_SITE_DEFINE static Section("rygcPROF") ProfileSite PROFILE_SITE_NAME
 #define PROFILE_EVENT_DEFINE ProfileEvent PROFILE_EVENT_NAME
@@ -62,11 +72,18 @@ global ProfileEvent *profile__open_scope;
 
 #else
 
+#define ProfileMetadata 0
+
 #define ProfileFunction()
 #define ProfileScope(name)
 #define ProfileData(name)
 
 #endif
+
+// TODO: once we support multithreaded profiling, these should become
+// thread-local (or go into thread-local context)
+//global ProfileSite *profile__current_parent = ProfileMetadata;
+//global ProfileEvent *profile__open_scope = 0;
 
 // NOTE: clang/linux only
 // TODO: support on other platforms
@@ -75,8 +92,8 @@ extern ProfileSite __stop_rygcPROF[];
 proc inline ProfileSite* profile_site_array_base(void) { return(__start_rygcPROF); }
 proc inline U64 profile_site_array_count(void) { return(__stop_rygcPROF - __start_rygcPROF); }
 
-proc void profile_begin_scope(void);
-proc void profile_end_scope(void);
+proc void profile_begin_scope(ProfileEvent *event);
+proc void profile_end_scope(ProfileEvent *event);
 
 #else
 typedef struct ProfileEntry

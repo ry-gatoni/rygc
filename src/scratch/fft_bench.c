@@ -1,6 +1,6 @@
 // profiling runs are stored in data/prof/fft_bench
 
-#define PROFILE_DISABLE
+//#define PROFILE_DISABLE
 #include "base/base.h"
 #include "bench/bench.h"
 

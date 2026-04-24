@@ -72,6 +72,32 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// allow aliasing
+
+// NOTE: untested on msvc
+#if COMPILER_CLANG
+#  define AllowAliasingOn\
+  _Pragma("clang diagnostic push")\
+  _Pragma("clang diagnostic ignored \"-Wshadow\"")
+#  define AllowAliasingOff\
+  _Pragma("clang diagnostic pop")
+#elif COMPILER_GCC
+#  define AllowAliasingOn\
+  _Pragma("GCC diagnostic push")\
+  _Pragma("GCC diagnostic ignored \"-Wshadow\"")
+#  define AllowAliasingOff\
+  _Pragma("GCC diagnostic pop")
+#elif COMPILER_MSVC
+#  define AllowAliasingOn\
+  __pragma(warning(push))\
+  __pragma(warning(disable: 4459))
+#  define AllowAliasingOff\
+  __pragma(warning(pop))
+#else
+#  warning WARNING: `AllowAlias` macro not supported on this compiler
+#endif
+
+// -----------------------------------------------------------------------------
 // asserts
 
 #if COMPILER_CLANG || COMPILER_GCC

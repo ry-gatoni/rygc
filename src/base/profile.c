@@ -1,24 +1,22 @@
 #if 1
 proc void
-profile_begin_scope(void)
+profile_begin_scope(ProfileEvent *event)
 {
-  profile__open_scope->tsc_elapsed_root_old = profile__open_scope->parent->site->tsc_elapsed_root;
-  profile__open_scope->tsc_start = cpu_counter();
+  event->tsc_elapsed_root_old = event->parent->tsc_elapsed_root;
+  event->tsc_start = cpu_counter();
 }
 
 proc void
-profile_end_scope(void)
+profile_end_scope(ProfileEvent *event)
 {
-  U64 tsc_elapsed = cpu_counter() - profile__open_scope->tsc_start;
-  ProfileEvent *event = profile__open_scope;
+  U64 tsc_elapsed = cpu_counter() - event->tsc_start;
   ProfileSite *site = event->site;
-  ProfileSite *parent = event->parent->site;
+  ProfileSite *parent = event->parent;
   site->tsc_elapsed += tsc_elapsed;
   site->tsc_elapsed_root = event->tsc_elapsed_root_old + tsc_elapsed;
   parent->tsc_elapsed_children += tsc_elapsed;
   site->hit_count++;
-  profile__current_parent = parent;
-  profile__open_scope = 0;
+  //profile__current_parent = parent;
 }
 #else
 // -----------------------------------------------------------------------------
