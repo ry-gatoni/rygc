@@ -45,7 +45,8 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/buzz.c -o buzz && ./buzz
 # clang $CFLAGS -O3 -mavx2 -mfma $SRC/scratch/fft_bench.c -o fft_bench && ./fft_bench
 # clang $CFLAGS $SRC/scratch/vst3_test_host.c -o vst3_test_host
-clang $CFLAGS $SRC/scratch/poly_solve.c -o poly_solve && ./poly_solve
+# clang $CFLAGS $SRC/scratch/poly_solve.c -o poly_solve # && ./poly_solve
+clang $CFLAGS $SRC/scratch/xcb_test.c -lxcb -o xcb_test
 
 popd > /dev/null # ./build -> ./src
 

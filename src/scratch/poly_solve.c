@@ -216,7 +216,7 @@ poly_solve(Arena *arena, Polynomial *poly)
 
   ArenaTemp scratch = arena_get_scratch(&arena, 1);
 
-  R64 const eps = 1e-3;
+  R64 const sol_eps = 1e-3;
   C64 guess_unity = c64(1, 0);
   C64 guess_scale = c64_polar(1, TAU32 / (R32)poly->order);
   while(poly->order)
@@ -226,14 +226,14 @@ poly_solve(Arena *arena, Polynomial *poly)
     C64 guess = guess_unity;
     Polynomial *derivative = poly_differentiate(scratch.arena, poly);
     C64 eval = poly_eval_at(poly, guess);
-    B32 root_found = c64_mag(eval) < eps;
+    B32 root_found = c64_mag(eval) < sol_eps;
     while(!root_found)
     {
       C64 deval = poly_eval_at(derivative, guess);
       guess = c64_sub(guess, c64_div(eval, deval)); // TODO: handle derivative being 0
 
       eval = poly_eval_at(poly, guess);
-      root_found = c64_mag(eval) < eps;
+      root_found = c64_mag(eval) < sol_eps;
     }
     root->value = guess;
     root->order = 1; // ???
