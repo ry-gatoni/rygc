@@ -2,10 +2,14 @@
 
 #include <xcb/xcb.h>
 
+#include <EGL/egl.h>
+//#define EGL_EGLEXT_PROTOTYPES
+#include <EGL/eglext.h>
+
 #include "base/base.c"
 
 // TODO:
-// - opengl/vulkan context
+// - vulkan context
 // - read keysyms/keycodes
 // - gracefully handle window close
 // - handle window resize
@@ -16,10 +20,15 @@ main(int argc, char **argv)
   Unused(argc);
   Unused(argv);
 
+  // NOTE: persistent resources that need to be released at program end
   int xcb_error_code = 0;
   xcb_generic_error_t *xcb_error = 0;
   xcb_void_cookie_t xcb_request_cookie = {0};
   xcb_window_t window_id = (U32)-1;
+
+  EGLDisplay egl_display = EGL_NO_DISPLAY;
+  EGLSurface egl_surface = EGL_NO_SURFACE;
+  EGLContext egl_context = EGL_NO_CONTEXT;
 
   // NOTE: open connection
   // TODO: optionally override X server
@@ -90,6 +99,40 @@ main(int argc, char **argv)
   }
   xcb_flush(xcb_connection);
 
+  // NOTE: get opengl context
+  {
+    EGLBoolean egl_result = 1;
+
+    PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT =
+      (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+    PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC eglCreatePlatformWindowSurfaceEXT =
+      (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+    if(eglGetPlatformDisplayEXT == 0 || eglCreatePlatformWindowSurfaceEXT == 0) goto finish;
+
+    egl_display = eglGetPlatformDisplayEXT(EGL_PLATFORM_XCB_EXT, xcb_connection, 0);
+    if(egl_display == EGL_NO_DISPLAY) goto finish;
+
+    EGLint egl_major, egl_minor;
+    egl_result = eglInitialize(egl_display, &egl_major, &egl_minor);
+    if(!egl_result) goto finish;
+
+    egl_result = eglBindAPI(EGL_OPENGL_API);
+    if(!egl_result) goto finish;
+
+    EGLint attrib_list[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE};
+    EGLConfig egl_config;
+    EGLint num_config;
+    egl_result = eglChooseConfig(egl_display, attrib_list, &egl_config, 1, &num_config);
+    if(!egl_result) goto finish;
+
+    egl_surface = eglCreatePlatformWindowSurfaceEXT(egl_display, egl_config, &window_id, 0);
+    egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, 0);
+    if(egl_surface == EGL_NO_SURFACE || egl_context == EGL_NO_CONTEXT) goto finish;
+
+    egl_result = eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+    if(!egl_result) goto finish;
+  }
+
   // NOTE: main loop
   B32 running = 1;
   while(running)
@@ -132,7 +175,12 @@ main(int argc, char **argv)
   }
 
 finish:
+  if(egl_surface != EGL_NO_SURFACE) eglDestroySurface(egl_display, egl_surface);
+  if(egl_context != EGL_NO_CONTEXT) eglDestroyContext(egl_display, egl_context);
+  if(egl_display != EGL_NO_DISPLAY) eglTerminate(egl_display);
+
   if(window_id != (U32)-1) xcb_unmap_window(xcb_connection, window_id);
   xcb_disconnect(xcb_connection);
+
   return(xcb_error_code);
 }
