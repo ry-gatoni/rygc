@@ -30,6 +30,8 @@ main(int argc, char **argv)
   EGLSurface egl_surface = EGL_NO_SURFACE;
   EGLContext egl_context = EGL_NO_CONTEXT;
 
+  Arena *xcb_arena = arena_alloc();
+
   // NOTE: open connection
   // TODO: optionally override X server
   // TODO: get preferred screen
@@ -41,7 +43,7 @@ main(int argc, char **argv)
   xcb_setup_t const *xcb_setup = xcb_get_setup(xcb_connection);
   xcb_screen_iterator_t xcb_screen_it = xcb_setup_roots_iterator(xcb_setup);
   xcb_screen_t *xcb_screen = xcb_screen_it.data;
-  //V2S32 screen_dim = { .width = xcb_screen->width_in_pixels, .height = xcb_screen->height_in_pixels};
+  V2S32 screen_dim = { .width = xcb_screen->width_in_pixels, .height = xcb_screen->height_in_pixels};
 
   // NOTE: create graphics context
   xcb_gcontext_t xcb_graphics_context = xcb_generate_id(xcb_connection);
@@ -63,6 +65,31 @@ main(int argc, char **argv)
       free(xcb_error);
       xcb_error = 0;
       if(xcb_error_code != 0) fprintf(stderr, "create graphics context failure\n"); goto finish;
+    }
+  }
+
+  // NOTE: create pixmap
+  xcb_pixmap_t xcb_pixmap = xcb_generate_id(xcb_connection);
+  xcb_request_cookie =
+    xcb_create_pixmap_checked(xcb_connection,
+			      xcb_screen->root_depth,
+			      xcb_pixmap,
+			      xcb_drawable,
+			      xcb_screen->width_in_pixels, xcb_screen->height_in_pixels);
+  if((xcb_error = xcb_request_check(xcb_connection, xcb_request_cookie)))
+  {
+    xcb_error_code = xcb_error->error_code;
+    free(xcb_error);
+    xcb_error = 0;
+    if(xcb_error_code != 0) fprintf(stderr, "create pixmap failure\n"); goto finish;
+  }
+  U32 *backbuffer_pixels = arena_push_array(xcb_arena, U32, screen_dim.width*screen_dim.height);
+  for(S32 i = 0; i < screen_dim.height; ++i)
+  {
+    for(S32 j = 0; j < screen_dim.width; ++j)
+    {
+      // NOTE: lo BGRA hi
+      backbuffer_pixels[i*screen_dim.width + j] = 0xFFFF007F;
     }
   }
 
@@ -146,6 +173,26 @@ main(int argc, char **argv)
 	case XCB_EXPOSE:
 	{
 	  printf("xcb expose\n");
+#if 1
+	  xcb_request_cookie =
+	    xcb_put_image_checked(xcb_connection,
+				  XCB_IMAGE_FORMAT_Z_PIXMAP,
+				  window_id,
+				  xcb_graphics_context,
+				  1920, 1080,
+				  0, 0,
+				  0,
+				  xcb_screen->root_depth,
+				  screen_dim.width*screen_dim.height*sizeof(*backbuffer_pixels),
+				  (U8*)backbuffer_pixels);
+	  if((xcb_error = xcb_request_check(xcb_connection, xcb_request_cookie)))
+	  {
+	    xcb_error_code = xcb_error->error_code;
+	    free(xcb_error);
+	    xcb_error = 0;
+	    if(xcb_error_code != 0) fprintf(stderr, "put image failure\n"); goto finish;
+	  }
+#else
 	  xcb_rectangle_t rect = { .x = 0, .y = 0, .width = 640, .height = 480, };
 	  xcb_request_cookie = xcb_poly_fill_rectangle_checked(xcb_connection,
 							       window_id,
@@ -158,12 +205,14 @@ main(int argc, char **argv)
 	    xcb_error = 0;
 	    if(xcb_error_code != 0) fprintf(stderr, "fill rectangle failure\n"); goto finish;
 	  }
+#endif
 	  xcb_flush(xcb_connection);
 	}break;
 	case XCB_KEY_PRESS:
 	{
 	  printf("key press\n");
 	  running = 0;
+	  // TODO: exit immediately?
 	}break;
 	default:
 	{
