@@ -92,6 +92,87 @@ bit_reverse_copy_re(C64 *dest, R32 *src, U64 count)
   }
 }
 
+proc void
+bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
+{
+#if 1
+  CopyArray(out_re, in, R32, count);
+  for(U64 stride = 4; stride < count; stride *= 2)
+  {
+    for(U64 k = 0; k < count; k += 2*stride)
+    {
+      R32 *io0 = out_re + k + 0*stride;
+      R32 *io1 = out_re + k + 1*stride;
+      for(U64 j = 0; j < stride; j += 4)
+      {
+	__m128 a = _mm_loadu_ps(io0);
+	__m128 b = _mm_loadu_ps(io1);
+
+	__m128 even = _mm_unpacklo_ps(a, b);
+	__m128  odd = _mm_unpackhi_ps(a, b);
+
+	_mm_storeu_ps(io0, even);
+	_mm_storeu_ps(io1, odd);
+
+	//io += sep;
+	io0 += 4;
+	io1 += 4;
+      }
+    }
+  }
+#else
+  // NOTE: this doesn't work
+  for(U64 split = count / 2; split >= 4; split /= 2)
+  {
+    for(U64 k = 0; k < count; k += 2*split)
+    {
+      R32 *src = in + k;
+      R32 *dest0_re = out_re + k + 0*split;
+      R32 *dest0_im = out_im + k + 0*split;
+      R32 *dest1_re = out_re + k + 1*split;
+      R32 *dest1_im = out_im + k + 1*split;
+      for(U64 j = 0; j < split; j += 4)
+      {
+	__m128 a = _mm_loadu_ps(src);
+	__m128 b = _mm_loadu_ps(src + 4);
+
+	__m128 even = _mm_shuffle_ps(a, b, _MM_SHUFFLE(2, 0, 2, 0));
+	__m128  odd = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 1, 3, 1));
+
+	_mm_storeu_ps(dest0_re, even);
+	_mm_storeu_ps(dest1_re, odd);
+
+	src += 8;
+	dest0_re += 4;
+	dest1_re += 4;
+	//dest0_im += 4;
+	//dest1_im += 4;
+      }
+    }
+  }
+
+  // NOTE: steps smaller than twice simd width
+  for(U64 k = 0; k < count; k += 2*2)
+  {
+    R32 *src = in + k;
+    R32 *dest0_re = out_re + k + 0*2;
+    R32 *dest0_im = out_im + k + 0*2;
+    R32 *dest1_re = out_re + k + 1*2;
+    R32 *dest1_im = out_im + k + 1*2;
+
+    R32 a = src[0];
+    R32 b = src[1];
+    R32 c = src[2];
+    R32 d = src[4];
+
+    dest0_re[0] = a;
+    dest1_re[0] = b;
+    dest0_re[1] = c;
+    dest1_re[1] = d;
+  }
+#endif
+}
+
 // TODO: separate fft kernels (operating fully in place) so we can profile them
 // individually, and assemble full fft implementations from them + input
 // permutation
@@ -383,17 +464,20 @@ fft_re__iterative_dit_radix2_2_ss(R32 *in, C64 *out, U64 count)
 proc void
 fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count)
 {ProfileFunction(){
-
+#if 1
+    bit_reverse_copy_re__sse(out_re, out_im, in, count);
+#else
   U64 count_log2 = MSB(count);
   for(U64 i = 0; i < count; ++i)
   {
     U64 i_rev = bit_reverse_u64(i) >> (64 - count_log2);
     out_re[i_rev] = in[i];
   }
+#endif
 
   // NOTE: scalar when half count is smaller than vector width. inner loops are
   // inlined without twiddle loads
-#if 1
+
   // s = 2
   {
     for(U64 k = 0; k < count; k += 2)
@@ -464,65 +548,8 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
 	inout1_re[1] = out1_re;
 	inout1_im[1] = out1_im;
       }
-
-      /* for(U64 j = 0; j < s/2; ++j) */
-      /* { */
-      /* 	R32 w_re = twiddles_re[j]; */
-      /* 	R32 w_im = twiddles_im[j]; */
-
-      /* 	R32 in0_re = inout0_re[j]; */
-      /* 	R32 in0_im = inout0_im[j]; */
-      /* 	R32 in1_re = inout1_re[j]; */
-      /* 	R32 in1_im = inout1_im[j]; */
-
-      /* 	R32 out0_re = in0_re + w_re*in1_re - w_im*in1_im; */
-      /* 	R32 out0_im = in0_im + w_re*in1_im + w_im*in1_re; */
-      /* 	R32 out1_re = in0_re - w_re*in1_re + w_im*in1_im; */
-      /* 	R32 out1_im = in0_im - w_re*in1_im - w_im*in1_re; */
-
-      /* 	inout0_re[j] = out0_re; */
-      /* 	inout0_im[j] = out0_im; */
-      /* 	inout1_re[j] = out1_re; */
-      /* 	inout1_im[j] = out1_im; */
-      /* } */
     }
   }
-#else
-  for(U64 s = 2; s < 8; s *= 2)
-  {
-    R32 *twiddles_re = twiddle_table_re__radix2 + s/2;
-    R32 *twiddles_im = twiddle_table_im__radix2 + s/2;
-
-    for(U64 k = 0; k < count; k += s)
-    {
-      R32 *inout0_re = out_re + k + 0*s/2;
-      R32 *inout0_im = out_im + k + 0*s/2;
-      R32 *inout1_re = out_re + k + 1*s/2;
-      R32 *inout1_im = out_im + k + 1*s/2;
-
-      for(U64 j = 0; j < s/2; ++j)
-      {
-	R32 w_re = twiddles_re[j];
-	R32 w_im = twiddles_im[j];
-
-	R32 in0_re = inout0_re[j];
-	R32 in0_im = inout0_im[j];
-	R32 in1_re = inout1_re[j];
-	R32 in1_im = inout1_im[j];
-
-	R32 out0_re = in0_re + w_re*in1_re - w_im*in1_im;
-	R32 out0_im = in0_im + w_re*in1_im + w_im*in1_re;
-	R32 out1_re = in0_re - w_re*in1_re + w_im*in1_im;
-	R32 out1_im = in0_im - w_re*in1_im - w_im*in1_re;
-
-	inout0_re[j] = out0_re;
-	inout0_im[j] = out0_im;
-	inout1_re[j] = out1_re;
-	inout1_im[j] = out1_im;
-      }
-    }
-  }
-#endif
 
   // NOTE: vector when half count is at least vector width
   for(U64 s = 8; s <= count; s *= 2)
@@ -820,7 +847,7 @@ main(int argc, char **argv)
   bench_repetition_time_ms(500);
 
   Arena *arena = arena_alloc();
-  U64 const fft_count = 1024;
+  U64 const fft_count = 64;//1024;
   R32 *signal = arena_push_array(arena, R32, fft_count);
   {
     R32 const freq = 4;
@@ -828,9 +855,13 @@ main(int argc, char **argv)
     R32 phasor = 0.f;
     for(U32 i = 0; i < fft_count; ++i)
     {
+#if 1
+      signal[i] = i;
+#else
       signal[i] = sinf(phasor);
       phasor += dp;
       if(phasor >= TAU32) phasor -= TAU32;
+#endif
     }
   }
   C64 *out = arena_push_array(arena, C64, fft_count);
@@ -872,7 +903,7 @@ main(int argc, char **argv)
     void *args = bench->fft_args;
     String8 proc_name = bench->proc_name;
 
-#if 0
+#if 1
     fft_proc(args);
     printf("\n%.*s:\n", Str8F(proc_name));
     if(IntFromPtr(args) == IntFromPtr(&fft_bench_args__interleaved))

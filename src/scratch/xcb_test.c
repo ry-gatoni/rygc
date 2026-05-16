@@ -98,7 +98,13 @@ main(int argc, char **argv)
   U32 values[] = {
     0,
     /* xcb_screen->white_pixel, */
-    XCB_EVENT_MASK_EXPOSURE|XCB_EVENT_MASK_KEY_PRESS,
+    XCB_EVENT_MASK_EXPOSURE|
+    XCB_EVENT_MASK_KEY_PRESS|
+    XCB_EVENT_MASK_KEY_RELEASE|
+    XCB_EVENT_MASK_BUTTON_PRESS|
+    XCB_EVENT_MASK_BUTTON_RELEASE|
+    XCB_EVENT_MASK_POINTER_MOTION|
+    XCB_EVENT_MASK_BUTTON_MOTION,
   };
   window_id = xcb_generate_id(xcb_connection);
   xcb_request_cookie = xcb_create_window_checked(xcb_connection,
@@ -173,6 +179,7 @@ main(int argc, char **argv)
 	case XCB_EXPOSE:
 	{
 	  printf("xcb expose\n");
+	  xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
 #if 1
 	  xcb_request_cookie =
 	    xcb_put_image_checked(xcb_connection,
@@ -193,11 +200,14 @@ main(int argc, char **argv)
 	    if(xcb_error_code != 0) fprintf(stderr, "put image failure\n"); goto finish;
 	  }
 #else
-	  xcb_rectangle_t rect = { .x = 0, .y = 0, .width = 640, .height = 480, };
-	  xcb_request_cookie = xcb_poly_fill_rectangle_checked(xcb_connection,
-							       window_id,
-							       xcb_graphics_context,
-							       1, &rect);
+	  xcb_rectangle_t rect = {
+	    .x = 0,
+	    .y = 0,
+	    .width = expose_event->width,
+	    .height = expose_event->height,
+	  };
+	  xcb_request_cookie =
+	    xcb_poly_fill_rectangle_checked(xcb_connection, window_id, xcb_graphics_context, 1, &rect);
 	  if((xcb_error = xcb_request_check(xcb_connection, xcb_request_cookie)))
 	  {
 	    xcb_error_code = xcb_error->error_code;
@@ -208,12 +218,39 @@ main(int argc, char **argv)
 #endif
 	  xcb_flush(xcb_connection);
 	}break;
+
 	case XCB_KEY_PRESS:
 	{
-	  printf("key press\n");
+	  xcb_key_press_event_t *key_press = (xcb_key_press_event_t*)xcb_event;
+	  printf("key press: %u\n", key_press->detail);
 	  running = 0;
 	  // TODO: exit immediately?
 	}break;
+
+	case XCB_KEY_RELEASE:
+	{
+	  xcb_key_release_event_t *key_release = (xcb_key_release_event_t*)xcb_event;
+	  printf("key release: %u\n", key_release->detail);
+	}break;
+
+	case XCB_BUTTON_PRESS:
+	{
+	  xcb_button_press_event_t *button_press = (xcb_button_press_event_t*)xcb_event;
+	  printf("button press: %u\n", button_press->detail);
+	}break;
+
+	case XCB_BUTTON_RELEASE:
+	{
+	  xcb_button_release_event_t *button_release = (xcb_button_release_event_t*)xcb_event;
+	  printf("button release: %u\n", button_release->detail);
+	}break;
+
+	case XCB_MOTION_NOTIFY:
+	{
+	  xcb_motion_notify_event_t *pointer_motion = (xcb_motion_notify_event_t*)xcb_event;
+	  printf("pointer motion: (%d, %d)\n", pointer_motion->event_x, pointer_motion->event_y);
+	}break;
+
 	default:
 	{
 	  printf("unknown event\n");
