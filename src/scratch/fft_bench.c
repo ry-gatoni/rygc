@@ -95,82 +95,55 @@ bit_reverse_copy_re(C64 *dest, R32 *src, U64 count)
 proc void
 bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
 {
-#if 1
-  CopyArray(out_re, in, R32, count);
-  for(U64 stride = 4; stride < count; stride *= 2)
+  U64 count_log2 = MSB(count);
   {
-    for(U64 k = 0; k < count; k += 2*stride)
+    for(U64 block_idx = 0; block_idx < count/4; block_idx += 4)
     {
-      R32 *io0 = out_re + k + 0*stride;
-      R32 *io1 = out_re + k + 1*stride;
-      for(U64 j = 0; j < stride; j += 4)
-      {
-	__m128 a = _mm_loadu_ps(io0);
-	__m128 b = _mm_loadu_ps(io1);
+      // TODO: vectorize these bit reversals (or do something simpler?)
+      U64 block0_rev = bit_reverse_u64(block_idx + 0) >> (64 - count_log2);
+      U64 block1_rev = bit_reverse_u64(block_idx + 1) >> (64 - count_log2);
+      U64 block2_rev = bit_reverse_u64(block_idx + 2) >> (64 - count_log2);
+      U64 block3_rev = bit_reverse_u64(block_idx + 3) >> (64 - count_log2);
 
-	__m128 even = _mm_unpacklo_ps(a, b);
-	__m128  odd = _mm_unpackhi_ps(a, b);
+      __m128 in0 = _mm_loadu_ps(in + block0_rev);
+      __m128 in1 = _mm_loadu_ps(in + block1_rev);
+      __m128 in2 = _mm_loadu_ps(in + block2_rev);
+      __m128 in3 = _mm_loadu_ps(in + block3_rev);
 
-	_mm_storeu_ps(io0, even);
-	_mm_storeu_ps(io1, odd);
+      // NOTE: transpose 4x4
+      __m128 r0 = _mm_unpacklo_ps(in0, in2);
+      __m128 r1 = _mm_unpacklo_ps(in1, in3);
+      __m128 r2 = _mm_unpackhi_ps(in0, in2);
+      __m128 r3 = _mm_unpackhi_ps(in1, in3);
 
-	//io += sep;
-	io0 += 4;
-	io1 += 4;
-      }
+      __m128 s0 = _mm_unpacklo_ps(r0, r1);
+      __m128 s1 = _mm_unpackhi_ps(r0, r1);
+      __m128 s2 = _mm_unpacklo_ps(r2, r3);
+      __m128 s3 = _mm_unpackhi_ps(r2, r3);
+
+      // NOTE: local transpose 2x2
+      /* __m128 s0 = _mm_shuffle_ps(t0, t0, _MM_SHUFFLE(3, 1, 2, 0)); */
+      /* __m128 s1 = _mm_shuffle_ps(t2, t2, _MM_SHUFFLE(3, 1, 2, 0)); */
+      /* __m128 s2 = _mm_shuffle_ps(t1, t1, _MM_SHUFFLE(3, 1, 2, 0)); */
+      /* __m128 s3 = _mm_shuffle_ps(t3, t3, _MM_SHUFFLE(3, 1, 2, 0)); */
+
+      /* _mm_storeu_ps(out_re + block_idx + 0*4, s0); */
+      /* _mm_storeu_ps(out_re + block_idx + 1*4, s1); */
+      /* _mm_storeu_ps(out_re + block_idx + 2*4, s2); */
+      /* _mm_storeu_ps(out_re + block_idx + 3*4, s3); */
+
+      /* _mm_storeu_ps(out_re + block0_rev, s0); */
+      /* _mm_storeu_ps(out_re + block1_rev, s1); */
+      /* _mm_storeu_ps(out_re + block2_rev, s2); */
+      /* _mm_storeu_ps(out_re + block3_rev, s3); */
+
+      // TODO: do two fft passes (twiddle = -1, twiddles = -i, -1, i) before store
+      _mm_storeu_ps(out_re + block_idx + 0*count/2 + 0*count/4, s0);
+      _mm_storeu_ps(out_re + block_idx + 1*count/2 + 0*count/4, s1);
+      _mm_storeu_ps(out_re + block_idx + 0*count/2 + 1*count/4, s2);
+      _mm_storeu_ps(out_re + block_idx + 1*count/2 + 1*count/4, s3);
     }
   }
-#else
-  // NOTE: this doesn't work
-  for(U64 split = count / 2; split >= 4; split /= 2)
-  {
-    for(U64 k = 0; k < count; k += 2*split)
-    {
-      R32 *src = in + k;
-      R32 *dest0_re = out_re + k + 0*split;
-      R32 *dest0_im = out_im + k + 0*split;
-      R32 *dest1_re = out_re + k + 1*split;
-      R32 *dest1_im = out_im + k + 1*split;
-      for(U64 j = 0; j < split; j += 4)
-      {
-	__m128 a = _mm_loadu_ps(src);
-	__m128 b = _mm_loadu_ps(src + 4);
-
-	__m128 even = _mm_shuffle_ps(a, b, _MM_SHUFFLE(2, 0, 2, 0));
-	__m128  odd = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 1, 3, 1));
-
-	_mm_storeu_ps(dest0_re, even);
-	_mm_storeu_ps(dest1_re, odd);
-
-	src += 8;
-	dest0_re += 4;
-	dest1_re += 4;
-	//dest0_im += 4;
-	//dest1_im += 4;
-      }
-    }
-  }
-
-  // NOTE: steps smaller than twice simd width
-  for(U64 k = 0; k < count; k += 2*2)
-  {
-    R32 *src = in + k;
-    R32 *dest0_re = out_re + k + 0*2;
-    R32 *dest0_im = out_im + k + 0*2;
-    R32 *dest1_re = out_re + k + 1*2;
-    R32 *dest1_im = out_im + k + 1*2;
-
-    R32 a = src[0];
-    R32 b = src[1];
-    R32 c = src[2];
-    R32 d = src[4];
-
-    dest0_re[0] = a;
-    dest1_re[0] = b;
-    dest0_re[1] = c;
-    dest1_re[1] = d;
-  }
-#endif
 }
 
 // TODO: separate fft kernels (operating fully in place) so we can profile them
@@ -847,7 +820,7 @@ main(int argc, char **argv)
   bench_repetition_time_ms(500);
 
   Arena *arena = arena_alloc();
-  U64 const fft_count = 64;//1024;
+  U64 const fft_count = 1024;
   R32 *signal = arena_push_array(arena, R32, fft_count);
   {
     R32 const freq = 4;
@@ -855,7 +828,7 @@ main(int argc, char **argv)
     R32 phasor = 0.f;
     for(U32 i = 0; i < fft_count; ++i)
     {
-#if 1
+#if 0
       signal[i] = i;
 #else
       signal[i] = sinf(phasor);
@@ -903,7 +876,7 @@ main(int argc, char **argv)
     void *args = bench->fft_args;
     String8 proc_name = bench->proc_name;
 
-#if 1
+#if 0
     fft_proc(args);
     printf("\n%.*s:\n", Str8F(proc_name));
     if(IntFromPtr(args) == IntFromPtr(&fft_bench_args__interleaved))
