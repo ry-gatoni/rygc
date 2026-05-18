@@ -99,6 +99,11 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
   {
     for(U64 block_idx = 0; block_idx < count/4; block_idx += 4)
     {
+      /* U64 block_rev = bit_reverse_u64(block_idx) >> (64 - count_log2); */
+      /* U64 block0_rev = block_rev + 0*count/2 + 0*count/4; */
+      /* U64 block1_rev = block_rev + 1*count/2 + 0*count/4; */
+      /* U64 block2_rev = block_rev + 0*count/2 + 1*count/4; */
+      /* U64 block3_rev = block_rev + 1*count/2 + 1*count/4; */
       // TODO: vectorize these bit reversals (or do something simpler?)
       U64 block0_rev = bit_reverse_u64(block_idx + 0) >> (64 - count_log2);
       U64 block1_rev = bit_reverse_u64(block_idx + 1) >> (64 - count_log2);
@@ -110,11 +115,17 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
       __m128 in2 = _mm_loadu_ps(in + block2_rev);
       __m128 in3 = _mm_loadu_ps(in + block3_rev);
 
+      // NOTE: initial radix-2 step (stride = 1)
+      __m128 t0 = _mm_add_ps(in0, in1);
+      __m128 t1 = _mm_sub_ps(in0, in1);
+      __m128 t2 = _mm_add_ps(in2, in3);
+      __m128 t3 = _mm_sub_ps(in2, in3);
+
       // NOTE: transpose 4x4
-      __m128 r0 = _mm_unpacklo_ps(in0, in2);
-      __m128 r1 = _mm_unpacklo_ps(in1, in3);
-      __m128 r2 = _mm_unpackhi_ps(in0, in2);
-      __m128 r3 = _mm_unpackhi_ps(in1, in3);
+      __m128 r0 = _mm_unpacklo_ps(t0, t2);
+      __m128 r1 = _mm_unpacklo_ps(t1, t3);
+      __m128 r2 = _mm_unpackhi_ps(t0, t2);
+      __m128 r3 = _mm_unpackhi_ps(t1, t3);
 
       __m128 s0 = _mm_unpacklo_ps(r0, r1);
       __m128 s1 = _mm_unpackhi_ps(r0, r1);
@@ -126,16 +137,6 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
       /* __m128 s1 = _mm_shuffle_ps(t2, t2, _MM_SHUFFLE(3, 1, 2, 0)); */
       /* __m128 s2 = _mm_shuffle_ps(t1, t1, _MM_SHUFFLE(3, 1, 2, 0)); */
       /* __m128 s3 = _mm_shuffle_ps(t3, t3, _MM_SHUFFLE(3, 1, 2, 0)); */
-
-      /* _mm_storeu_ps(out_re + block_idx + 0*4, s0); */
-      /* _mm_storeu_ps(out_re + block_idx + 1*4, s1); */
-      /* _mm_storeu_ps(out_re + block_idx + 2*4, s2); */
-      /* _mm_storeu_ps(out_re + block_idx + 3*4, s3); */
-
-      /* _mm_storeu_ps(out_re + block0_rev, s0); */
-      /* _mm_storeu_ps(out_re + block1_rev, s1); */
-      /* _mm_storeu_ps(out_re + block2_rev, s2); */
-      /* _mm_storeu_ps(out_re + block3_rev, s3); */
 
       // TODO: do two fft passes (twiddle = -1, twiddles = -i, -1, i) before store
       _mm_storeu_ps(out_re + block_idx + 0*count/2 + 0*count/4, s0);
@@ -451,6 +452,7 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
   // NOTE: scalar when half count is smaller than vector width. inner loops are
   // inlined without twiddle loads
 
+#if 0
   // s = 2
   {
     for(U64 k = 0; k < count; k += 2)
@@ -476,6 +478,7 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
       inout1_im[0] = out1_im;
     }
   }
+#endif
 
   // s = 4
   {
