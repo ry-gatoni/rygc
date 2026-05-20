@@ -97,6 +97,8 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
 {
   U64 count_log2 = MSB(count);
   {
+    __m128 const zero_x4 = _mm_set1_ps(0.f);
+    __m128 const neg_1_x4 = _mm_set1_ps(-1.f);
     for(U64 block_idx = 0; block_idx < count/4; block_idx += 4)
     {
       /* U64 block_rev = bit_reverse_u64(block_idx) >> (64 - count_log2); */
@@ -121,7 +123,39 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
       __m128 t2 = _mm_add_ps(in2, in3);
       __m128 t3 = _mm_sub_ps(in2, in3);
 
+      // NOTE: subsequent radix-2 step (stride = 2)
+      __m128 u0_re = _mm_add_ps(t0, t2);
+      __m128 u0_im = zero_x4;
+      __m128 u1_re = t1;
+      __m128 u1_im = _mm_mul_ps(t1, neg_1_x4);
+      __m128 u2_re = _mm_sub_ps(t0, t2);
+      __m128 u2_im = zero_x4;
+      __m128 u3_re = t3;
+      //__m128 u3_im = _mm_mul_ps(t3, neg_1_x4);
+      __m128 u3_im = t3;
+
       // NOTE: transpose 4x4
+#if 1
+      __m128 r0_re = _mm_unpacklo_ps(u0_re, u2_re);
+      __m128 r1_re = _mm_unpacklo_ps(u1_re, u3_re);
+      __m128 r2_re = _mm_unpackhi_ps(u0_re, u2_re);
+      __m128 r3_re = _mm_unpackhi_ps(u1_re, u3_re);
+
+      __m128 s0_re = _mm_unpacklo_ps(r0_re, r1_re);
+      __m128 s1_re = _mm_unpackhi_ps(r0_re, r1_re);
+      __m128 s2_re = _mm_unpacklo_ps(r2_re, r3_re);
+      __m128 s3_re = _mm_unpackhi_ps(r2_re, r3_re);
+
+      __m128 r0_im = _mm_unpacklo_ps(u0_im, u2_im);
+      __m128 r1_im = _mm_unpacklo_ps(u1_im, u3_im);
+      __m128 r2_im = _mm_unpackhi_ps(u0_im, u2_im);
+      __m128 r3_im = _mm_unpackhi_ps(u1_im, u3_im);
+
+      __m128 s0_im = _mm_unpacklo_ps(r0_im, r1_im);
+      __m128 s1_im = _mm_unpackhi_ps(r0_im, r1_im);
+      __m128 s2_im = _mm_unpacklo_ps(r2_im, r3_im);
+      __m128 s3_im = _mm_unpackhi_ps(r2_im, r3_im);
+#else
       __m128 r0 = _mm_unpacklo_ps(t0, t2);
       __m128 r1 = _mm_unpacklo_ps(t1, t3);
       __m128 r2 = _mm_unpackhi_ps(t0, t2);
@@ -131,6 +165,7 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
       __m128 s1 = _mm_unpackhi_ps(r0, r1);
       __m128 s2 = _mm_unpacklo_ps(r2, r3);
       __m128 s3 = _mm_unpackhi_ps(r2, r3);
+#endif
 
       // NOTE: local transpose 2x2
       /* __m128 s0 = _mm_shuffle_ps(t0, t0, _MM_SHUFFLE(3, 1, 2, 0)); */
@@ -139,10 +174,22 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
       /* __m128 s3 = _mm_shuffle_ps(t3, t3, _MM_SHUFFLE(3, 1, 2, 0)); */
 
       // TODO: do two fft passes (twiddle = -1, twiddles = -i, -1, i) before store
+#if 1
+      _mm_storeu_ps(out_re + block_idx + 0*count/2 + 0*count/4, s0_re);
+      _mm_storeu_ps(out_re + block_idx + 1*count/2 + 0*count/4, s1_re);
+      _mm_storeu_ps(out_re + block_idx + 0*count/2 + 1*count/4, s2_re);
+      _mm_storeu_ps(out_re + block_idx + 1*count/2 + 1*count/4, s3_re);
+
+      _mm_storeu_ps(out_im + block_idx + 0*count/2 + 0*count/4, s0_im);
+      _mm_storeu_ps(out_im + block_idx + 1*count/2 + 0*count/4, s1_im);
+      _mm_storeu_ps(out_im + block_idx + 0*count/2 + 1*count/4, s2_im);
+      _mm_storeu_ps(out_im + block_idx + 1*count/2 + 1*count/4, s3_im);
+#else
       _mm_storeu_ps(out_re + block_idx + 0*count/2 + 0*count/4, s0);
       _mm_storeu_ps(out_re + block_idx + 1*count/2 + 0*count/4, s1);
       _mm_storeu_ps(out_re + block_idx + 0*count/2 + 1*count/4, s2);
       _mm_storeu_ps(out_re + block_idx + 1*count/2 + 1*count/4, s3);
+#endif
     }
   }
 }
@@ -480,6 +527,7 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
   }
 #endif
 
+#if 0
   // s = 4
   {
     for(U64 k = 0; k < count; k += 4)
@@ -526,6 +574,7 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
       }
     }
   }
+#endif
 
   // NOTE: vector when half count is at least vector width
   for(U64 s = 8; s <= count; s *= 2)
