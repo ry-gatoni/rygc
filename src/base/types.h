@@ -75,9 +75,9 @@ typedef struct Buffer
 
 #if COMPILER_MSVC || (COMPILER_CLANG && OS_WINDOWS)
 #  pragma section(".rdata$", read)
-#  define read_only __declspec(allocate(".rdata$"))
+#  define Read_Only __declspec(allocate(".rdata$"))
 #elif COMPILER_CLANG && OS_LINUX
-#  define read_only __attribute__((section(".rodata")))
+#  define Read_Only __attribute__((section(".rodata")))
 #else // TODO: GCC support
-#  define read_only
+#  define Read_Only
 #endif

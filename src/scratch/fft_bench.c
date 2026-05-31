@@ -546,8 +546,8 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
 
 	R32 out0_re = in0_re + in1_re;
 	R32 out0_im = in0_im + in1_im;
-	R32 out1_re = in1_re - in1_re;
-	R32 out1_im = in1_im - in1_im;
+	R32 out1_re = in0_re - in1_re;
+	R32 out1_im = in0_im - in1_im;
 
 	inout0_re[0] = out0_re;
 	inout0_im[0] = out0_im;
@@ -564,8 +564,8 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
 
 	R32 out0_re = in0_re + in1_im;
 	R32 out0_im = in0_im - in1_re;
-	R32 out1_re = in1_re - in1_im;
-	R32 out1_im = in1_im + in1_re;
+	R32 out1_re = in0_re - in1_im;
+	R32 out1_im = in0_im + in1_re;
 
 	inout0_re[1] = out0_re;
 	inout0_im[1] = out0_im;
