@@ -78,19 +78,31 @@ xcb_init(void)
     XcbCheckRequest(xcb_create_gc, (conn, g_ctxt, drawable, value_mask, values),
 		    "create gc failure", xcb_init_failure);
   }
+  xcb_state->g_ctxt = g_ctxt;
 
   xcb_state->screen = screen;
-  xcb_state->g_ctxt = g_ctxt;
   xcb_state->extensions = extension_flags;
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b) xcb_init_backend(b);
   // TODO: set enabled backend
   return(1);
 
   xcb_init_failure:
-  if(conn) xcb_disconnect(conn);
-  arena_release(arena);
-  xcb_state = 0;
+  xcb_uninit();
   return(0);
+}
+
+proc void
+xcb_uninit(void)
+{
+  if(xcb_state)
+  {
+    // TODO: release backend state (if we ever have any)
+    if(xcb_state->g_ctxt) xcb_free_gc(xcb_state->conn, xcb_state->g_ctxt);
+    if(xcb_state->conn) xcb_disconnect(xcb_state->conn);
+
+    arena_release(xcb_state->arena);
+    xcb_state = 0;
+  }
 }
 
 proc void
@@ -149,7 +161,8 @@ xcb_window_open(V2S32 dim)
       XCB_EVENT_MASK_KEY_RELEASE|
       XCB_EVENT_MASK_BUTTON_PRESS|
       XCB_EVENT_MASK_BUTTON_RELEASE|
-      XCB_EVENT_MASK_BUTTON_MOTION,
+      XCB_EVENT_MASK_BUTTON_MOTION|
+      XCB_EVENT_MASK_STRUCTURE_NOTIFY,
     };
     XcbCheckRequest(xcb_create_window, (conn, depth, window_id, parent, 0, 0, dim.width, dim.height, border, _class, visual, value_mask, values),
 		    "window open: create window failure", xcb_window_open_failure);
@@ -177,7 +190,6 @@ xcb_window_open(V2S32 dim)
   return(win);
 
 xcb_window_open_failure:
-  // TODO: cleanup
   xcb_window_close(win);
   return(0);
 }
@@ -185,8 +197,11 @@ xcb_window_open_failure:
 proc void
 xcb_window_close(Xcb_Window *win)
 {
-  // TODO: release resources
-  xcb_window_free(win);
+  if(win)
+  {
+    if(win->id) xcb_destroy_window(xcb_state->conn, win->id);
+    xcb_window_free(win);
+  }
 }
 
 proc void
@@ -195,62 +210,99 @@ xcb_window_init_backend(Xcb_Window *win, Xcb_Backend backend)
   // TODO: maybe don't put all the backends implemenations in one function, in
   // case dependencies are not available on some machine and the code can't
   // compile
-  xcb_pixmap_t pixmap = xcb_generate_id(xcb_state->conn);
+  xcb_connection_t *conn = xcb_state->conn;
   switch(backend)
   {
     case Xcb_Backend_base:
     {
-      xcb_connection_t *conn = xcb_state->conn;
-      U8 depth = xcb_state->screen->root_depth;
-      xcb_drawable_t drawable = xcb_state->screen->root;
-      U16 width = xcb_state->screen->width_in_pixels;
-      U16 height = xcb_state->screen->height_in_pixels;
-      XcbCheckRequest(xcb_create_pixmap, (conn, depth, pixmap, drawable, width, height),
-		      "window init backend: base: create pixmap failure", xcb_window_init_backend_failure);
+      Xcb_WindowBase *base = xcb_state->window_backend_freelist[Xcb_Backend_base];
+      if(base)
+      {
+	Xcb_WindowBase *freelist = xcb_state->window_backend_freelist[Xcb_Backend_base];
+	SLLStackPop_N(freelist, next_free);
+      }
+      else
+      {
+	U8 depth = xcb_state->screen->root_depth;
+	xcb_pixmap_t pixmap = xcb_generate_id(conn);
+	xcb_drawable_t drawable = xcb_state->screen->root;
+	U16 width = xcb_state->screen->width_in_pixels;
+	U16 height = xcb_state->screen->height_in_pixels;
+	XcbCheckRequest(xcb_create_pixmap, (conn, depth, pixmap, drawable, width, height),
+			"window init backend: base: create pixmap failure", xcb_window_init_backend_failure);
 
-      // TODO: we need freelists for backend states and pixel buffers in order
-      // to make arena allocation work here
-      Arena *arena = xcb_state->arena;
-      Xcb_WindowBase *base = arena_push_struct_z(arena, Xcb_WindowBase);
-      base->pixmap = pixmap;
-      base->pixels = arena_push_array_z(arena, U32, width*height);
-      base->pixels_width = width;
-      base->pixels_height = height;
+	Arena *arena = xcb_state->arena;
+	base = arena_push_struct_z(arena, Xcb_WindowBase);
+	base->pixmap = pixmap;
+	base->pixels = arena_push_array_z(arena, U32, width*height);
+	base->pixels_width = width;
+	base->pixels_height = height;
+
+	U32 const base_pixel_color = 0xFF3377FF;
+	for(U16 j = 0; j < height; ++j)
+	{
+	  for(U16 i = 0; i < width; ++i)
+	  {
+	    base->pixels[j*width + i] = base_pixel_color;
+	  }
+	}
+      }
+      Assert(base);
+
       win->backend_states[backend] = base;
     }break;
 
     case Xcb_Backend_shm:
     {
-      // TODO: error handling
-      U16 width = xcb_state->screen->width_in_pixels;
-      U16 height = xcb_state->screen->height_in_pixels;
-      int shmid = shmget(IPC_PRIVATE, width*height*sizeof(U32), IPC_CREAT|0600);
-      U32 *pixels = shmat(shmid, 0, 0);
-
-      // NOTE: attach shm segment and create pixmap
-      xcb_shm_seg_t shm_segment = xcb_generate_id(xcb_state->conn);
+      Xcb_WindowShm *shm = xcb_state->window_backend_freelist[Xcb_Backend_shm];
+      if(shm)
       {
-	xcb_connection_t *conn = xcb_state->conn;
+	Xcb_WindowShm *freelist = xcb_state->window_backend_freelist[Xcb_Backend_shm];
+	SLLStackPop_N(freelist, next_free);
+      }
+      else
+      {
+	// TODO: error handling
+	// NOTE: allocate shared memory segment
+	U16 width = xcb_state->screen->width_in_pixels;
+	U16 height = xcb_state->screen->height_in_pixels;
+	int shmid = shmget(IPC_PRIVATE, width*height*sizeof(U32), IPC_CREAT|0600);
+	U32 *pixels = shmat(shmid, 0, 0);
+
+	// NOTE: attach segment
+	xcb_shm_seg_t shm_segment = xcb_generate_id(conn);
 	XcbCheckRequest(xcb_shm_attach, (conn, shm_segment, shmid, 0),
 			"window init backend: shm: attach shm failure", xcb_window_init_backend_failure);
 
+	// NOTE: create pixmap
+	xcb_pixmap_t pixmap = xcb_generate_id(conn);
 	xcb_drawable_t drawable = xcb_state->screen->root;
 	U8 depth = xcb_state->screen->root_depth;
 	XcbCheckRequest(xcb_shm_create_pixmap, (conn, pixmap, drawable, width, height, depth, shm_segment, 0),
 			"window init backend: shm: create pixmap failure", xcb_window_init_backend_failure);
 
-	// TODO: we need freelists for backend states and pixel buffers in order
-	// to make arena allocation work here
+
 	Arena *arena = xcb_state->arena;
-	Xcb_WindowShm *shm = arena_push_struct_z(arena, Xcb_WindowShm);
+	shm = arena_push_struct_z(arena, Xcb_WindowShm);
 	shm->pixmap = pixmap;
 	shm->pixels = pixels;
 	shm->pixels_width = width;
 	shm->pixels_height = height;
 	shm->shm_id = shmid;
 	shm->shm_segment = shm_segment;
-	win->backend_states[backend] = shm;
+
+	U32 const shm_pixel_color = 0xFF7733FF;
+	for(U16 j = 0; j < height; ++j)
+	{
+	  for(U16 i = 0; i < width; ++i)
+	  {
+	    shm->pixels[j*width + i] = shm_pixel_color;
+	  }
+	}
       }
+      Assert(shm);
+
+      win->backend_states[backend] = shm;
     }break;
 
     case Xcb_Backend_ogl:
@@ -272,6 +324,18 @@ xcb_window_init_backend_failure:
   { xcb_state->supported_backends &= ~xcb_backend_flag(backend); }
 }
 
+proc B32
+xcb_select_backend(Xcb_Window *win, Xcb_Backend backend)
+{
+  B32 result = 0;
+  if(xcb_state->supported_backends & xcb_backend_flag(backend))
+  {
+    win->selected_backend = backend;
+    result = 1;
+  }
+  return(result);
+}
+
 // -----------------------------------------------------------------------------
 // window helpers
 
@@ -287,6 +351,8 @@ xcb_window_alloc(void)
   {
     result = arena_push_struct(xcb_state->arena, Xcb_Window);
   }
+  Assert(result);
+  ZeroStruct(result);
 
   SLLQueuePush(xcb_state->first_window, xcb_state->last_window, result);
   ++xcb_state->window_count;
@@ -298,5 +364,153 @@ xcb_window_free(Xcb_Window *win)
 {
   --xcb_state->window_count;
   SLLQueuePop(xcb_state->first_window, xcb_state->last_window);
+
+  for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b)
+  {
+    // NOTE: this is annoying
+    switch(b)
+    {
+      case Xcb_Backend_base:
+      {
+	Xcb_WindowBase *freelist = xcb_state->window_backend_freelist[b];
+	Xcb_WindowBase *base = win->backend_states[b];
+	SLLStackPush_N(freelist, base, next_free);
+      }break;
+
+      case Xcb_Backend_shm:
+      {
+	Xcb_WindowShm *freelist = xcb_state->window_backend_freelist[b];
+	Xcb_WindowShm *shm = win->backend_states[b];
+	SLLStackPush_N(freelist, shm, next_free);
+      }break;
+
+      case Xcb_Backend_ogl:
+      {
+	// TODO: implement
+	Assert(0);
+      }break;
+
+      // NOTE: invalid default case
+      default: { Assert(0); }break;
+    }
+  }
+
   SLLStackPush(xcb_state->window_freelist, win);
+}
+
+proc Xcb_Window*
+xcb_window_from_id(xcb_window_t id)
+{
+  Xcb_Window *win = 0;
+
+  // TODO: accelerate
+  for(Xcb_Window *w = xcb_state->first_window; w; w = w->next)
+  {
+    if(w->id == id)
+    {
+      win = w;
+      break;
+    }
+  }
+
+  return(win);
+}
+
+// -----------------------------------------------------------------------------
+// events
+
+proc Os_EventList
+xcb_events(Arena *arena)
+{
+  Os_EventList result = {0};
+
+  xcb_connection_t *conn = xcb_state->conn;
+  xcb_generic_event_t *xcb_event = 0;
+  while((xcb_event = xcb_poll_for_event(conn)))
+  {
+    switch(xcb_event->response_type)
+    {
+      case XCB_EXPOSE:
+      {
+	xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
+	xcb_window_t win_id = expose_event->window;
+	Xcb_Window *win = xcb_window_from_id(win_id);
+	switch(win->selected_backend)
+	{
+	  case Xcb_Backend_base:
+	  {
+	    Xcb_WindowBase *win_base = win->backend_states[Xcb_Backend_base];
+
+	    U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+	    xcb_drawable_t drawable = win_id;
+	    xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+	    U16 width = win->dim.width;
+	    U16 height = win->dim.height;
+	    S16 dst_x = 0;
+	    S16 dst_y = 0;
+	    U8 left_pad = 0;
+	    U8 depth = xcb_state->screen->root_depth;
+	    U32 data_len = width*height*sizeof(*win_base->pixels);
+	    U8 *data = (U8*)win_base->pixels;
+	    xcb_put_image(conn, format, drawable, g_ctxt, width, height, dst_x, dst_y, left_pad, depth, data_len, data);
+	  }break;
+
+	  case Xcb_Backend_shm:
+	  {
+	    Xcb_WindowShm *win_shm = win->backend_states[Xcb_Backend_shm];
+
+	    xcb_drawable_t drawable = win_id;
+	    xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+	    U16 total_width = xcb_state->screen->width_in_pixels;
+	    U16 total_height = xcb_state->screen->height_in_pixels;
+	    U16 src_x = 0;
+	    U16 src_y = 0;
+	    U16 src_width = win->dim.width;
+	    U16 src_height = win->dim.height;
+	    S16 dst_x = 0;
+	    S16 dst_y = 0;
+	    U8 depth = xcb_state->screen->root_depth;
+	    U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+	    U8 send_event = 0;
+	    xcb_shm_seg_t shm_seg = win_shm->shm_segment;
+	    U32 offset = 0;
+	    xcb_shm_put_image(conn, drawable, g_ctxt, total_width, total_height, src_x, src_y, src_width, src_height, dst_x, dst_y, depth, format, send_event, shm_seg, offset);
+	  }break;
+
+	  case Xcb_Backend_ogl:
+	  {
+	    // TODO: implement
+	    Assert(0);
+	  }break;
+
+	  // NOTE: invalid default case
+	  default: { Assert(0); }break;
+	}
+
+	xcb_flush(conn);
+      }break;
+
+      // NOTE: resise
+      case XCB_CONFIGURE_NOTIFY:
+      {
+	xcb_configure_notify_event_t *configure_event = xcb_event;
+	Xcb_Window *win = xcb_window_from_id(configure_event->window);
+	win->dim.width = configure_event->width;
+	win->dim.height = configure_event->height;
+      }break;
+
+      // TODO: translate events to gfx layer format, append to list
+      case XCB_KEY_PRESS:
+      case XCB_KEY_RELEASE:
+      case XCB_BUTTON_PRESS:
+      case XCB_BUTTON_RELEASE:
+      case XCB_MOTION_NOTIFY:
+
+      default: { printf("xcb_events: unhandled response type: %u\n", xcb_event->response_type); }break;
+    }
+
+    free(xcb_event);
+  }
+
+  return(result);
 }

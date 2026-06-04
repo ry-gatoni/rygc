@@ -3,9 +3,11 @@
 #include <EGL/eglext.h>
 
 #include "base/base.h"
+#include "gfx/gfx.common.h"
 #include "gfx/gfx.xcb.h"
 
 #include "base/base.c"
+#include "gfx/gfx.common.c"
 #include "gfx/gfx.xcb.c"
 
 typedef enum XcbExpose
@@ -26,7 +28,22 @@ main(int argc, char **argv)
   if(!xcb_init()) return(1);
 
   Xcb_Window *window = xcb_window_open(v2s32(640, 480));
+  xcb_select_backend(window, Xcb_Backend_shm);
 
+  Arena *frame_arena = arena_alloc();
+  B32 running = 1;
+  while(running)
+  {
+    Os_EventList events = xcb_events(frame_arena);
+  }
+
+  xcb_window_close(window);
+
+  xcb_uninit();
+
+  return(0);
+
+#if 0
   // NOTE: persistent resources that should be released at program end
   int xcb_error_code = 0;
   /* xcb_generic_error_t *xcb_error = 0; */
@@ -382,4 +399,5 @@ finish:
   xcb_disconnect(xcb_connection);
 
   return(xcb_error_code);
+#endif
 }

@@ -43,20 +43,27 @@ struct Xcb_Window
 
   V2S32 dim;
 
+  Xcb_Backend selected_backend;
   void *backend_states[Xcb_Backend_Count];
 };
 
-typedef struct Xcb_WindowBase
+typedef struct Xcb_WindowBase Xcb_WindowBase;
+struct Xcb_WindowBase
 {
+  Xcb_WindowBase *next_free;
+
   xcb_pixmap_t pixmap;
 
   U32 *pixels;
   U32 pixels_width;
   U32 pixels_height;
-} Xcb_WindowBase;
+};
 
-typedef struct Xcb_WindowShm
+typedef struct Xcb_WindowShm Xcb_WindowShm;
+struct Xcb_WindowShm
 {
+  Xcb_WindowShm *next_free;
+
   xcb_pixmap_t pixmap;
 
   U32 *pixels;
@@ -65,7 +72,7 @@ typedef struct Xcb_WindowShm
 
   int shm_id;
   xcb_shm_seg_t shm_segment;
-} Xcb_WindowShm;
+};
 
 typedef struct Xcb_State
 {
@@ -84,8 +91,8 @@ typedef struct Xcb_State
   U32 extensions;
 
   U32 supported_backends;
-  Xcb_Backend enabled_backend;
   void *backend_states[Xcb_Backend_Count];
+  void *window_backend_freelist[Xcb_Backend_Count];
 } Xcb_State;
 
 global Xcb_State *xcb_state = 0;
@@ -110,6 +117,13 @@ proc void xcb_window_close(Xcb_Window *win);
 proc void xcb_window_init_backend(Xcb_Window *win, Xcb_Backend backend);
 proc void xcb_window_uninit_backend(Xcb_Window *win, Xcb_Backend backend);
 
+proc B32 xcb_select_backend(Xcb_Window *win, Xcb_Backend backend);
+
+// -----------------------------------------------------------------------------
+// events
+
+proc Os_EventList xcb_events(Arena *arena);
+
 // -----------------------------------------------------------------------------
 // global helpers
 
@@ -121,3 +135,5 @@ proc void xcb_log_error(xcb_generic_error_t *xcb_error, char *msg);
 
 proc Xcb_Window* xcb_window_alloc(void);
 proc void xcb_window_free(Xcb_Window *win);
+
+proc Xcb_Window* xcb_window_from_id(xcb_window_t id);
