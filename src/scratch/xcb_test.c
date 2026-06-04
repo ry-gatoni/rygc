@@ -35,6 +35,22 @@ main(int argc, char **argv)
   while(running)
   {
     Os_EventList events = xcb_events(frame_arena);
+    for(Os_Event *event = events.first; event; event = event->next)
+    {
+      if(xcb__window_from_gfx_handle(event->window) != window) continue;
+
+      switch(event->kind)
+      {
+	case Os_EventKind_press:
+	{
+	  if(event->key == Os_Key_mouse_right) running = 0;
+	}break;
+
+	default: break;
+      }
+    }
+
+    arena_clear(frame_arena);
   }
 
   xcb_window_close(window);

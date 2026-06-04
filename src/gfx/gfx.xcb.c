@@ -7,6 +7,13 @@ xcb_backend_flag(Xcb_Backend backend)
   return(1 << backend);
 }
 
+proc B32
+xcb_backend_is_supported(Xcb_Backend backend)
+{
+  B32 result = xcb_state->supported_backends & xcb_backend_flag(backend);
+  return(result);
+}
+
 proc void
 xcb_log_error(xcb_generic_error_t *error, char *msg)
 {
@@ -367,6 +374,8 @@ xcb_window_free(Xcb_Window *win)
 
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b)
   {
+    if(!xcb_backend_is_supported(b)) continue;
+
     // NOTE: this is annoying
     switch(b)
     {
@@ -414,6 +423,21 @@ xcb_window_from_id(xcb_window_t id)
   }
 
   return(win);
+}
+
+proc Os_Handle
+gfx__handle_from_xcb_window(Xcb_Window *win)
+{
+  Os_Handle result = {0};
+  result.handle = win;
+  return(result);
+}
+
+proc Xcb_Window*
+xcb__window_from_gfx_handle(Os_Handle handle)
+{
+  Xcb_Window *result = handle.handle;
+  return(result);
 }
 
 // -----------------------------------------------------------------------------
@@ -490,21 +514,55 @@ xcb_events(Arena *arena)
 	xcb_flush(conn);
       }break;
 
-      // NOTE: resise
+      // NOTE: resize
       case XCB_CONFIGURE_NOTIFY:
       {
-	xcb_configure_notify_event_t *configure_event = xcb_event;
+	xcb_configure_notify_event_t *configure_event = (xcb_configure_notify_event_t*)xcb_event;
 	Xcb_Window *win = xcb_window_from_id(configure_event->window);
 	win->dim.width = configure_event->width;
 	win->dim.height = configure_event->height;
       }break;
 
+      // NOTE: mouse move
+      case XCB_MOTION_NOTIFY:
+      {
+	xcb_motion_notify_event_t *motion_event = (xcb_motion_notify_event_t*)xcb_event;
+	Xcb_Window *win = xcb_window_from_id(motion_event->event);
+	Os_Event *event = gfx__event_list_push_new(arena, &result, Os_EventKind_move);
+	event->window = gfx__handle_from_xcb_window(win);
+	event->pos = v2(motion_event->event_x, motion_event->event_y);
+      }break;
+
+      // NOTE: mouse button press/release, discrete mouse wheel scroll
+      case XCB_BUTTON_PRESS:
+      case XCB_BUTTON_RELEASE:
+      {
+	xcb_button_press_event_t *button_event = (xcb_button_press_event_t*)xcb_event;
+
+	Xcb_Window *win = xcb_window_from_id(button_event->event);
+	Os_Handle gfx_win = gfx__handle_from_xcb_window(win);
+	V2 pos = v2(button_event->event_x, button_event->event_y);
+	if(button_event->detail == XCB_BUTTON_INDEX_4 || button_event->detail == XCB_BUTTON_INDEX_5)
+	{
+	  Os_Event *event = gfx__event_list_push_new(arena, &result, Os_EventKind_scroll);
+	  event->window = gfx_win;
+	  event->pos = pos;
+	  event->scroll = v2(0, button_event->detail == XCB_BUTTON_INDEX_4 ? 1 : -1);
+	}
+	else
+	{
+	  Os_EventKind event_kind =
+	    xcb_event->response_type == XCB_BUTTON_PRESS ? Os_EventKind_press : Os_EventKind_release;
+	  Os_Event *event = gfx__event_list_push_new(arena, &result, event_kind);
+	  event->window = gfx_win;
+	  event->pos = pos;
+	  event->key = xcb_button_map[button_event->detail];
+	}
+      }break;
+
       // TODO: translate events to gfx layer format, append to list
       case XCB_KEY_PRESS:
       case XCB_KEY_RELEASE:
-      case XCB_BUTTON_PRESS:
-      case XCB_BUTTON_RELEASE:
-      case XCB_MOTION_NOTIFY:
 
       default: { printf("xcb_events: unhandled response type: %u\n", xcb_event->response_type); }break;
     }

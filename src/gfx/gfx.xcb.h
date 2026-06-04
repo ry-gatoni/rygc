@@ -5,13 +5,20 @@
 #include <sys/shm.h>
 
 // TODO:
-// - events
-// - opengl pixmap
+// - events:
+//   - gracefully handle window close
+//   - read keysyms/keycodes
+//   - sync to refresh rate
+//   - smooth resize
+//   - smooth scroll
 // - integrate with general api
+// - opengl pixmap
 // - vulkan context
-// - read keysyms/keycodes
-// - gracefully handle window close
-// - handle window resize
+// - integrate with logging system
+// - dynamically load libs
+// - configuration:
+//   - override x server
+//   - preferred screen
 
 typedef enum Xcb_ExtensionFlags
 {
@@ -99,6 +106,13 @@ global Xcb_State *xcb_state = 0;
 global xcb_void_cookie_t xcb_request_cookie = {0};
 global xcb_generic_error_t *xcb_error = 0;
 
+// NOTE: documentation appears to be wrong here
+global Os_Key xcb_button_map[] = {
+  [XCB_BUTTON_INDEX_1] = Os_Key_mouse_left,
+  [XCB_BUTTON_INDEX_2] = Os_Key_mouse_middle,
+  [XCB_BUTTON_INDEX_3] = Os_Key_mouse_right,
+};
+
 // -----------------------------------------------------------------------------
 // state init/uninit
 
@@ -128,6 +142,7 @@ proc Os_EventList xcb_events(Arena *arena);
 // global helpers
 
 proc Xcb_BackendFlag xcb_backend_flag(Xcb_Backend backend);
+proc B32 xcb_backend_is_supported(Xcb_Backend backend);
 proc void xcb_log_error(xcb_generic_error_t *xcb_error, char *msg);
 
 // -----------------------------------------------------------------------------
@@ -137,3 +152,6 @@ proc Xcb_Window* xcb_window_alloc(void);
 proc void xcb_window_free(Xcb_Window *win);
 
 proc Xcb_Window* xcb_window_from_id(xcb_window_t id);
+
+proc Os_Handle gfx__handle_from_xcb_window(Xcb_Window *win);
+proc Xcb_Window* xcb__window_from_gfx_handle(Os_Handle handle);
