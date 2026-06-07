@@ -1,7 +1,3 @@
-#include <EGL/egl.h>
-//#define EGL_EGLEXT_PROTOTYPES
-#include <EGL/eglext.h>
-
 #include "base/base.h"
 #include "gfx/gfx.common.h"
 #include "gfx/gfx.xcb.h"
@@ -28,7 +24,7 @@ main(int argc, char **argv)
   if(!xcb_init()) return(1);
 
   Xcb_Window *window = xcb_window_open(v2s32(640, 480));
-  xcb_select_backend(window, Xcb_Backend_shm);
+  xcb_select_backend(window, Xcb_Backend_ogl);
 
   Arena *frame_arena = arena_alloc();
   B32 running = 1;

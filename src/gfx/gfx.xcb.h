@@ -2,6 +2,12 @@
 #include <xcb/shm.h>
 #include <xcb/present.h>
 
+#include <EGL/egl.h>
+//#define EGL_EGLEXT_PROTOTYPES
+#include <EGL/eglext.h>
+
+#include <GL/gl.h>
+
 #include <sys/shm.h>
 
 // TODO:
@@ -11,11 +17,15 @@
 //   - sync to refresh rate
 //   - smooth resize
 //   - smooth scroll
-// - integrate with general api
-// - opengl pixmap
+// - fully integrate with gfx api
+// - integrate with render api
 // - vulkan context
 // - integrate with logging system
 // - dynamically load libs
+// - split backend implemenations/states into their own files
+//   - maybe some dynamic functionality
+// - accelerate window lookup by id
+//   - potentially other lookups (eg by area)
 // - configuration:
 //   - override x server
 //   - preferred screen
@@ -81,6 +91,22 @@ struct Xcb_WindowShm
   xcb_shm_seg_t shm_segment;
 };
 
+typedef struct Xcb_WindowOgl Xcb_WindowOgl;
+struct Xcb_WindowOgl
+{
+  Xcb_WindowOgl *next_free;
+
+  xcb_pixmap_t pixmap;
+  EGLSurface egl_surface;
+};
+
+typedef struct Xcb_BackendOgl
+{
+  EGLDisplay egl_display;
+  EGLConfig egl_config;
+  EGLContext egl_context;
+} Xcb_BackendOgl;
+
 typedef struct Xcb_State
 {
   Arena *arena;
@@ -101,6 +127,7 @@ typedef struct Xcb_State
   void *backend_states[Xcb_Backend_Count];
   void *window_backend_freelist[Xcb_Backend_Count];
 } Xcb_State;
+
 
 global Xcb_State *xcb_state = 0;
 global xcb_void_cookie_t xcb_request_cookie = {0};

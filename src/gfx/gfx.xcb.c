@@ -112,6 +112,9 @@ xcb_uninit(void)
   }
 }
 
+global PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = 0;
+global PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC eglCreatePlatformWindowSurfaceEXT = 0;
+
 proc void
 xcb_init_backend(Xcb_Backend backend)
 {
@@ -135,7 +138,56 @@ xcb_init_backend(Xcb_Backend backend)
 
     case Xcb_Backend_ogl:
     {
-      // TODO: implement
+      // TODO: load lib dynamically?
+
+      EGLDisplay egl_display = EGL_NO_DISPLAY;
+      EGLConfig egl_config = 0;
+      EGLContext egl_context = EGL_NO_CONTEXT;
+      EGLBoolean egl_result = 1;
+
+      // NOTE: load extensions
+      eglGetPlatformDisplayEXT =
+	(PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+      eglCreatePlatformWindowSurfaceEXT =
+	(PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+
+      // NOTE: get egl display
+      egl_display = eglGetPlatformDisplayEXT(EGL_PLATFORM_XCB_EXT, xcb_state->conn, 0);
+      if(egl_display == EGL_NO_DISPLAY) goto xcb_init_backend__ogl_failure;
+
+      // NOTE: initialize egl
+      EGLint egl_major, egl_minor;
+      egl_result = eglInitialize(egl_display, &egl_major, &egl_minor);
+      if(!egl_result) goto xcb_init_backend__ogl_failure;
+
+      // NOTE: bind api
+      egl_result = eglBindAPI(EGL_OPENGL_API);
+      if(!egl_result) goto xcb_init_backend__ogl_failure;
+
+      // NOTE: get egl config
+      EGLint attrib_list[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE};
+      EGLint num_config;
+      egl_result = eglChooseConfig(egl_display, attrib_list, &egl_config, 1, &num_config);
+      if(!egl_result) goto xcb_init_backend__ogl_failure;
+
+      // NOTE: create egl context
+      egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, 0);
+      if(egl_context == EGL_NO_CONTEXT) goto xcb_init_backend__ogl_failure;
+
+      // NOTE: allocate backend state, set backend enabled
+      Arena *arena = xcb_state->arena;
+      Xcb_BackendOgl *ogl = arena_push_struct(arena, Xcb_BackendOgl);
+      ogl->egl_display = egl_display;
+      ogl->egl_config = egl_config;
+      ogl->egl_context = egl_context;
+
+      xcb_state->backend_states[Xcb_Backend_ogl] = ogl;
+      xcb_state->supported_backends |= xcb_backend_flag(Xcb_Backend_ogl);
+      return;
+
+  xcb_init_backend__ogl_failure:
+      if(egl_context != EGL_NO_CONTEXT) eglDestroyContext(egl_display, egl_context);
+      if(egl_display != EGL_NO_DISPLAY) eglTerminate(egl_display);
     }break;
 
     // NOTE: invalid default case
@@ -175,6 +227,8 @@ xcb_window_open(V2S32 dim)
 		    "window open: create window failure", xcb_window_open_failure);
   }
 
+  win->id = window_id;
+
   // NOTE: init supported backends
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b)
   {
@@ -192,7 +246,6 @@ xcb_window_open(V2S32 dim)
 
   xcb_flush(xcb_state->conn);
 
-  win->id = window_id;
   win->dim = dim;
   return(win);
 
@@ -314,8 +367,37 @@ xcb_window_init_backend(Xcb_Window *win, Xcb_Backend backend)
 
     case Xcb_Backend_ogl:
     {
-      // TODO: implement
-      Assert(0);
+      Xcb_WindowOgl *ogl = xcb_state->window_backend_freelist[Xcb_Backend_ogl];
+      if(ogl)
+      {
+	Xcb_WindowOgl *freelist = xcb_state->window_backend_freelist[Xcb_Backend_ogl];
+	SLLStackPop_N(freelist, next_free);
+      }
+      else
+      {
+	xcb_pixmap_t pixmap = xcb_generate_id(conn);
+	xcb_drawable_t drawable = xcb_state->screen->root;
+	U16 width = xcb_state->screen->width_in_pixels;
+	U16 height = xcb_state->screen->height_in_pixels;
+	U8 depth = xcb_state->screen->root_depth;
+	XcbCheckRequest(xcb_create_pixmap, (conn, depth, pixmap, drawable, width, height),
+			"window init backend: ogl: create pixmap failure", xcb_window_init_backend_failure);
+
+	Xcb_BackendOgl *ogl_backend = xcb_state->backend_states[Xcb_Backend_ogl];
+	EGLDisplay dpy = ogl_backend->egl_display;
+	EGLConfig cfg = ogl_backend->egl_config;
+	xcb_window_t win_id = win->id;
+	EGLSurface egl_surface = eglCreatePlatformWindowSurfaceEXT(dpy, cfg, &win_id, 0);
+	if(egl_surface == EGL_NO_SURFACE) goto xcb_window_init_backend_failure; // TODO: destroy pixmap?
+
+	Arena *arena = xcb_state->arena;
+	ogl = arena_push_struct(arena, Xcb_WindowOgl);
+	ogl->pixmap = pixmap;
+	ogl->egl_surface = egl_surface;
+      }
+      Assert(ogl);
+
+      win->backend_states[backend] = ogl;
     }break;
 
     // NOTE: invalid default case
@@ -395,8 +477,9 @@ xcb_window_free(Xcb_Window *win)
 
       case Xcb_Backend_ogl:
       {
-	// TODO: implement
-	Assert(0);
+	Xcb_WindowOgl *freelist = xcb_state->window_backend_freelist[b];
+	Xcb_WindowOgl *ogl = win->backend_states[b];
+	SLLStackPush_N(freelist, ogl, next_free);
       }break;
 
       // NOTE: invalid default case
@@ -456,6 +539,8 @@ xcb_events(Arena *arena)
     {
       case XCB_EXPOSE:
       {
+	// TODO: we make some requests/api calls here, so it'd be good log/handle any errors
+
 	xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
 	xcb_window_t win_id = expose_event->window;
 	Xcb_Window *win = xcb_window_from_id(win_id);
@@ -503,8 +588,18 @@ xcb_events(Arena *arena)
 
 	  case Xcb_Backend_ogl:
 	  {
-	    // TODO: implement
-	    Assert(0);
+	    Xcb_BackendOgl *backend_ogl = xcb_state->backend_states[Xcb_Backend_ogl];
+	    Xcb_WindowOgl *win_ogl = win->backend_states[Xcb_Backend_ogl];
+
+	    EGLDisplay dpy = backend_ogl->egl_display;
+	    EGLSurface surf = win_ogl->egl_surface;
+	    EGLContext ctxt = backend_ogl->egl_context;
+	    eglMakeCurrent(dpy, surf, surf, ctxt);
+
+	    glClearColor(1.f, 0.2f, 0.5f, 1.f);
+	    glClear(GL_COLOR_BUFFER_BIT);
+
+	    eglSwapBuffers(dpy, surf);
 	  }break;
 
 	  // NOTE: invalid default case
