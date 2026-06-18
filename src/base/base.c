@@ -5,5 +5,6 @@
 #include "math.c"
 #include "color.c"
 #include "base.os.c"
+#include "base.cpu.c"
 /* #include "selfimg/selfimg.c" // TODO: do i really want this here? */
 #include "profile.c"

@@ -10,6 +10,7 @@ linux_init(void)
   if(linux_state)
   {
     linux_state->arena = arena;
+    linux_state->counter_freq = cpu_counter_fixed_freq();
     linux_state->page_size = posix_pagesize();
 
     posix_init(arena);
@@ -251,66 +252,6 @@ os_counter_freq(void)
 #if CPU_X86 || CPU_X64
   result = Million(1);
 #else // TODO: arm
-#  error not implemented for this architecture
-#endif
-  return(result);
-}
-
-// -----------------------------------------------------------------------------
-// intrinsics
-
-proc U64
-cpu_counter(void)
-{
-  U64 result = 0;
-#if CPU_X86 || CPU_X64
-  result = __rdtsc();
-#elif CPU_ARM || CPU_ARM64
-  __asm__ __volatile__("mrs %0, cntvct_el0" : "=r"(result));
-#else
-#  error not implemented for this architecture
-#endif
-  return(result);
-}
-
-proc U64
-cpu_counter_freq(void)
-{
-  U64 result = 0;
-#if CPU_X86 || CPU_X64
-  if(linux_state)
-  {
-    if(linux_state->cpu_counter_freq)
-    {
-      result = linux_state->cpu_counter_freq;
-    }
-  }
-
-  if(result == 0)
-  {
-    // TODO: it sucks having to estimate the frequency on x86. is there a better way?
-    U64 wait_ms = 100;
-    U64 os_freq = os_counter_freq();
-    U64 os_wait = os_freq * wait_ms / 1000;
-
-    U64 cpu_start = cpu_counter();
-    U64 os_start = os_counter();
-    U64 os_end = 0;
-    U64 os_elapsed = 0;
-    while(os_elapsed < os_wait)
-    {
-      os_end = os_counter();
-      os_elapsed = os_end - os_start;
-    }
-    U64 cpu_end = cpu_counter();
-    U64 cpu_elapsed = cpu_end - cpu_start;
-
-    result = os_freq * cpu_elapsed / os_elapsed;
-    if(linux_state) linux_state->cpu_counter_freq = result;
-  }
-#elif CPU_ARM || CPU_ARM64
-  __asm__ __volatile__("mrs %0, cntfrq_el0" : "=r"(result));
-#else
 #  error not implemented for this architecture
 #endif
   return(result);

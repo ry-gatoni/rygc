@@ -13,8 +13,7 @@ mac_init(void)
 
   // TODO: class ids
 
-  // TODO: cpu counter freq
-
+  mac_state->cpu_counter_freq = cpu_counter_fixed_freq();
   mac_state->page_size = posix_page_size();
 
   posix_init(arena);

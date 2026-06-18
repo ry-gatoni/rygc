@@ -4,13 +4,13 @@ profile_begin_scope(ProfileEvent *event)
 {
   profile__current_parent = event->site;
   event->tsc_elapsed_root_old = event->parent->tsc_elapsed_root;
-  event->tsc_start = cpu_counter();
+  event->tsc_start = cpu_counter_fixed(); // TODO: actual cycle counters
 }
 
 proc void
 profile_end_scope(ProfileEvent *event)
 {
-  U64 tsc_elapsed = cpu_counter() - event->tsc_start;
+  U64 tsc_elapsed = cpu_counter_fixed() - event->tsc_start; // TODO: actual cycle counters
   ProfileSite *site = event->site;
   ProfileSite *parent = event->parent;
   site->tsc_elapsed += tsc_elapsed;
