@@ -23,23 +23,30 @@ typedef enum MacClass
 
 typedef enum MacSelector
 {
+  // universal
   MacSelector_alloc,
   MacSelector_release,
   MacSelector_init,
 
-  MacSelector_NSApplication_sharedApplication,
-  MacSelector_NSApplication_setActivationPolicy,
-  MacSelector_NSApplication_activate,
-  MacSelector_NSApplication_finishLaunching,
-  MacSelector_NSApplication_nextEventMatchingMask,
-  MacSelector_NSApplication_sendEvent,
-  MacSelector_NSApplication_updateWindows,
+  // NSApplication
+  MacSelector_sharedApplication,
+  MacSelector_setActivationPolicy,
+  MacSelector_activate,
+  MacSelector_finishLaunching,
+  MacSelector_nextEventMatchingMask,
+  MacSelector_sendEvent,
+  MacSelector_updateWindows,
 
-  MacSelector_NSWindow_initWithContentRect,
-  MacSelector_NSWindow_makeKeyAndOrderFront,
-  MacSelector_NSWindow_setIsVisible,
+  // NSWindow
+  MacSelector_initWithContentRect,
+  MacSelector_makeKeyAndOrderFront,
+  MacSelector_setIsVisible,
 
-  MacSelector_NSString_stringWithUTF8String,
+  // NSWindowDelegate
+  MacSelector_windowShouldClose,
+
+  // NSString
+  MacSelector_stringWithUTF8String,
 
   MacSelector_Count,
 } MacSelector;

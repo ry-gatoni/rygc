@@ -79,11 +79,15 @@ NS_Enum(NSBackingStoreType, NSUInteger)
 NS_Enum(NSEventMask, U64)
 {
   NSEventMaskAny = U64_MAX,
+  // TODO: finish
 };
 
 // TODO: how to generate all this?
 // -----------------------------------------------------------------------------
 // functions
+
+#define objc_add_method(class, method, impl, sigstr)\
+  class_addMethod(mac_state->classes[Glue(MacClass_, class)], mac_state->sels[Glue(MacSelector_, method)], (IMP)impl, sigstr)
 
 proc inline id
 NSAlloc(Class nsclass)
@@ -100,7 +104,7 @@ proc inline NSApplication*
 NSApplication_sharedApplication(void)
 {
   id nsid = (id)mac_state->classes[MacClass_NSApplication];
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_sharedApplication];
+  SEL nssel = mac_state->sels[MacSelector_sharedApplication];
   return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
@@ -108,7 +112,7 @@ proc inline BOOL
 NSApplication_setActivationPolicy(NSApplication *app, NSApplicationActivationPolicy activation_policy)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_setActivationPolicy];
+  SEL nssel = mac_state->sels[MacSelector_setActivationPolicy];
   return ((BOOL (*)(id, SEL, NSInteger))objc_msgSend)(nsid, nssel, activation_policy);
 }
 
@@ -116,7 +120,7 @@ proc inline void
 NSApplication_activate(NSApplication *app)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_activate];
+  SEL nssel = mac_state->sels[MacSelector_activate];
   return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
@@ -124,7 +128,7 @@ proc inline void
 NSApplication_finishLaunching(NSApplication *app)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_finishLaunching];
+  SEL nssel = mac_state->sels[MacSelector_finishLaunching];
   return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
@@ -132,7 +136,7 @@ proc inline NSEvent*
 NSApplication_nextEventMatchingMask(NSApplication *app, NSEventMask mask, NSDate *expiration, NSRunLoopMode mode, BOOL dequeue)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_nextEventMatchingMask];
+  SEL nssel = mac_state->sels[MacSelector_nextEventMatchingMask];
   return ((id (*)(id, SEL, U64, id, id, BOOL))objc_msgSend)(nsid, nssel, mask, expiration, mode, dequeue);
 }
 
@@ -140,7 +144,7 @@ proc inline void
 NSApplication_sendEvent(NSApplication *app, NSEvent *event)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_sendEvent];
+  SEL nssel = mac_state->sels[MacSelector_sendEvent];
   return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, event);
 }
 
@@ -148,7 +152,7 @@ proc inline void
 NSApplication_updateWindows(NSApplication *app)
 {
   id nsid = app;
-  SEL nssel = mac_state->sels[MacSelector_NSApplication_updateWindows];
+  SEL nssel = mac_state->sels[MacSelector_updateWindows];
   return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
@@ -160,7 +164,7 @@ NSWindow_initWithContentRect(NSRect content_rect, NSWindowStyleMask style_mask, 
 {
   Class nsclass = mac_state->classes[MacClass_NSWindow];
   id nsid = NSAlloc(nsclass);
-  SEL nssel = mac_state->sels[MacSelector_NSWindow_initWithContentRect];
+  SEL nssel = mac_state->sels[MacSelector_initWithContentRect];
   return ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(nsid, nssel, content_rect, style_mask, backing, defer);
 }
 
@@ -168,7 +172,7 @@ proc inline void
 NSWindow_makeKeyAndOrderFront(NSWindow *window, id sender)
 {
   id nsid = window;
-  SEL nssel = mac_state->sels[MacSelector_NSWindow_makeKeyAndOrderFront];
+  SEL nssel = mac_state->sels[MacSelector_makeKeyAndOrderFront];
   return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, sender);
 }
 
@@ -176,7 +180,7 @@ proc inline void
 NSWindow_setIsVisible(NSWindow *window, BOOL flag)
 {
   id nsid = window;
-  SEL nssel = mac_state->sels[MacSelector_NSWindow_setIsVisible];
+  SEL nssel = mac_state->sels[MacSelector_setIsVisible];
   return ((void (*)(id, SEL, BOOL))objc_msgSend)(nsid, nssel, flag);
 }
 
@@ -188,12 +192,22 @@ NSString_stringWithUTF8String(const char *cstr)
 {
   Class nsclass = mac_state->classes[MacClass_NSString];
   id nsid = (id)nsclass;
-  SEL nssel = mac_state->sels[MacSelector_NSString_stringWithUTF8String];
+  SEL nssel = mac_state->sels[MacSelector_stringWithUTF8String];
   return ((id (*)(id, SEL, const char*))objc_msgSend)(nsid, nssel, cstr);
 }
 
 // -----------------------------------------------------------------------------
 // main
+
+global B32 running = 1;
+
+proc B32
+on_window_close(void *self)
+{
+  Unused(self);
+  running = 0;
+  return(1);
+}
 
 int
 main(int argc, char **argv)
@@ -212,6 +226,9 @@ main(int argc, char **argv)
   if(!NSApplication_setActivationPolicy(app, NSApplicationActivationPolicyRegular))
   { result = 1; goto end; }
 
+  if(!objc_add_method(NSObject, windowShouldClose, on_window_close, 0))
+  { result = 1; goto end; }
+
   NSWindow *window = 0;
   NSRect window_rect = {{200, 200}, {200, 200}};
   NSWindowStyleMask window_style_mask = (NSWindowStyleMaskClosable|
@@ -228,18 +245,18 @@ main(int argc, char **argv)
 
   NSApplication_finishLaunching(app);
 
-  // TODO: handle window close
-  B32 running = 1;
+  // TODO: more event handling
   while(running)
   {
     NSEventMask mask = NSEventMaskAny;
     NSRunLoopMode mode = NSString_stringWithUTF8String("kCFRunLoopDefaultMode");
     NSEvent *e = NSApplication_nextEventMatchingMask(app, mask, 0, mode, true);
 
-    NSApplication_sendEvent(app, 0);
+    NSApplication_sendEvent(app, e);
     NSApplication_updateWindows(app);
   }
 
 end:
+  // TODO: proper cleanup
   return(result);
 }

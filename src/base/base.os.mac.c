@@ -23,20 +23,26 @@ mac_init(void)
 
   mac_state->sel_count = MacSelector_Count;
   mac_state->sels = arena_push_array(arena, SEL, mac_state->sel_count);
+
   mac_state->sels[MacSelector_alloc] = sel_registerName("alloc");
   mac_state->sels[MacSelector_release] = sel_registerName("release");
   mac_state->sels[MacSelector_init] = sel_registerName("init");
-  mac_state->sels[MacSelector_NSApplication_sharedApplication] = sel_registerName("sharedApplication");
-  mac_state->sels[MacSelector_NSApplication_setActivationPolicy] = sel_registerName("setActivationPolicy:");
-  mac_state->sels[MacSelector_NSApplication_activate] = sel_registerName("activate");
-  mac_state->sels[MacSelector_NSApplication_finishLaunching] = sel_registerName("finishLaunching");
-  mac_state->sels[MacSelector_NSApplication_nextEventMatchingMask] = sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:");
-  mac_state->sels[MacSelector_NSApplication_sendEvent] = sel_registerName("sendEvent:");
-  mac_state->sels[MacSelector_NSApplication_updateWindows] = sel_registerName("updateWindows");
-  mac_state->sels[MacSelector_NSWindow_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
-  mac_state->sels[MacSelector_NSWindow_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
-  mac_state->sels[MacSelector_NSWindow_setIsVisible] = sel_registerName("setIsVisible:");
-  mac_state->sels[MacSelector_NSString_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
+
+  mac_state->sels[MacSelector_sharedApplication] = sel_registerName("sharedApplication");
+  mac_state->sels[MacSelector_setActivationPolicy] = sel_registerName("setActivationPolicy:");
+  mac_state->sels[MacSelector_activate] = sel_registerName("activate");
+  mac_state->sels[MacSelector_finishLaunching] = sel_registerName("finishLaunching");
+  mac_state->sels[MacSelector_nextEventMatchingMask] = sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:");
+  mac_state->sels[MacSelector_sendEvent] = sel_registerName("sendEvent:");
+  mac_state->sels[MacSelector_updateWindows] = sel_registerName("updateWindows");
+
+  mac_state->sels[MacSelector_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
+  mac_state->sels[MacSelector_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
+  mac_state->sels[MacSelector_setIsVisible] = sel_registerName("setIsVisible:");
+
+  mac_state->sels[MacSelector_windowShouldClose] = sel_registerName("windowShouldClose:");
+
+  mac_state->sels[MacSelector_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
 
   mac_state->cpu_counter_freq = cpu_counter_fixed_freq();
   mac_state->page_size = posix_page_size();
