@@ -11,7 +11,32 @@ mac_init(void)
   mac_state = arena_push_struct(arena, Mac_State);
   mac_state->arena = arena;
 
-  // TODO: class ids
+  // TODO: how to generate all this?
+  mac_state->class_count = MacClass_Count;
+  mac_state->classes = arena_push_array(arena, Class, mac_state->class_count);
+  mac_state->classes[MacClass_NSObject] = objc_getClass("NSObject");
+  mac_state->classes[MacClass_NSApplication] = objc_getClass("NSApplication");
+  mac_state->classes[MacClass_NSWindow] = objc_getClass("NSWindow");
+  mac_state->classes[MacClass_NSEvent] = objc_getClass("NSEvent");
+  mac_state->classes[MacClass_NSDate] = objc_getClass("NSDate");
+  mac_state->classes[MacClass_NSString] = objc_getClass("NSString");
+
+  mac_state->sel_count = MacSelector_Count;
+  mac_state->sels = arena_push_array(arena, SEL, mac_state->sel_count);
+  mac_state->sels[MacSelector_alloc] = sel_registerName("alloc");
+  mac_state->sels[MacSelector_release] = sel_registerName("release");
+  mac_state->sels[MacSelector_init] = sel_registerName("init");
+  mac_state->sels[MacSelector_NSApplication_sharedApplication] = sel_registerName("sharedApplication");
+  mac_state->sels[MacSelector_NSApplication_setActivationPolicy] = sel_registerName("setActivationPolicy:");
+  mac_state->sels[MacSelector_NSApplication_activate] = sel_registerName("activate");
+  mac_state->sels[MacSelector_NSApplication_finishLaunching] = sel_registerName("finishLaunching");
+  mac_state->sels[MacSelector_NSApplication_nextEventMatchingMask] = sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:");
+  mac_state->sels[MacSelector_NSApplication_sendEvent] = sel_registerName("sendEvent:");
+  mac_state->sels[MacSelector_NSApplication_updateWindows] = sel_registerName("updateWindows");
+  mac_state->sels[MacSelector_NSWindow_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
+  mac_state->sels[MacSelector_NSWindow_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
+  mac_state->sels[MacSelector_NSWindow_setIsVisible] = sel_registerName("setIsVisible:");
+  mac_state->sels[MacSelector_NSString_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
 
   mac_state->cpu_counter_freq = cpu_counter_fixed_freq();
   mac_state->page_size = posix_page_size();
