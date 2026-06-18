@@ -33,7 +33,13 @@
 // object section names
 
 #if COMPILER_CLANG || COMPILER_GCC
-#  define Section(name) __attribute__((__section__(name)))
+#  if OS_LINUX
+#    define Section(name) __attribute__((section(name), used, aligned(1)))
+#  elif OS_MAC
+#    define Section(name) __attribute__((section("__DATA," name), used, aligned(1)))
+#  else
+#    error ERROR: `Section` not defined for this os
+#  endif
 #elif COMPILER_MSVC
 #  define Section(name) __declspec(allocate(name))
 #else
@@ -43,7 +49,7 @@
 // -----------------------------------------------------------------------------
 // before main
 
-#if OS_LINUX
+#if OS_LINUX || OS_MAC
 #  define BeforeMain__Named(name)\
   __attribute__((constructor)) static void name(void)
 #elif OS_WINDOWS

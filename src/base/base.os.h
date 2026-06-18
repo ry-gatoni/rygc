@@ -3,6 +3,8 @@
 #  include "base.os.linux.h"
 #elif OS_WINDOWS
 #  include "base.os.windows.h"
+#elif OS_MAC
+#  include "base.os.mac.h"
 #else
-#  error TODO: mac
+#  error ERROR: base os layer not implemented for this os
 #endif

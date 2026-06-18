@@ -30,6 +30,11 @@ typedef OsThreadProc(Os_ThreadProc);
 proc B32 os_init(void);
 
 // -----------------------------------------------------------------------------
+// system info (implemented per-os)
+
+proc U64 os_page_size(void);
+
+// -----------------------------------------------------------------------------
 // memory (implemented per-os)
 
 proc void* os_mem_reserve(U64 size);
