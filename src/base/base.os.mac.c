@@ -52,6 +52,7 @@ mac_init(void)
 
   // NSView
   mac_state->sels[MacSelector_initWithFrame] = sel_registerName("initWithFrame:");
+  mac_state->sels[MacSelector_bounds] = sel_registerName("bounds");
   mac_state->sels[MacSelector_wantsLayer] = sel_registerName("wantsLayer");
   mac_state->sels[MacSelector_setWantsLayer] = sel_registerName("setWantsLayer:");
   mac_state->sels[MacSelector_layer] = sel_registerName("layer");

@@ -441,6 +441,14 @@ NSView_initWithFrame(NSRect frame)
   return ((id (*)(id, SEL, NSRect))objc_msgSend)(nsid, nssel, frame);
 }
 
+proc inline NSRect
+NSView_bounds(NSView *view)
+{
+  id nsid = view;
+  SEL nssel = mac_state->sels[MacSelector_bounds];
+  return ((NSRect (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
 proc inline BOOL
 NSView_wantsLayer(NSView *view)
 {
@@ -715,28 +723,26 @@ main(int argc, char **argv)
   { result = 1; goto end; }
 
   // allocate backbuffer
-  // TODO: double-buffered state
   Arena *arena = arena_alloc();
   // TODO: get actual screen dim
   S32 screen_width = 1920;
   S32 screen_height = 1080;
-  U32 *pixels = arena_push_array(arena, U32, screen_width*screen_height);
+  U32 *backbuffer_pixels = arena_push_array(arena, U32, 2*screen_width*screen_height);
+  U32 *frontbuffer_pixels = backbuffer_pixels + screen_width*screen_height;
   CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
   CGBitmapInfo bitmap_info = kCGImageAlphaPremultipliedLast|kCGBitmapByteOrder32Big;
-  CGContextRef g_ctxt = CGBitmapContextCreate(pixels, screen_width, screen_height, 8, screen_width*sizeof(*pixels), color_space, bitmap_info);
+  CGContextRef backbuffer_ctxt = CGBitmapContextCreate(backbuffer_pixels, screen_width, screen_height, 8, screen_width*sizeof(*backbuffer_pixels), color_space, bitmap_info);
+  CGContextRef frontbuffer_ctxt = CGBitmapContextCreate(frontbuffer_pixels, screen_width, screen_height, 8, screen_width*sizeof(*frontbuffer_pixels), color_space, bitmap_info);
   CGColorSpaceRelease(color_space);
   // NOTE: clear color
-  {
-    U32 color = 0xFF0000FF;
-    U32 *dest = pixels;
-    for(S32 row_idx = 0; row_idx < screen_height; ++row_idx)
-    {
-      for(S32 col_idx = 0; col_idx < screen_width; ++col_idx)
-      {
-	*dest++ = color;
-      }
-    }
-  }
+  /* { */
+  /*   U32 color = 0x080C1CFF; */
+  /*   U32 *dest = backbuffer_pixels; */
+  /*   for(S32 idx = 0; idx < 2*screen_width*screen_height; ++idx) */
+  /*   { */
+  /*     *dest++ = color; */
+  /*   } */
+  /* } */
 
   // open window
   if(!objc_add_method(NSObject, windowShouldClose, on_window_close, 0))
@@ -761,7 +767,11 @@ main(int argc, char **argv)
 
   NSApplication_finishLaunching(app);
 
+  V2 box_p = {20, 40};
+  V2 box_v = {0.1f, 0.1f};
+  V2 box_dim = {20, 20};
   // TODO: more event handling
+  // TODO: smooth resize
   while(running)
   {
     // NOTE: get events
@@ -792,14 +802,69 @@ main(int argc, char **argv)
 
     NSApplication_updateWindows(app);
 
+    CGRect frame_bounds = NSView_bounds(view);
+    V2S32 frame_dim = v2s32(frame_bounds.size.width, frame_bounds.size.height);
+
+    // clear background
+    {
+      S32 frame_w = frame_dim.width;
+      S32 frame_h = frame_dim.height;
+      U32 *dest = backbuffer_pixels;
+      for(S32 row_idx = 0; row_idx < frame_h; ++row_idx)
+      {
+	U32 *row = dest + row_idx*screen_width;
+	for(S32 col_idx = 0; col_idx < frame_w; ++col_idx)
+	{
+	  *row++ = 0x080C1C;
+	}
+      }
+    }
+
+    // update box
+    if(0 > box_p.x + box_v.x || box_p.x + box_dim.x + box_v.x > frame_dim.width)
+    {
+      box_v.x = -box_v.x;
+    }
+    if(0 > box_p.y + box_v.y || box_p.y + box_dim.y + box_v.y > frame_dim.height)
+    {
+      box_v.y = -box_v.y;
+    }
+
+    box_p.x += box_v.x;
+    box_p.y += box_v.y;
+
+    // draw box
+    {
+      S32 box_x = (S32)box_p.x;
+      S32 box_y = (S32)box_p.y;
+      S32 box_w = (S32)box_dim.x;
+      S32 box_h = (S32)box_dim.y;
+      U32 *dest = backbuffer_pixels + screen_width*box_y + box_x;
+      for(S32 row_idx = 0; row_idx < box_h; ++row_idx)
+      {
+	U32 *row = dest + screen_width*row_idx;
+	for(S32 col_idx = 0; col_idx < box_w; ++col_idx)
+	{
+	  *row++ = 0xFF0000FF;
+	}
+      }
+    }
+
     // NOTE: render
     CALayer *layer = NSView_layer(view);
-    CGImageRef backbuffer_image = CGBitmapContextCreateImage(g_ctxt);
-    CGRect frame_rect = {{0, 0}, {200, 200}};
-    CGImageRef frame_image = CGImageCreateWithImageInRect(backbuffer_image, frame_rect);
+    CGImageRef backbuffer_image = CGBitmapContextCreateImage(backbuffer_ctxt);
+    CGImageRef frame_image = CGImageCreateWithImageInRect(backbuffer_image, frame_bounds);
     CALayer_setContents(layer, (id)frame_image);
     CGImageRelease(frame_image);
     CGImageRelease(backbuffer_image);
+
+    // NOTE: swap buffers
+    U32 *temp_pixels = frontbuffer_pixels;
+    frontbuffer_pixels = backbuffer_pixels;
+    backbuffer_pixels = temp_pixels;
+    CGContextRef temp_ctxt = frontbuffer_ctxt;
+    frontbuffer_ctxt = backbuffer_ctxt;
+    backbuffer_ctxt = temp_ctxt;
   }
 
 end:

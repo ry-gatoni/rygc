@@ -52,6 +52,7 @@ typedef enum MacSelector
 
   // NSView
   MacSelector_initWithFrame,
+  MacSelector_bounds,
   MacSelector_wantsLayer,
   MacSelector_setWantsLayer,
   MacSelector_layer,
