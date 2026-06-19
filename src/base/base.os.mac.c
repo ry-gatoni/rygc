@@ -17,6 +17,7 @@ mac_init(void)
   mac_state->classes[MacClass_NSObject] = objc_getClass("NSObject");
   mac_state->classes[MacClass_NSApplication] = objc_getClass("NSApplication");
   mac_state->classes[MacClass_NSWindow] = objc_getClass("NSWindow");
+  mac_state->classes[MacClass_NSWindowDelegate] = objc_getClass("NSWindowDelegate");
   mac_state->classes[MacClass_NSEvent] = objc_getClass("NSEvent");
   mac_state->classes[MacClass_NSDate] = objc_getClass("NSDate");
   mac_state->classes[MacClass_NSString] = objc_getClass("NSString");
@@ -24,10 +25,12 @@ mac_init(void)
   mac_state->sel_count = MacSelector_Count;
   mac_state->sels = arena_push_array(arena, SEL, mac_state->sel_count);
 
+  // universal
   mac_state->sels[MacSelector_alloc] = sel_registerName("alloc");
   mac_state->sels[MacSelector_release] = sel_registerName("release");
   mac_state->sels[MacSelector_init] = sel_registerName("init");
 
+  // NSApplication
   mac_state->sels[MacSelector_sharedApplication] = sel_registerName("sharedApplication");
   mac_state->sels[MacSelector_setActivationPolicy] = sel_registerName("setActivationPolicy:");
   mac_state->sels[MacSelector_activate] = sel_registerName("activate");
@@ -36,12 +39,40 @@ mac_init(void)
   mac_state->sels[MacSelector_sendEvent] = sel_registerName("sendEvent:");
   mac_state->sels[MacSelector_updateWindows] = sel_registerName("updateWindows");
 
+  // NSWindow
   mac_state->sels[MacSelector_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
   mac_state->sels[MacSelector_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
   mac_state->sels[MacSelector_setIsVisible] = sel_registerName("setIsVisible:");
 
+  // NSWindowDelegate
   mac_state->sels[MacSelector_windowShouldClose] = sel_registerName("windowShouldClose:");
 
+  // NSEvent
+  mac_state->sels[MacSelector_type]                             = sel_registerName("type");
+  mac_state->sels[MacSelector_subtype]                          = sel_registerName("subtype");
+  mac_state->sels[MacSelector_locationInWindow]                 = sel_registerName("locationInWindow");
+  mac_state->sels[MacSelector_timestamp]                        = sel_registerName("timestamp");
+  mac_state->sels[MacSelector_window]                           = sel_registerName("window");
+  mac_state->sels[MacSelector_windowNumber]                     = sel_registerName("windowNumber");
+  mac_state->sels[MacSelector_modifierFlags]                    = sel_registerName("modifierFlags");
+  mac_state->sels[MacSelector_keyCode]                          = sel_registerName("keyCode");
+  mac_state->sels[MacSelector_keyRepeatDelay]                   = sel_registerName("keyRepeatDelay");
+  mac_state->sels[MacSelector_keyRepeatInterval]                = sel_registerName("keyRepeatInterval");
+  mac_state->sels[MacSelector_pressedMouseButtons]              = sel_registerName("pressedMouseButtons");
+  mac_state->sels[MacSelector_doubleClickInterval]              = sel_registerName("doubleClickInterval");
+  mac_state->sels[MacSelector_mouseLocation]                    = sel_registerName("mouseLocation");
+  mac_state->sels[MacSelector_buttonNumber]                     = sel_registerName("buttonNumber");
+  mac_state->sels[MacSelector_clickCount]                       = sel_registerName("clickCount");
+  mac_state->sels[MacSelector_deltaX]                           = sel_registerName("deltaX");
+  mac_state->sels[MacSelector_deltaY]                           = sel_registerName("deltaY");
+  mac_state->sels[MacSelector_deltaZ]                           = sel_registerName("deltaZ");
+  mac_state->sels[MacSelector_hasPreciseScrollingDeltas]        = sel_registerName("hasPreciseScrollingDeltas");
+  mac_state->sels[MacSelector_scrollingDeltaX]                  = sel_registerName("scrollingDeltaX");
+  mac_state->sels[MacSelector_scrollingDeltaY]                  = sel_registerName("scrollingDeltaY");
+  mac_state->sels[MacSelector_momentumPhase]                    = sel_registerName("momentumPhase");
+  mac_state->sels[MacSelector_isDirectionInvertedFromDevice]    = sel_registerName("isDirectionInvertedFromDevice");
+
+  // NSString
   mac_state->sels[MacSelector_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
 
   mac_state->cpu_counter_freq = cpu_counter_fixed_freq();

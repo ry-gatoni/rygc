@@ -15,6 +15,8 @@ typedef enum MacClass
   MacClass_NSObject,
   MacClass_NSApplication,
   MacClass_NSWindow,
+  MacClass_NSWindowDelegate,
+  MacClass_NSView,
   MacClass_NSEvent,
   MacClass_NSDate,
   MacClass_NSString,
@@ -39,11 +41,39 @@ typedef enum MacSelector
 
   // NSWindow
   MacSelector_initWithContentRect,
+  MacSelector_contentView,
   MacSelector_makeKeyAndOrderFront,
   MacSelector_setIsVisible,
 
   // NSWindowDelegate
   MacSelector_windowShouldClose,
+
+  // NSView
+
+  // NSEvent
+  MacSelector_type,
+  MacSelector_subtype,
+  MacSelector_locationInWindow,
+  MacSelector_timestamp,
+  MacSelector_window,
+  MacSelector_windowNumber,
+  MacSelector_modifierFlags,
+  MacSelector_keyCode,
+  MacSelector_keyRepeatDelay,
+  MacSelector_keyRepeatInterval,
+  MacSelector_pressedMouseButtons,
+  MacSelector_doubleClickInterval,
+  MacSelector_mouseLocation,
+  MacSelector_buttonNumber,
+  MacSelector_clickCount,
+  MacSelector_deltaX,
+  MacSelector_deltaY,
+  MacSelector_deltaZ,
+  MacSelector_hasPreciseScrollingDeltas,
+  MacSelector_scrollingDeltaX,
+  MacSelector_scrollingDeltaY,
+  MacSelector_momentumPhase,
+  MacSelector_isDirectionInvertedFromDevice,
 
   // NSString
   MacSelector_stringWithUTF8String,
