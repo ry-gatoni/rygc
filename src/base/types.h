@@ -62,7 +62,7 @@ typedef struct Buffer
 } Buffer;
 
 #define proc static
-#define local static
+#define local_persist static
 #define global static
 
 #if COMPILER_CLANG || COMPILER_GCC

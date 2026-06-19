@@ -21,6 +21,7 @@ mac_init(void)
   mac_state->classes[MacClass_NSEvent] = objc_getClass("NSEvent");
   mac_state->classes[MacClass_NSDate] = objc_getClass("NSDate");
   mac_state->classes[MacClass_NSString] = objc_getClass("NSString");
+  mac_state->classes[MacClass_CALayer] = objc_getClass("CALayer");
 
   mac_state->sel_count = MacSelector_Count;
   mac_state->sels = arena_push_array(arena, SEL, mac_state->sel_count);
@@ -41,11 +42,20 @@ mac_init(void)
 
   // NSWindow
   mac_state->sels[MacSelector_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
+  mac_state->sels[MacSelector_contentView] = sel_registerName("contentView");
+  mac_state->sels[MacSelector_setContentView] = sel_registerName("setContentView:");
   mac_state->sels[MacSelector_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
   mac_state->sels[MacSelector_setIsVisible] = sel_registerName("setIsVisible:");
 
   // NSWindowDelegate
   mac_state->sels[MacSelector_windowShouldClose] = sel_registerName("windowShouldClose:");
+
+  // NSView
+  mac_state->sels[MacSelector_initWithFrame] = sel_registerName("initWithFrame:");
+  mac_state->sels[MacSelector_wantsLayer] = sel_registerName("wantsLayer");
+  mac_state->sels[MacSelector_setWantsLayer] = sel_registerName("setWantsLayer:");
+  mac_state->sels[MacSelector_layer] = sel_registerName("layer");
+  mac_state->sels[MacSelector_setLayer] = sel_registerName("setLayer:");
 
   // NSEvent
   mac_state->sels[MacSelector_type]                             = sel_registerName("type");
@@ -74,6 +84,10 @@ mac_init(void)
 
   // NSString
   mac_state->sels[MacSelector_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
+
+  // CALayer
+  mac_state->sels[MacSelector_contents] = sel_registerName("contents");
+  mac_state->sels[MacSelector_setContents] = sel_registerName("setContents:");
 
   mac_state->cpu_counter_freq = cpu_counter_fixed_freq();
   mac_state->page_size = posix_page_size();

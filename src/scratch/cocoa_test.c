@@ -5,6 +5,8 @@
 // -----------------------------------------------------------------------------
 // CoreGraphics types
 
+//#include <CoreGraphics/CoreGraphics.h>
+
 // NOTE: taken from CoreGraphics header CGBase.h
 #if defined(__LP64__) && __LP64__
 typedef double CGFloat;
@@ -29,6 +31,108 @@ typedef struct CGRect
   CGPoint origin;
   CGSize size;
 } CGRect;
+
+typedef struct CGContext *CGContextRef;
+/* typedef struct CGDataProvider *CGDataProviderRef; */
+typedef struct CGImage *CGImageRef;
+typedef struct CGColorSpace *CGColorSpaceRef;
+
+#define CG_Enum(name, type)\
+  typedef type name;\
+  enum
+
+/* CG_Enum(CGColorRenderingIntent, S32) */
+/* { */
+/*   kCGRenderingIntentDefault, */
+/*   kCGRenderingIntentAbsoluteColorimetric, */
+/*   kCGRenderingIntentRelativeColorimetric, */
+/*   kCGRenderingIntentPerceptual, */
+/*   kCGRenderingIntentSaturation, */
+/* }; */
+
+CG_Enum(CGImageAlphaInfo, U32)
+{
+  kCGImageAlphaNone,               /* For example, RGB. */
+  kCGImageAlphaPremultipliedLast,  /* For example, premultiplied RGBA */
+  kCGImageAlphaPremultipliedFirst, /* For example, premultiplied ARGB */
+  kCGImageAlphaLast,               /* For example, non-premultiplied RGBA */
+  kCGImageAlphaFirst,              /* For example, non-premultiplied ARGB */
+  kCGImageAlphaNoneSkipLast,       /* For example, RGBX. */
+  kCGImageAlphaNoneSkipFirst,      /* For example, XRGB. */
+  kCGImageAlphaOnly                /* No color data, alpha data only */
+};
+
+CG_Enum(CGImageByteOrderInfo, U32)
+{
+  kCGImageByteOrderMask     = 0x7000,
+  kCGImageByteOrderDefault  = 0 << 12,
+  kCGImageByteOrder16Little = 1 << 12,
+  kCGImageByteOrder32Little = 2 << 12,
+  kCGImageByteOrder16Big    = 3 << 12,
+  kCGImageByteOrder32Big    = 4 << 12,
+};
+
+CG_Enum(CGBitmapInfo, U32)
+{
+  kCGBitmapAlphaInfoMask = 0x1F,
+
+  kCGBitmapFloatInfoMask = 0xF00,
+  kCGBitmapFloatComponents = 1 << 8,
+
+  kCGBitmapByteOrderMask     = kCGImageByteOrderMask,
+  kCGBitmapByteOrderDefault  = kCGImageByteOrderDefault,
+  kCGBitmapByteOrder16Little = kCGImageByteOrder16Little,
+  kCGBitmapByteOrder32Little = kCGImageByteOrder32Little,
+  kCGBitmapByteOrder16Big    = kCGImageByteOrder16Big,
+  kCGBitmapByteOrder32Big    = kCGImageByteOrder32Big,
+};
+
+/* typedef void (*CGDataProviderReleaseDataCallback)(void *info, const void *data, size_t size); */
+
+// -----------------------------------------------------------------------------
+// CoreGrpahics functions
+
+extern CGContextRef CGBitmapContextCreate(void *data, size_t width, size_t height, size_t bits_per_component, size_t bytes_per_row, CGColorSpaceRef color_space, CGBitmapInfo bitmap_info);
+
+extern void CGContextRelease(CGContextRef c);
+
+extern CGImageRef CGBitmapContextCreateImage(CGContextRef context);
+
+extern CGImageRef CGImageCreateWithImageInRect(CGImageRef image, CGRect rect);
+
+extern void CGImageRelease(CGImageRef image);
+
+extern CGColorSpaceRef CGColorSpaceCreateDeviceRGB(void);
+
+extern void CGColorSpaceRelease(CGColorSpaceRef space);
+
+/* extern CGDataProviderRef CGDataProviderCreateWithData(void *info, const void *data, size_t size, CGDataProviderReleaseDataCallback release_data); */
+
+/* extern CGImageRef CGImageCreate(size_t width, size_t height, size_t bits_per_component, size_t bits_per_pixel, size_t bytes_per_row, CGColorSpaceRef color_space, CGBitmapInfo bitmap_info, CGDataProviderRef provider, const CGFloat *decode, bool should_interpolate, CGColorRenderingIntent intent); */
+
+// -----------------------------------------------------------------------------
+// CoreAnimation types
+
+typedef void CALayer;
+
+// -----------------------------------------------------------------------------
+// CoreAnimation functions
+
+proc inline id
+CALayer_contents(CALayer *layer)
+{
+  id nsid = layer;
+  SEL nssel = mac_state->sels[MacSelector_contents];
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+CALayer_setContents(CALayer *layer, id contents)
+{
+  id nsid = layer;
+  SEL nssel = mac_state->sels[MacSelector_setContents];
+  return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, contents);
+}
 
 // -----------------------------------------------------------------------------
 // AppKit types
@@ -209,7 +313,7 @@ NS_Enum(NSEventPhase, NSUInteger)
 // TODO: how to generate all this?
 // TODO: make sure floating point returns are handled correctly for each abi
 // -----------------------------------------------------------------------------
-// functions
+// AppKit functions
 
 #define objc_add_method(class, method, impl, sigstr)\
   class_addMethod(mac_state->classes[Glue(MacClass_, class)], mac_state->sels[Glue(MacSelector_, method)], (IMP)impl, sigstr)
@@ -302,6 +406,14 @@ NSWindow_contentView(NSWindow *window)
 }
 
 proc inline void
+NSWindow_setContentView(NSWindow *window, NSView *view)
+{
+  id nsid = window;
+  SEL nssel = mac_state->sels[MacSelector_setContentView];
+  return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, view);
+}
+
+proc inline void
 NSWindow_makeKeyAndOrderFront(NSWindow *window, id sender)
 {
   id nsid = window;
@@ -315,6 +427,50 @@ NSWindow_setIsVisible(NSWindow *window, BOOL flag)
   id nsid = window;
   SEL nssel = mac_state->sels[MacSelector_setIsVisible];
   return ((void (*)(id, SEL, BOOL))objc_msgSend)(nsid, nssel, flag);
+}
+
+// -----------------------------------------------------------------------------
+// NSView
+
+proc inline NSView*
+NSView_initWithFrame(NSRect frame)
+{
+  Class nsclass = mac_state->classes[MacClass_NSView];
+  id nsid = NSAlloc(nsclass);
+  SEL nssel = mac_state->sels[MacSelector_initWithFrame];
+  return ((id (*)(id, SEL, NSRect))objc_msgSend)(nsid, nssel, frame);
+}
+
+proc inline BOOL
+NSView_wantsLayer(NSView *view)
+{
+  id nsid = view;
+  SEL nssel = mac_state->sels[MacSelector_wantsLayer];
+  return ((BOOL (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+NSView_setWantsLayer(NSView *view, BOOL wants_layer)
+{
+  id nsid = view;
+  SEL nssel = mac_state->sels[MacSelector_setWantsLayer];
+  return ((void (*)(id, SEL, BOOL))objc_msgSend)(nsid, nssel, wants_layer);
+}
+
+proc inline CALayer*
+NSView_layer(NSView *view)
+{
+  id nsid = view;
+  SEL nssel = mac_state->sels[MacSelector_layer];
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+NSView_setLayer(NSView *view, CALayer *layer)
+{
+  id nsid = view;
+  SEL nssel = mac_state->sels[MacSelector_setLayer];
+  return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, layer);
 }
 
 // -----------------------------------------------------------------------------
@@ -551,12 +707,38 @@ main(int argc, char **argv)
   if(!os_init())
   { result = 1; goto end; }
 
+  // init app
   NSApplication *app = 0;
   if((app = NSApplication_sharedApplication()) == 0)
   { result = 1; goto end; }
   if(!NSApplication_setActivationPolicy(app, NSApplicationActivationPolicyRegular))
   { result = 1; goto end; }
 
+  // allocate backbuffer
+  // TODO: double-buffered state
+  Arena *arena = arena_alloc();
+  // TODO: get actual screen dim
+  S32 screen_width = 1920;
+  S32 screen_height = 1080;
+  U32 *pixels = arena_push_array(arena, U32, screen_width*screen_height);
+  CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+  CGBitmapInfo bitmap_info = kCGImageAlphaPremultipliedLast|kCGBitmapByteOrder32Big;
+  CGContextRef g_ctxt = CGBitmapContextCreate(pixels, screen_width, screen_height, 8, screen_width*sizeof(*pixels), color_space, bitmap_info);
+  CGColorSpaceRelease(color_space);
+  // NOTE: clear color
+  {
+    U32 color = 0xFF0000FF;
+    U32 *dest = pixels;
+    for(S32 row_idx = 0; row_idx < screen_height; ++row_idx)
+    {
+      for(S32 col_idx = 0; col_idx < screen_width; ++col_idx)
+      {
+	*dest++ = color;
+      }
+    }
+  }
+
+  // open window
   if(!objc_add_method(NSObject, windowShouldClose, on_window_close, 0))
   { result = 1; goto end; }
 
@@ -570,6 +752,9 @@ main(int argc, char **argv)
   if((window = NSWindow_initWithContentRect(window_rect, window_style_mask, window_backing, false)) == 0)
   { result = 1; goto end; }
 
+  NSView *view = NSWindow_contentView(window);
+  NSView_setWantsLayer(view, true);
+
   NSApplication_activate(app);
   NSWindow_makeKeyAndOrderFront(window, 0);
   NSWindow_setIsVisible(window, true);
@@ -579,28 +764,42 @@ main(int argc, char **argv)
   // TODO: more event handling
   while(running)
   {
+    // NOTE: get events
+    NSEvent *e = 0;
     NSEventMask mask = NSEventMaskAny;
     NSRunLoopMode mode = NSString_stringWithUTF8String("kCFRunLoopDefaultMode");
-    NSEvent *e = NSApplication_nextEventMatchingMask(app, mask, 0, mode, true);
-    NSEventType event_type = NSEvent_type(e);
-    //NSEventSubtype event_subtype = NSEvent_subtype(e);
-    NSPoint event_pos = NSEvent_locationInWindow(e);
-    NSEventModifierFlags event_mods = NSEvent_modifierFlags(e);
-    if(event_type)
+    while((e = NSApplication_nextEventMatchingMask(app, mask, 0, mode, true)) != 0)
     {
-      printf("event\n"
-	     "type: %lu\n"
-	     //"subtype: %hd\n"
-	     "pos: (%.2f, %.2f)\n"
-	     "mods: %lu\n",
-	     event_type,
-	     //event_subtype,
-	     event_pos.x, event_pos.y,
-	     event_mods);
+      NSEventType event_type = NSEvent_type(e);
+      //NSEventSubtype event_subtype = NSEvent_subtype(e);
+      NSPoint event_pos = NSEvent_locationInWindow(e);
+      NSEventModifierFlags event_mods = NSEvent_modifierFlags(e);
+      if(event_type)
+      {
+	printf("event\n"
+	       "type: %lu\n"
+	       //"subtype: %hd\n"
+	       "pos: (%.2f, %.2f)\n"
+	       "mods: %lu\n",
+	       event_type,
+	       //event_subtype,
+	       event_pos.x, event_pos.y,
+	       event_mods);
+      }
+
+      NSApplication_sendEvent(app, e);
     }
 
-    NSApplication_sendEvent(app, e);
     NSApplication_updateWindows(app);
+
+    // NOTE: render
+    CALayer *layer = NSView_layer(view);
+    CGImageRef backbuffer_image = CGBitmapContextCreateImage(g_ctxt);
+    CGRect frame_rect = {{0, 0}, {200, 200}};
+    CGImageRef frame_image = CGImageCreateWithImageInRect(backbuffer_image, frame_rect);
+    CALayer_setContents(layer, (id)frame_image);
+    CGImageRelease(frame_image);
+    CGImageRelease(backbuffer_image);
   }
 
 end:
