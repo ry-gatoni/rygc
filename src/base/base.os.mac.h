@@ -21,6 +21,7 @@ typedef enum MacClass
   MacClass_NSDate,
   MacClass_NSString,
   MacClass_CALayer,
+  MacClass_CATransaction,
   MacClass_Count,
 } MacClass;
 
@@ -48,6 +49,7 @@ typedef enum MacSelector
   MacSelector_setIsVisible,
 
   // NSWindowDelegate
+  MacSelector_windowWillResize,
   MacSelector_windowShouldClose,
 
   // NSView
@@ -57,6 +59,8 @@ typedef enum MacSelector
   MacSelector_setWantsLayer,
   MacSelector_layer,
   MacSelector_setLayer,
+  MacSelector_layerContentsRedrawPolicy,
+  MacSelector_setLayerContentsRedrawPolicy,
 
   // NSEvent
   MacSelector_type,
@@ -89,6 +93,19 @@ typedef enum MacSelector
   // CALayer
   MacSelector_contents,
   MacSelector_setContents,
+  MacSelector_contentsRect,
+  MacSelector_setContentsRect,
+  MacSelector_contentsGravity,
+  MacSelector_setContentsGravity,
+  MacSelector_needsDisplay,
+  MacSelector_setNeedsDisplay,
+
+  // CATransaction
+  MacSelector_begin,
+  MacSelector_commit,
+  MacSelector_flush,
+  MacSelector_disableActions,
+  MacSelector_setDisableActions,
 
   MacSelector_Count,
 } MacSelector;

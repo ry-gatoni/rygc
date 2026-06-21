@@ -22,6 +22,7 @@ mac_init(void)
   mac_state->classes[MacClass_NSDate] = objc_getClass("NSDate");
   mac_state->classes[MacClass_NSString] = objc_getClass("NSString");
   mac_state->classes[MacClass_CALayer] = objc_getClass("CALayer");
+  mac_state->classes[MacClass_CALayer] = objc_getClass("CATransaction");
 
   mac_state->sel_count = MacSelector_Count;
   mac_state->sels = arena_push_array(arena, SEL, mac_state->sel_count);
@@ -48,6 +49,7 @@ mac_init(void)
   mac_state->sels[MacSelector_setIsVisible] = sel_registerName("setIsVisible:");
 
   // NSWindowDelegate
+  mac_state->sels[MacSelector_windowWillResize] = sel_registerName("windowWillResize:toSize:");
   mac_state->sels[MacSelector_windowShouldClose] = sel_registerName("windowShouldClose:");
 
   // NSView
@@ -57,6 +59,8 @@ mac_init(void)
   mac_state->sels[MacSelector_setWantsLayer] = sel_registerName("setWantsLayer:");
   mac_state->sels[MacSelector_layer] = sel_registerName("layer");
   mac_state->sels[MacSelector_setLayer] = sel_registerName("setLayer:");
+  mac_state->sels[MacSelector_layerContentsRedrawPolicy] = sel_registerName("layerContentsRedrawPolicy");
+  mac_state->sels[MacSelector_setLayerContentsRedrawPolicy] = sel_registerName("setLayerContentsRedrawPolicy:");
 
   // NSEvent
   mac_state->sels[MacSelector_type]                             = sel_registerName("type");
@@ -89,6 +93,19 @@ mac_init(void)
   // CALayer
   mac_state->sels[MacSelector_contents] = sel_registerName("contents");
   mac_state->sels[MacSelector_setContents] = sel_registerName("setContents:");
+  mac_state->sels[MacSelector_contentsRect] = sel_registerName("contentsRect");
+  mac_state->sels[MacSelector_setContentsRect] = sel_registerName("setContentsRect:");
+  mac_state->sels[MacSelector_contentsGravity] = sel_registerName("contentsGravity");
+  mac_state->sels[MacSelector_setContentsGravity] = sel_registerName("setContentsGravity:");
+  mac_state->sels[MacSelector_needsDisplay] = sel_registerName("needsDisplay");
+  mac_state->sels[MacSelector_setNeedsDisplay] = sel_registerName("setNeedsDisplay");
+
+  // CATransaction
+  mac_state->sels[MacSelector_begin] = sel_registerName("begin");
+  mac_state->sels[MacSelector_commit] = sel_registerName("commit");
+  mac_state->sels[MacSelector_flush] = sel_registerName("flush");
+  mac_state->sels[MacSelector_disableActions] = sel_registerName("disableActions");
+  mac_state->sels[MacSelector_setDisableActions] = sel_registerName("setDisableActions:");
 
   mac_state->cpu_counter_freq = cpu_counter_fixed_freq();
   mac_state->page_size = posix_page_size();

@@ -47,7 +47,7 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/vst3_test_host.c -o vst3_test_host
 # clang $CFLAGS $SRC/scratch/poly_solve.c -o poly_solve # && ./poly_solve
 # clang $CFLAGS $SRC/scratch/xcb_test.c -lxcb -lxcb-shm -lxcb-present -lEGL -lGL -o xcb_test
-clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -o cocoa_test
+clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -framework QuartzCore -o cocoa_test
 
 popd > /dev/null # ./build -> ./src
 
