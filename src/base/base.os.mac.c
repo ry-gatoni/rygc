@@ -97,6 +97,8 @@ mac_init(void)
   mac_state->sels[MacSelector_setContentsRect] = sel_registerName("setContentsRect:");
   mac_state->sels[MacSelector_contentsGravity] = sel_registerName("contentsGravity");
   mac_state->sels[MacSelector_setContentsGravity] = sel_registerName("setContentsGravity:");
+  mac_state->sels[MacSelector_isGeometryFlipped] = sel_registerName("isGeometryFlipped");
+  mac_state->sels[MacSelector_setGeometryFlipped] = sel_registerName("setGeometryFlipped:");
   mac_state->sels[MacSelector_needsDisplay] = sel_registerName("needsDisplay");
   mac_state->sels[MacSelector_setNeedsDisplay] = sel_registerName("setNeedsDisplay");
 

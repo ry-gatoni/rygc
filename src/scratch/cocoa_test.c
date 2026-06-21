@@ -408,6 +408,22 @@ CALayer_setContentsGravity(CALayer *layer, CALayerContentsGravity contents_gravi
 }
 
 proc inline BOOL
+CALayer_isGeometryFlipped(CALayer *layer)
+{
+  id nsid = layer;
+  SEL nssel = mac_state->sels[MacSelector_isGeometryFlipped];
+  return ((BOOL (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+CALayer_setGeometryFlipped(CALayer *layer, BOOL geometry_flipped)
+{
+  id nsid = layer;
+  SEL nssel = mac_state->sels[MacSelector_setGeometryFlipped];
+  return ((void (*)(id, SEL, BOOL))objc_msgSend)(nsid, nssel, geometry_flipped);
+}
+
+proc inline BOOL
 CALayer_needsDisplay(CALayer *layer)
 {
   id nsid = layer;
@@ -1062,6 +1078,7 @@ render(NSView *view, NSRect frame_bounds)
 
   CGRect contents_rect = CGRectMake(0, norm_y, norm_w, norm_h);
   CALayer_setContentsRect(layer, contents_rect);
+  /* CALayer_setGeometryFlipped(layer, true); */
   //CALayer_setNeedsDisplay(layer);
 
   // NOTE: swap buffers
@@ -1073,20 +1090,32 @@ render(NSView *view, NSRect frame_bounds)
 global B32 running = 1;
 
 proc B32
-on_window_close(id self, NSWindow *sender)
+on_window_close(id self, SEL cmd, NSWindow *sender)
 {
   Unused(self);
+  Unused(cmd);
   Unused(sender);
 
   running = 0;
   return(1);
 }
 
+// TODO: how to deal with initial shift at start of resize?
 proc NSSize
-on_window_resize(id self, NSWindow *sender, NSSize frame_size)
+on_window_resize(id self, SEL cmd, NSWindow *sender, NSSize frame_size)
 {
   Unused(self);
-  Unused(sender);
+  Unused(cmd);
+
+  CGFloat norm_w = ClampToRange(frame_size.width / (CGFloat)backbuffer->pixels_width, 0.0, 1.0);
+  CGFloat norm_h = ClampToRange(frame_size.height / (CGFloat)backbuffer->pixels_height, 0.0, 1.0);
+  CGFloat norm_y = ClampToRange(1.0 - norm_h, 0.0, 1.0);
+  CGRect contents_rect = CGRectMake(0, norm_y, norm_w, norm_h);
+
+  NSView *view = NSWindow_contentView(sender);
+  CALayer *layer = NSView_layer(view);
+  CALayer_setContentsRect(layer, contents_rect);
+  /* CALayer_setGeometryFlipped(layer, true); */
 
   return(frame_size);
 }
@@ -1205,10 +1234,10 @@ main(int argc, char **argv)
   /* } */
 
   // open window
-  if(!objc_add_method(NSObject, windowShouldClose, on_window_close, 0))
+  if(!objc_add_method(NSObject, windowShouldClose, on_window_close, "c@:@"))
   { result = 1; goto end; }
 
-  if(!objc_add_method(NSObject, windowWillResize, on_window_resize, "{NSSize=ff}@:{NSSize=ff}"))
+  if(!objc_add_method(NSObject, windowWillResize, on_window_resize, "{NSSize=dd}@:@{NSSize=dd}"))
   { result = 1; goto end; }
 
   NSWindow *window = 0;
@@ -1228,6 +1257,9 @@ main(int argc, char **argv)
 
   CALayer *layer = NSView_layer(view);
   CALayer_setContentsGravity(layer, kCAGravityBottomLeft);
+  /* CALayer_setContentsGravity(layer, kCAGravityTopLeft); */
+  //CALayer_setContentsGravity(layer, kCAGravityResize);
+  //CALayer_setGeometryFlipped(layer, true);
 
   NSApplication_activate(app);
   NSWindow_makeKeyAndOrderFront(window, 0);
@@ -1237,12 +1269,20 @@ main(int argc, char **argv)
 
   BoxState box = {0};
   box.p = v2(20, 40);
-  box.v = v2(0.01f, 0.03f);
+  box.v = v2(1.f, 3.f);
   box.dim = v2(20, 20);
   // TODO: more event handling
   // TODO: smooth resize
+  R64 loop_counter_fixed_period = 1.0 / (R64)cpu_counter_fixed_freq();
+  U64 loop_start = 0;
+  U64 last_loop_end = cpu_counter_fixed();
   while(running)
   {
+    loop_start = cpu_counter_fixed();
+    U64 time_since_last_loop = loop_start - last_loop_end;
+    R64 time_since_last_loop_ms = 1000.0 * (R64)time_since_last_loop * loop_counter_fixed_period;
+    printf("time since last loop: %.6f\n", time_since_last_loop_ms);
+
     // NOTE: get events
     NSEvent *e = 0;
     NSEventMask mask = NSEventMaskAny;
@@ -1307,6 +1347,13 @@ main(int argc, char **argv)
     CVPixelBufferUnlockBaseAddress(backbuffer->buf, 0);
 
     render(view, frame_bounds);
+    U64 loop_end = cpu_counter_fixed();
+    U64 loop_elapsed = loop_end - loop_start;
+    R64 loop_elapsed_ms = 1000.0 * (R64)loop_elapsed / (R64)cpu_counter_fixed_freq();
+    printf("loop elapsed: %.6f ms\n", loop_elapsed_ms);
+    last_loop_end = loop_end;
+
+    usleep(16667);
   }
 
 end:

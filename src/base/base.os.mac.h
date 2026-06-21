@@ -97,6 +97,8 @@ typedef enum MacSelector
   MacSelector_setContentsRect,
   MacSelector_contentsGravity,
   MacSelector_setContentsGravity,
+  MacSelector_isGeometryFlipped,
+  MacSelector_setGeometryFlipped,
   MacSelector_needsDisplay,
   MacSelector_setNeedsDisplay,
 
