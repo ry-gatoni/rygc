@@ -40,6 +40,7 @@ mac_init(void)
   mac_state->sels[MacSelector_nextEventMatchingMask] = sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:");
   mac_state->sels[MacSelector_sendEvent] = sel_registerName("sendEvent:");
   mac_state->sels[MacSelector_updateWindows] = sel_registerName("updateWindows");
+  mac_state->sels[MacSelector_terminate] = sel_registerName("terminate:");
 
   // NSWindow
   mac_state->sels[MacSelector_initWithContentRect] = sel_registerName("initWithContentRect:styleMask:backing:defer:");
@@ -47,6 +48,9 @@ mac_init(void)
   mac_state->sels[MacSelector_setContentView] = sel_registerName("setContentView:");
   mac_state->sels[MacSelector_makeKeyAndOrderFront] = sel_registerName("makeKeyAndOrderFront:");
   mac_state->sels[MacSelector_setIsVisible] = sel_registerName("setIsVisible:");
+  mac_state->sels[MacSelector_close] = sel_registerName("close");
+  mac_state->sels[MacSelector_title] = sel_registerName("title");
+  mac_state->sels[MacSelector_setTitle] = sel_registerName("setTitle:");
 
   // NSWindowDelegate
   mac_state->sels[MacSelector_windowWillResize] = sel_registerName("windowWillResize:toSize:");
@@ -89,6 +93,7 @@ mac_init(void)
 
   // NSString
   mac_state->sels[MacSelector_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
+  mac_state->sels[MacSelector_initWithBytesLength] = sel_registerName("initWithBytes:length:encoding:");
 
   // CALayer
   mac_state->sels[MacSelector_contents] = sel_registerName("contents");

@@ -40,6 +40,7 @@ typedef enum MacSelector
   MacSelector_nextEventMatchingMask,
   MacSelector_sendEvent,
   MacSelector_updateWindows,
+  MacSelector_terminate,
 
   // NSWindow
   MacSelector_initWithContentRect,
@@ -47,6 +48,9 @@ typedef enum MacSelector
   MacSelector_setContentView,
   MacSelector_makeKeyAndOrderFront,
   MacSelector_setIsVisible,
+  MacSelector_close,
+  MacSelector_title,
+  MacSelector_setTitle,
 
   // NSWindowDelegate
   MacSelector_windowWillResize,
@@ -89,6 +93,7 @@ typedef enum MacSelector
 
   // NSString
   MacSelector_stringWithUTF8String,
+  MacSelector_initWithBytesLength,
 
   // CALayer
   MacSelector_contents,
