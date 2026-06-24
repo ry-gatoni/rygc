@@ -1,5 +1,9 @@
 #include "base.os.posix.h"
 
+#include <mach/mach.h>
+//#include <mach/vm_page_size.h>
+#include <mach/mach_vm.h>
+
 #include <objc/runtime.h>
 #include <objc/message.h>
 

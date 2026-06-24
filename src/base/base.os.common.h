@@ -3,12 +3,25 @@ typedef struct Os_Handle
   void *handle;
 } Os_Handle;
 
+/* typedef struct Os_RingBuffer */
+/* { */
+/*   void *mem; */
+/*   U64 size; */
+/*   Os_Handle handle; */
+/* } Os_RingBuffer; */
 typedef struct Os_RingBuffer
 {
   void *mem;
   U64 size;
-  Os_Handle handle;
+  U64 read;
+  U64 write;
 } Os_RingBuffer;
+
+typedef struct Os_RingBufferSpan
+{
+  U8 *start;
+  U8 *end;
+} Os_RingBufferSpan;
 
 typedef enum Os_FileOpenFlags
 {
@@ -42,8 +55,16 @@ proc B32 os_mem_commit(void *mem, U64 size);
 proc void os_mem_decommit(void *mem, U64 size);
 proc void os_mem_release(void *mem, U64 size);
 
-proc Os_RingBuffer os_ring_buffer_alloc(U64 min_size);
-proc void os_ring_buffer_free(Os_RingBuffer *rb);
+proc void os_ring_buffer_init(Os_RingBuffer *rb, U64 min_size);
+proc void os_ring_buffer_release(Os_RingBuffer *rb);
+
+proc inline U64 os_ring_buffer_used(Os_RingBuffer *rb); // NOTE: number of bytes available for reading
+proc inline U64 os_ring_buffer_free(Os_RingBuffer *rb); // NOTE: number of bytes available for writing
+
+proc inline Os_RingBufferSpan os_ring_buffer_read_span(Os_RingBuffer *rb);
+proc inline void os_ring_buffer_read_end(Os_RingBuffer *rb, U64 bytes_read);
+proc inline Os_RingBufferSpan os_ring_buffer_write_span(Os_RingBuffer *rb);
+proc inline void os_ring_buffer_write_end(Os_RingBuffer *rb, U64 bytes_written);
 
 // -----------------------------------------------------------------------------
 // files (implemented per-os)

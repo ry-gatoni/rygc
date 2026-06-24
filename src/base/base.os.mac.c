@@ -167,6 +167,73 @@ os_mem_release(void *mem, U64 size)
   posix_mem_release(mem, size);
 }
 
+proc void
+mac_ring_buffer_init(Os_RingBuffer *rb, U64 min_size)
+{
+  kern_return_t status = 0;
+
+  mach_port_t task = mach_task_self();
+  mach_vm_address_t addr = 0;
+  mach_port_t port = 0;
+  mach_vm_size_t image_size = mach_vm_round_page(min_size);
+  mach_vm_size_t total_alloc_size = 2*image_size;
+
+  // NOTE: allocate memory for all mapped images
+  status = mach_vm_allocate(task, &addr, total_alloc_size, VM_FLAGS_ANYWHERE);
+  if(status != 0 || addr == 0)
+  { goto mac_ring_buffer_init_failure; }
+
+  // NOTE: map first image to base of the memory allocation
+  mach_vm_address_t image_0 = addr;
+  status = mach_vm_allocate(task, &image_0, image_size, VM_FLAGS_FIXED|VM_FLAGS_OVERWRITE);
+  if(status != 0 || image_0 == 0)
+  { goto mac_ring_buffer_init_failure; }
+
+  // NOTE: create port for the mapping
+  vm_prot_t page_prot = VM_PROT_READ|VM_PROT_WRITE;
+  status = mach_make_memory_entry_64(task, &image_size, addr, page_prot, &port, MACH_PORT_NULL);
+  if(status != 0)
+  { goto mac_ring_buffer_init_failure; }
+
+  // NOTE: map second image
+  mach_vm_address_t image_1 = addr + image_size;
+  status = mach_vm_map(task, &image_1, image_size, 0, VM_FLAGS_FIXED|VM_FLAGS_OVERWRITE, port, 0, FALSE, page_prot, page_prot, VM_INHERIT_NONE);
+  if( status != 0 || image_1 == 0)
+  { goto mac_ring_buffer_init_failure; }
+
+  mach_port_deallocate(task, port);
+
+  rb->mem = (void*)addr;
+  rb->size = image_size;
+  rb->read = 0;
+  rb->write = 0;
+  return;
+
+mac_ring_buffer_init_failure:
+  if(port) mach_port_deallocate(task, port);
+  if(addr) mach_vm_deallocate(task, addr, total_alloc_size);
+  ZeroStruct(rb);
+}
+
+proc void
+mac_ring_buffer_release(Os_RingBuffer *rb)
+{
+  mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)rb->mem, 2*rb->size);
+  ZeroStruct(rb);
+}
+
+proc void
+os_ring_buffer_init(Os_RingBuffer *rb, U64 min_size)
+{
+  mac_ring_buffer_init(rb, min_size);
+}
+
+proc void
+os_ring_buffer_release(Os_RingBuffer *rb)
+{
+  mac_ring_buffer_release(rb);
+}
+
 // -----------------------------------------------------------------------------
 // files
 
