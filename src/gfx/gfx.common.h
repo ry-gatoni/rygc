@@ -1,16 +1,21 @@
-typedef enum Os_EventKind
+typedef struct Gfx_Handle
 {
-  Os_EventKind_move,
-  Os_EventKind_press,
-  Os_EventKind_release,
-  Os_EventKind_scroll,
-  Os_EventKind_close,
+  void *handle;
+} Gfx_Handle;
 
-  Os_EventKind_Count,
-} Os_EventKind;
+typedef enum Gfx_EventKind
+{
+  Gfx_EventKind_move,
+  Gfx_EventKind_press,
+  Gfx_EventKind_release,
+  Gfx_EventKind_scroll,
+  Gfx_EventKind_close,
+
+  Gfx_EventKind_Count,
+} Gfx_EventKind;
 
 // NOTE: name, display string
-#define OS_KEY_XLIST\
+#define GFX_KEY_XLIST\
   X(null, "Invalid Key")\
   X(esc, "Esc")\
   X(f1, "F1")\
@@ -116,53 +121,61 @@ typedef enum Os_EventKind
   X(mouse_middle, "Middle Mouse Button")\
   X(mouse_right, "Right Mouse Button")
 
-typedef enum Os_Key
+typedef enum Gfx_Key
 {
-#define X(name, str) Glue(Os_Key_, name),
-  OS_KEY_XLIST
+#define X(name, str) Glue(Gfx_Key_, name),
+  GFX_KEY_XLIST
 #undef X
-  Os_Key_Count,
-} Os_Key;
+  Gfx_Key_Count,
+} Gfx_Key;
 
-global String8 os_key_display_strings[Os_Key_Count] = {
-#define X(name, str) [Glue(Os_Key_, name)] = Str8Lit(str),
-  OS_KEY_XLIST
+global String8 gfx_key_display_strings[Gfx_Key_Count] = {
+#define X(name, str) [Glue(Gfx_Key_, name)] = Str8Lit(str),
+  GFX_KEY_XLIST
 #undef X
 };
 
-typedef struct Os_Event Os_Event;
-struct Os_Event
+typedef struct Gfx_Event Gfx_Event;
+struct Gfx_Event
 {
-  Os_Event *next;
-  Os_Event *prev;
+  Gfx_Event *next;
+  Gfx_Event *prev;
 
-  Os_EventKind kind;
-  Os_Handle window;
+  Gfx_EventKind kind;
+  Gfx_Handle window;
   //Value32 data[2];
   V2 pos;
   V2 scroll;
-  Os_Key key; // NOTE: this represents the _physical key_ on the keyboard/mouse that was pressed, _not_ the key symbol unicode codepoint the keypress maps to according to the user's layout
-  Os_Key modifiers;
+  Gfx_Key key; // NOTE: this represents the _physical key_ on the keyboard/mouse that was pressed, _not_ the key symbol unicode codepoint the keypress maps to according to the user's layout
+  Gfx_Key modifiers;
 };
 
-/* typedef struct Os_EventNode Os_EventNode; */
-/* struct Os_EventNode */
-/* { */
-/*   Os_EventNode *next; */
-/*   Os_Event event; */
-/* }; */
-
-typedef struct Os_EventList
+typedef struct Gfx_EventList
 {
-  Os_Event *first;
-  Os_Event *last;
+  Gfx_Event *first;
+  Gfx_Event *last;
   U64 count;
-} Os_EventList;
+} Gfx_EventList;
+
+typedef struct Gfx_State
+{
+  Arena *arena;
+  Os_RingBuffer event_buffer;
+} Gfx_State;
+
+global Gfx_State *gfx_state = 0;
 
 // -----------------------------------------------------------------------------
 // helpers
 
-proc Os_Event* gfx__event_list_push_new(Arena *arena, Os_EventList *list, Os_EventKind kind);
+proc Gfx_Event* gfx__event_new(void);
+proc void gfx__event_push(Gfx_Event *event);
+
+proc Gfx_Event* gfx__event_next(void);
+proc void gfx__event_pop(Gfx_Event *event);
+proc void gfx__events_flush(void);
+
+proc Gfx_Event* gfx__event_list_push_new(Arena *arena, Gfx_EventList *list, Gfx_EventKind kind);
 
 // -----------------------------------------------------------------------------
 // interface
@@ -170,10 +183,10 @@ proc Os_Event* gfx__event_list_push_new(Arena *arena, Os_EventList *list, Os_Eve
 proc B32 gfx_init(void);
 proc void gfx_uninit(void);
 
-proc Os_Handle gfx_window_open(String8 name, S32 width, S32 height);
-proc void gfx_window_close(Os_Handle window);
+proc Gfx_Handle gfx_window_open(S32 width, S32 height, String8 name);
+proc void gfx_window_close(Gfx_Handle window);
 
-proc Os_EventList gfx_events(Arena *arena);
+proc Gfx_EventList gfx_events(Arena *arena);
 
 proc V2S32 gfx_window_get_dim(Os_Handle window);
 

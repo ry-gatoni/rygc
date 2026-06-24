@@ -132,21 +132,48 @@ main(int argc, char **argv)
   if(!os_init())
   { result = 1; goto end; }
 
-  if(!gfx_cocoa_init())
+  if(!gfx_init())
   { result = 1; goto end; }
 
-  Cocoa_Window *window = gfx_cocoa_window_open(v2s32(640, 480), Str8Lit("cocoa test"));
+  Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("cocoa test"));
 
+#if 1
+  B32 running = 1;
+  while(running)
+  {
+    // TODO: event iterator?
+    cocoa_events();
+    Gfx_Event *e = gfx__event_next();
+    for(; e; gfx__event_pop(e), e = gfx__event_next())
+    {
+      switch(e->kind)
+      {
+	case Gfx_EventKind_close:
+	{
+	  running = 0;
+	}break;
+
+	default: {}break;
+      }
+    }
+
+    // TODO: draw
+  }
+
+  gfx_window_close(window);
+
+  gfx_uninit();
+#else
   Arena *frame_arena = arena_alloc();
   B32 running = 1;
   while(running)
   {
-    Os_EventList events = gfx_cocoa_events(frame_arena);
-    for(Os_Event *e = events.first; e; e = e->next)
+    Gfx_EventList events = cocoa_events(frame_arena);
+    for(Gfx_Event *e = events.first; e; e = e->next)
     {
       switch(e->kind)
       {
-	case Os_EventKind_close:
+	case Gfx_EventKind_close:
 	{
 	  running = 0;
 	}break;
@@ -157,6 +184,7 @@ main(int argc, char **argv)
 
     arena_clear(frame_arena);
   }
+#endif
 
 #if 0
   NSDefaultRunLoopMode = NSString_stringWithUTF8String("kCFRunLoopDefaultMode");

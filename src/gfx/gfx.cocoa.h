@@ -44,16 +44,16 @@ global Cocoa_State *cocoa_state = 0;
 // -----------------------------------------------------------------------------
 // init
 
-proc B32 gfx_cocoa_init(void);
-proc void gfx_cocoa_uninit(void);
+proc B32 cocoa_init(Arena *arena);
+proc void cocoa_uninit(void);
 
 // -----------------------------------------------------------------------------
 // window
 
-proc Cocoa_Window* gfx_cocoa_window_open(V2S32 dim, String8 title);
-proc void gfx_cocoa_window_close(Cocoa_Window *win);
+proc Cocoa_Window* cocoa_window_open(V2S32 dim, String8 title);
+proc void cocoa_window_close(Cocoa_Window *win);
 
-proc V2S32 gfx_cocoa_window_dim(Cocoa_Window *win);
+proc V2S32 cocoa_window_dim(Cocoa_Window *win);
 
 // -----------------------------------------------------------------------------
 // events
@@ -64,5 +64,8 @@ proc V2S32 gfx_cocoa_window_dim(Cocoa_Window *win);
 // -----------------------------------------------------------------------------
 // helpers
 
-proc Cocoa_Window* gfx__cocoa_window_alloc(void);
-proc void gfx__cocoa_window_release(Cocoa_Window *win);
+proc inline Cocoa_Window* cocoa__window_alloc(void);
+proc inline void cocoa__window_release(Cocoa_Window *win);
+
+proc inline Gfx_Handle cocoa__gfx_handle_from_window(Cocoa_Window *win);
+proc inline Cocoa_Window* cocoa__window_from_gfx_handle(Gfx_Handle win);
