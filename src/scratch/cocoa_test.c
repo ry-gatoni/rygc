@@ -1,8 +1,10 @@
 #include "base/base.h"
-#include "gfx/gfx.cocoa.h"
+#include "gfx/gfx.h"
+//#include "gfx/gfx.cocoa.h"
 
 #include "base/base.c"
-#include "gfx/gfx.cocoa.c"
+#include "gfx/gfx.c"
+//#include "gfx/gfx.cocoa.c"
 
 // -----------------------------------------------------------------------------
 // main
@@ -133,6 +135,30 @@ main(int argc, char **argv)
   if(!gfx_cocoa_init())
   { result = 1; goto end; }
 
+  Cocoa_Window *window = gfx_cocoa_window_open(v2s32(640, 480), Str8Lit("cocoa test"));
+
+  Arena *frame_arena = arena_alloc();
+  B32 running = 1;
+  while(running)
+  {
+    Os_EventList events = gfx_cocoa_events(frame_arena);
+    for(Os_Event *e = events.first; e; e = e->next)
+    {
+      switch(e->kind)
+      {
+	case Os_EventKind_close:
+	{
+	  running = 0;
+	}break;
+
+	default: {}break;
+      }
+    }
+
+    arena_clear(frame_arena);
+  }
+
+#if 0
   NSDefaultRunLoopMode = NSString_stringWithUTF8String("kCFRunLoopDefaultMode");
   NSRunLoopCommonModes = NSString_stringWithUTF8String("kCFRunLoopCommonModes");
 
@@ -301,6 +327,7 @@ main(int argc, char **argv)
 
     usleep(16667);
   }
+#endif
 
 end:
   // TODO: proper cleanup

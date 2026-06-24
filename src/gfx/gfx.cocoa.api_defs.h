@@ -4,6 +4,9 @@
 typedef U32 FourCharCode;
 typedef FourCharCode OSType;
 
+typedef void NSString;
+typedef NSString *NSRunLoopMode;
+
 //
 // CoreFoundation
 //
@@ -96,10 +99,7 @@ typedef void NSApplication;
 typedef void NSWindow;
 typedef void NSView;
 typedef void NSEvent;
-typedef void NSString;
 typedef void NSDate;
-
-typedef NSString *NSRunLoopMode;
 
 typedef double   NSTimeInterval;
 
@@ -116,6 +116,9 @@ typedef NSString *CALayerContentsGravity;
 
 // -----------------------------------------------------------------------------
 // cocoa constants
+
+extern NSRunLoopMode NSDefaultRunLoopMode;
+extern NSRunLoopMode NSRunLoopCommonModes;
 
 #define Cocoa_Enum(name, type)\
   typedef type name;\
@@ -457,9 +460,6 @@ Cocoa_Enum(NSViewLayerContentsRedrawPolicy, NSInteger)
   NSViewLayerContentsRedrawBeforeViewResize,
   NSViewLayerContentsRedrawCrossfade,
 };
-
-global NSRunLoopMode NSDefaultRunLoopMode;
-global NSRunLoopMode NSRunLoopCommonModes;
 
 Cocoa_Enum(NSStringEncoding, NSUInteger)
 {
