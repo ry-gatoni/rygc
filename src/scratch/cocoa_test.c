@@ -141,11 +141,13 @@ main(int argc, char **argv)
   B32 running = 1;
   while(running)
   {
-    // TODO: event iterator?
-    cocoa_events();
-    Gfx_Event *e = gfx__event_next();
-    for(; e; gfx__event_pop(e), e = gfx__event_next())
+    // handle events
+    Gfx_EventSpan events = gfx_events();
+    for(Gfx_Event *e = events.first; e != events.last; ++e)
     {
+      if(!gfx_windows_are_equal(window, e->window))
+      { continue; }
+
       switch(e->kind)
       {
 	case Gfx_EventKind_close:

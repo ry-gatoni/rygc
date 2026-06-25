@@ -138,8 +138,8 @@ global String8 gfx_key_display_strings[Gfx_Key_Count] = {
 typedef struct Gfx_Event Gfx_Event;
 struct Gfx_Event
 {
-  Gfx_Event *next;
-  Gfx_Event *prev;
+  /* Gfx_Event *next; */
+  /* Gfx_Event *prev; */
 
   Gfx_EventKind kind;
   Gfx_Handle window;
@@ -150,12 +150,28 @@ struct Gfx_Event
   Gfx_Key modifiers;
 };
 
-typedef struct Gfx_EventList
+typedef struct Gfx_EventSpan
 {
   Gfx_Event *first;
   Gfx_Event *last;
-  U64 count;
-} Gfx_EventList;
+} Gfx_EventSpan;
+
+typedef struct Gfx_EventIterator
+{
+  Gfx_Event *event;
+} Gfx_EventIterator;
+
+typedef struct Gfx_WindowEventIterator
+{
+  Gfx_Event *event;
+} Gfx_WindowEventIterator;
+
+/* typedef struct Gfx_EventList */
+/* { */
+/*   Gfx_Event *first; */
+/*   Gfx_Event *last; */
+/*   U64 count; */
+/* } Gfx_EventList; */
 
 typedef struct Gfx_State
 {
@@ -166,29 +182,35 @@ typedef struct Gfx_State
 global Gfx_State *gfx_state = 0;
 
 // -----------------------------------------------------------------------------
-// helpers
-
-proc Gfx_Event* gfx__event_new(void);
-proc void gfx__event_push(Gfx_Event *event);
-
-proc Gfx_Event* gfx__event_next(void);
-proc void gfx__event_pop(Gfx_Event *event);
-proc void gfx__events_flush(void);
-
-proc Gfx_Event* gfx__event_list_push_new(Arena *arena, Gfx_EventList *list, Gfx_EventKind kind);
-
-// -----------------------------------------------------------------------------
-// interface
+// init
 
 proc B32 gfx_init(void);
 proc void gfx_uninit(void);
 
+// -----------------------------------------------------------------------------
+// window
+
 proc Gfx_Handle gfx_window_open(S32 width, S32 height, String8 name);
 proc void gfx_window_close(Gfx_Handle window);
 
-proc Gfx_EventList gfx_events(Arena *arena);
+proc B32 gfx_windows_are_equal(Gfx_Handle w1, Gfx_Handle w2);
 
 proc V2S32 gfx_window_get_dim(Os_Handle window);
+
+// -----------------------------------------------------------------------------
+// events
+
+proc Gfx_EventSpan gfx_events(); // flush event queue and fill with platform events
+
+proc Gfx_EventIterator gfx_event_iterator_start(void);
+proc B32 gfx_event_iterator_done(Gfx_EventIterator *it);
+proc void gfx_event_iterator_next(Gfx_EventIterator *it);
+
+proc Gfx_WindowEventIterator gfx_window_event_iterator_start(Gfx_Handle window);
+proc B32 gfx_window_event_iterator_done(Gfx_WindowEventIterator *it);
+proc void gfx_window_event_iterator_next(Gfx_WindowEventIterator *it);
+
+//proc Gfx_EventList gfx_events(Arena *arena);
 
 // -----------------------------------------------------------------------------
 // rendering
@@ -196,3 +218,16 @@ proc V2S32 gfx_window_get_dim(Os_Handle window);
 
 proc void gfx_window_begin_frame(Os_Handle window);
 proc void gfx_window_end_frame(Os_Handle window);
+
+// -----------------------------------------------------------------------------
+// helpers
+
+// events
+proc Gfx_Event* gfx__event_new(void);
+proc void gfx__event_push(Gfx_Event *event);
+
+proc Gfx_Event* gfx__event_next(void);
+proc void gfx__event_pop(Gfx_Event *event);
+proc void gfx__events_flush(void);
+
+//proc Gfx_Event* gfx__event_list_push_new(Arena *arena, Gfx_EventList *list, Gfx_EventKind kind);

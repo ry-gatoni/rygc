@@ -58,6 +58,8 @@ proc V2S32 cocoa_window_dim(Cocoa_Window *win);
 // -----------------------------------------------------------------------------
 // events
 
+proc void cocoa_events();
+
 // -----------------------------------------------------------------------------
 // render
 
@@ -69,3 +71,6 @@ proc inline void cocoa__window_release(Cocoa_Window *win);
 
 proc inline Gfx_Handle cocoa__gfx_handle_from_window(Cocoa_Window *win);
 proc inline Cocoa_Window* cocoa__window_from_gfx_handle(Gfx_Handle win);
+
+proc inline Cocoa_Window* cocoa__window_from_ns_window(NSWindow *ns_win);
+proc inline void cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window);

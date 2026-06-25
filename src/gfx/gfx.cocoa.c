@@ -34,22 +34,20 @@ cocoa_uninit(void)
 // -----------------------------------------------------------------------------
 // window
 
-global const char *window_association_key = "rygc_cocoa_window";
-
 // NOTE: private function
 proc B32
 cocoa__on_window_close(id self, SEL cmd, NSWindow *sender)
 {
   Unused(self);
   Unused(cmd);
-  Cocoa_Window *window = (Cocoa_Window*)objc_getAssociatedObject(sender, window_association_key);
+
+  Cocoa_Window *window = cocoa__window_from_ns_window(sender);
   Gfx_Event *event = gfx__event_new();
   Assert(event);
   event->kind = Gfx_EventKind_close;
   event->window = cocoa__gfx_handle_from_window(window);
   gfx__event_push(event);
 
-  // TODO: close the window
   return(1);
 }
 
@@ -91,7 +89,7 @@ cocoa_window_open(V2S32 dim, String8 title)
   // TODO: alloc buffers
 
   window = cocoa__window_alloc();
-  objc_setAssociatedObject(ns_window, window_association_key, (id)window, OBJC_ASSOCIATION_ASSIGN);
+  cocoa__set_window_for_ns_window(ns_window, window);
   window->window = ns_window;
   window->view = view;
   window->layer = layer;
@@ -148,14 +146,14 @@ global Gfx_EventKind gfx_event_kind_from_cocoa_event_type[] = {
 proc void
 cocoa_events(void)
 {
-  gfx__events_flush();
-
   NSEvent *e = 0;
   NSEventMask mask = NSEventMaskAny;
   NSRunLoopMode mode = NSDefaultRunLoopMode;
   while((e = NSApplication_nextEventMatchingMask(cocoa_state->app, mask, 0, mode, true)) != 0)
   {
     NSEventType type = NSEvent_type(e);
+    NSWindow *ns_window = NSEvent_window(e);
+    Cocoa_Window *window = cocoa__window_from_ns_window(ns_window);
     switch(type)
     {
       // TODO: handle events that we don't have os kinds for
@@ -165,8 +163,8 @@ cocoa_events(void)
 	Gfx_Event *event = gfx__event_new();
 	Assert(event);
 	event->kind = gfx_event_kind_from_cocoa_event_type[type];
+	event->window = cocoa__gfx_handle_from_window(window);
 	gfx__event_push(event);
-	//gfx__event_list_push_new(arena, &result, gfx_event_kind_from_cocoa_event_type[type]);
       }break;
     }
 
@@ -227,4 +225,19 @@ cocoa__window_from_gfx_handle(Gfx_Handle win)
 {
   Cocoa_Window *result = win.handle;
   return result;
+}
+
+global const char *window_association_key = "rygc_cocoa_window";
+
+proc inline Cocoa_Window*
+cocoa__window_from_ns_window(NSWindow *ns_win)
+{
+  Cocoa_Window *result = (Cocoa_Window*)objc_getAssociatedObject(ns_win, window_association_key);
+  return result;
+}
+
+proc inline void
+cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window)
+{
+  objc_setAssociatedObject(ns_win, window_association_key, (id)window, OBJC_ASSOCIATION_ASSIGN);
 }
