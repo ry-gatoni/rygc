@@ -12,7 +12,6 @@
 
 // TODO:
 // - events:
-//   - gracefully handle window close
 //   - read keysyms/keycodes
 //   - sync to refresh rate
 //   - smooth resize
@@ -123,6 +122,9 @@ typedef struct Xcb_State
   xcb_screen_t *screen;
 
   xcb_gcontext_t g_ctxt;
+
+  xcb_atom_t wm_proto_atom;
+  xcb_atom_t wm_del_win_atom;
 
   U32 extensions;
 

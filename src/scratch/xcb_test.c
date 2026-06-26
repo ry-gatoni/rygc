@@ -43,12 +43,12 @@ main(int argc, char **argv)
 
       switch(event->kind)
       {
-	case Gfx_EventKind_press:
+	case Gfx_EventKind_close:
 	{
-	  if(event->key == Gfx_Key_mouse_right) running = 0;
+	  running = 0;
 	}break;
 
-	default: break;
+	default: {}break;
       }
     }
 

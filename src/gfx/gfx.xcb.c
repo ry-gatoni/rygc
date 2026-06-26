@@ -72,6 +72,22 @@ xcb_init(Arena *arena)
     }
   }
 
+  // NOTE: get wm protocols and wm delete window cookies
+  xcb_atom_t wm_proto_atom, wm_del_win_atom;
+  {
+    String8 wm_proto_name = Str8Lit("WM_PROTOCOLS");
+    xcb_intern_atom_cookie_t wm_proto_cookie =
+      xcb_intern_atom(conn, 1, wm_proto_name.count, (const char*)wm_proto_name.string);
+    xcb_intern_atom_reply_t *wm_proto_reply = xcb_intern_atom_reply(conn, wm_proto_cookie, 0);
+    wm_proto_atom = wm_proto_reply->atom;
+
+    String8 wm_del_win_name = Str8Lit("WM_DELETE_WINDOW");
+    xcb_intern_atom_cookie_t wm_del_win_cookie =
+      xcb_intern_atom(conn, 1, wm_del_win_name.count, (const char*)wm_del_win_name.string);
+    xcb_intern_atom_reply_t *wm_del_win_reply = xcb_intern_atom_reply(conn, wm_del_win_cookie, 0);
+    wm_del_win_atom = wm_del_win_reply->atom;
+  }
+
   // NOTE: create graphics context
   xcb_gcontext_t g_ctxt = xcb_generate_id(conn);
   {
@@ -88,6 +104,8 @@ xcb_init(Arena *arena)
 
   xcb_state->screen = screen;
   xcb_state->extensions = extension_flags;
+  xcb_state->wm_proto_atom = wm_proto_atom;
+  xcb_state->wm_del_win_atom = wm_del_win_atom;
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b) xcb_init_backend(b);
   // TODO: set enabled backend
   return(1);
@@ -199,12 +217,13 @@ xcb_init_backend(Xcb_Backend backend)
 proc Xcb_Window*
 xcb_window_open(V2S32 dim, String8 title)
 {
+  xcb_connection_t *conn = xcb_state->conn;
+
   Xcb_Window *win = xcb_window_alloc();
 
   // NOTE: create window
   xcb_window_t window_id = xcb_generate_id(xcb_state->conn);
   {
-    xcb_connection_t *conn = xcb_state->conn;
     U8 depth = XCB_COPY_FROM_PARENT;
     xcb_window_t parent = xcb_state->screen->root;
     U16 border = 10;
@@ -229,7 +248,6 @@ xcb_window_open(V2S32 dim, String8 title)
 
   // NOTE: set title
   {
-    xcb_connection_t *conn = xcb_state->conn;
     U8 mode = XCB_PROP_MODE_REPLACE;
     xcb_atom_t property = XCB_ATOM_WM_NAME;
     xcb_atom_t type = XCB_ATOM_STRING;
@@ -238,6 +256,18 @@ xcb_window_open(V2S32 dim, String8 title)
     const void *data = title.string;
     XcbCheckRequest(xcb_change_property, (conn, mode, window_id, property, type, fmt, data_len, data),
 		    "window open: set title failure", xcb_window_open_failure);
+  }
+
+  // NOTE: set up window close event
+  {
+    U8 mode = XCB_PROP_MODE_REPLACE;
+    xcb_atom_t property = xcb_state->wm_proto_atom;
+    xcb_atom_t type = XCB_ATOM_ATOM;
+    U8 fmt = 32;
+    U32 data_len = 1;
+    const void *data = &xcb_state->wm_del_win_atom;
+    XcbCheckRequest(xcb_change_property, (conn, mode, window_id, property, type, fmt, data_len, data),
+		    "window open: configure close event failure", xcb_window_open_failure);
   }
 
   // NOTE: init supported backends
@@ -250,7 +280,6 @@ xcb_window_open(V2S32 dim, String8 title)
 
   // NOTE: put the window on the screen
   {
-    xcb_connection_t *conn = xcb_state->conn;
     XcbCheckRequest(xcb_map_window, (conn, window_id),
 		    "window open: window map failure", xcb_window_open_failure);
   }
@@ -559,7 +588,8 @@ xcb_events(void)
   xcb_generic_event_t *xcb_event = 0;
   while((xcb_event = xcb_poll_for_event(conn)))
   {
-    switch(xcb_event->response_type)
+    // NOTE: mask off top bit to properly identify CLIENT_MESSAGE events
+    switch(xcb_event->response_type & 0x7f)
     {
       case XCB_EXPOSE:
       {
@@ -631,6 +661,20 @@ xcb_events(void)
 	}
 
 	xcb_flush(conn);
+      }break;
+
+      case XCB_CLIENT_MESSAGE:
+      {
+	xcb_client_message_event_t *client_message = (xcb_client_message_event_t*)xcb_event;
+	Xcb_Window *win = xcb_window_from_id(client_message->window);
+	if(client_message->data.data32[0] == xcb_state->wm_del_win_atom)
+	{
+	  // NOTE: close window
+	  Gfx_Event *event = gfx__event_new();
+	  event->kind = Gfx_EventKind_close;
+	  event->window = xcb__gfx_handle_from_window(win);
+	  gfx__event_push(event);
+	}
       }break;
 
       // NOTE: resize
