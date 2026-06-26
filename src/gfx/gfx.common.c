@@ -16,6 +16,10 @@ gfx_init(void)
   result = win32_init(arena);
 #elif GFX_BACKEND == GFX_BACKEND_COCOA
   result = cocoa_init(arena);
+#elif GFX_BACKEND == GFX_BACKEND_XCB
+  result = xcb_init(arena);
+#else
+  # error unknown backend
 #endif
   return result;
 }
@@ -29,6 +33,10 @@ gfx_uninit(void)
   win32_uninit();
 #elif GFX_BACKEND == GFX_BACKEND_COCOA
   cocoa_uninit();
+#elif GFX_BACKEND == GFX_BACKEND_XCB
+  xcb_uninit();
+#else
+# error unknown backend
 #endif
 
   os_ring_buffer_release(&gfx_state->event_buffer);
@@ -62,6 +70,10 @@ gfx_events(void)
   win32_events();
 #elif GFX_BACKEND == GFX_BACKEND_COCOA
   cocoa_events();
+#elif GFX_BACKEND == GFX_BACKEND_XCB
+  xcb_events();
+#else
+# error unknown backend
 #endif
 
   // NOTE: return readable span

@@ -2,7 +2,7 @@
 #include "base.os.posix.h"
 
 #define POSIX_OS_READ_MAX_BYTES  (0x7FFFF000ULL)
-#define POSIX_OS_WRITE_MAX_BYTES LINUX_MAX_BYTES_TO_READ
+#define POSIX_OS_WRITE_MAX_BYTES POSIX_OS_READ_MAX_BYTES
 
 typedef struct Linux_State
 {

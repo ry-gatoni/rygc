@@ -6,6 +6,8 @@
 #  include "gfx.win32.c"
 #elif GFX_BACKEND == GFX_BACKEND_COCOA
 #  include "gfx.cocoa.c"
+#elif GFX_BACKEND == GFX_BACKEND_XCB
+#  include "gfx.xcb.c"
 #else
 #  error ERROR: unsupported gfx backend
 #endif

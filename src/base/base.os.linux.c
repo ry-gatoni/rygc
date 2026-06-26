@@ -1,3 +1,5 @@
+#include "base.os.posix.c"
+
 // -----------------------------------------------------------------------------
 // initialization
 
@@ -10,8 +12,8 @@ linux_init(void)
   if(linux_state)
   {
     linux_state->arena = arena;
-    linux_state->counter_freq = cpu_counter_fixed_freq();
-    linux_state->page_size = posix_pagesize();
+    linux_state->cpu_counter_freq = cpu_counter_fixed_freq();
+    linux_state->page_size = posix_page_size();
 
     posix_init(arena);
 
@@ -66,42 +68,48 @@ os_mem_release(void *mem, U64 size)
   posix_mem_release(mem, size);
 }
 
-proc Os_RingBuffer
-os_ring_buffer_alloc(U64 min_size)
+proc void
+os_ring_buffer_init(Os_RingBuffer *rb, U64 min_size)
 {
   int fd = -1;
   void *map_base = MAP_FAILED;
   void *map_lo = MAP_FAILED;
   void *map_hi = MAP_FAILED;
-  Os_RingBuffer result = {0};
 
   U64 size = AlignPow2(min_size, linux_state->page_size);
   fd = syscall(__NR_memfd_create, "RYGC-MAGIC-RING-BUFFER", FD_CLOEXEC);
-  if(fd == -1) { goto os_ring_buffer_alloc_failure; }
-  if(ftruncate(fd, size) == -1) { goto os_ring_buffer_alloc_failure; }
+  if(fd == -1)
+  { goto os_ring_buffer_init_failure; }
+  if(ftruncate(fd, size) == -1)
+  { goto os_ring_buffer_init_failure; }
 
   map_base = mmap(0, 2*size, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-  if(map_base == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+  if(map_base == MAP_FAILED)
+  { goto os_ring_buffer_init_failure; }
 
   map_lo = mmap((U8*)map_base + 0*size, size, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
-  if(map_lo == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+  if(map_lo == MAP_FAILED)
+  { goto os_ring_buffer_init_failure; }
   map_hi = mmap((U8*)map_base + 1*size, size, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
-  if(map_hi == MAP_FAILED) { goto os_ring_buffer_alloc_failure; }
+  if(map_hi == MAP_FAILED)
+  { goto os_ring_buffer_init_failure; }
 
   close(fd);
 
-  result.mem = map_base;
-  result.size = size;
-  return(result);
+  rb->mem = map_base;
+  rb->size = size;
+  rb->read = 0;
+  rb->write = 0;
+  return;
 
-os_ring_buffer_alloc_failure:
-  if(fd != -1) { close(fd); }
+os_ring_buffer_init_failure:
   if(map_base != MAP_FAILED) munmap(map_base, 2*size);
-  return(result);
+  if(fd != -1) { close(fd); }
+  ZeroStruct(rb);
 }
 
 proc void
-os_ring_buffer_free(Os_RingBuffer *rb)
+os_ring_buffer_release(Os_RingBuffer *rb)
 {
   munmap(rb->mem, 2*rb->size);
 }

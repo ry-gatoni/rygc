@@ -4,6 +4,7 @@
 #define GFX_BACKEND_WAYLAND 1
 #define GFX_BACKEND_WIN32 2
 #define GFX_BACKEND_COCOA 3
+#define GFX_BACKEND_XCB 4
 
 // NOTE: default gfx backends
 #ifndef GFX_BACKEND
@@ -24,6 +25,8 @@
 #  include "gfx.win32.h"
 #elif GFX_BACKEND == GFX_BACKEND_COCOA
 #  include "gfx.cocoa.h"
+#elif GFX_BACKEND == GFX_BACKEND_XCB
+#  include "gfx.xcb.h"
 #else
 #  error ERROR: unrecognized value for `GFX_BACKEND`
 #endif

@@ -1,10 +1,9 @@
+#define GFX_BACKEND 4 // TODO: it would be nice if the backend defines were made somewhere else, so I can use names to configure which backend to use instead of numbers
 #include "base/base.h"
-#include "gfx/gfx.common.h"
-#include "gfx/gfx.xcb.h"
+#include "gfx/gfx.h"
 
 #include "base/base.c"
-#include "gfx/gfx.common.c"
-#include "gfx/gfx.xcb.c"
+#include "gfx/gfx.c"
 
 typedef enum XcbExpose
 {
@@ -21,39 +20,47 @@ main(int argc, char **argv)
   Unused(argc);
   Unused(argv);
 
-  if(!xcb_init()) return(1);
+  int result = 0;
 
-  Xcb_Window *window = xcb_window_open(v2s32(640, 480));
-  xcb_select_backend(window, Xcb_Backend_ogl);
+  if(!os_init())
+  { result = 1; goto end; }
 
-  Arena *frame_arena = arena_alloc();
+  if(!gfx_init())
+  { result = 1; goto end; }
+
+  Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("xcb_test"));
+  /* xcb_select_backend(window, Xcb_Backend_ogl); */
+
   B32 running = 1;
   while(running)
   {
-    Os_EventList events = xcb_events(frame_arena);
-    for(Os_Event *event = events.first; event; event = event->next)
+    // NOTE: handle events
+    Gfx_EventSpan events = gfx_events();
+    for(Gfx_Event *event = events.first; event != events.last; ++event)
     {
-      if(xcb__window_from_gfx_handle(event->window) != window) continue;
+      if(!gfx_windows_are_equal(window, event->window))
+      { continue; }
 
       switch(event->kind)
       {
-	case Os_EventKind_press:
+	case Gfx_EventKind_press:
 	{
-	  if(event->key == Os_Key_mouse_right) running = 0;
+	  if(event->key == Gfx_Key_mouse_right) running = 0;
 	}break;
 
 	default: break;
       }
     }
 
-    arena_clear(frame_arena);
+    // TODO: draw
   }
 
-  xcb_window_close(window);
+  gfx_window_close(window);
 
-  xcb_uninit();
+  gfx_uninit();
 
-  return(0);
+end:
+  return result;
 
 #if 0
   // NOTE: persistent resources that should be released at program end

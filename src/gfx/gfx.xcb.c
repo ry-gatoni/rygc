@@ -35,9 +35,8 @@ xcb_log_error(xcb_generic_error_t *error, char *msg)
 // init/uninit
 
 proc B32
-xcb_init(void)
+xcb_init(Arena *arena)
 {
-  Arena *arena = arena_alloc();
   xcb_state = arena_push_struct(arena, Xcb_State);
   xcb_state->arena = arena;
 
@@ -93,7 +92,7 @@ xcb_init(void)
   // TODO: set enabled backend
   return(1);
 
-  xcb_init_failure:
+xcb_init_failure:
   xcb_uninit();
   return(0);
 }
@@ -107,7 +106,6 @@ xcb_uninit(void)
     if(xcb_state->g_ctxt) xcb_free_gc(xcb_state->conn, xcb_state->g_ctxt);
     if(xcb_state->conn) xcb_disconnect(xcb_state->conn);
 
-    arena_release(xcb_state->arena);
     xcb_state = 0;
   }
 }
@@ -262,6 +260,22 @@ xcb_window_close(Xcb_Window *win)
     if(win->id) xcb_destroy_window(xcb_state->conn, win->id);
     xcb_window_free(win);
   }
+}
+
+proc Gfx_Handle
+gfx_window_open(S32 width, S32 height, String8 name)
+{
+  Unused(name); // TODO: set window title
+  Xcb_Window *win = xcb_window_open(v2s32(width, height));
+  Gfx_Handle result = xcb__gfx_handle_from_window(win);
+  return result;
+}
+
+proc void
+gfx_window_close(Gfx_Handle window)
+{
+  Xcb_Window *win = xcb__window_from_gfx_handle(window);
+  xcb_window_close(win);
 }
 
 proc void
@@ -508,16 +522,16 @@ xcb_window_from_id(xcb_window_t id)
   return(win);
 }
 
-proc Os_Handle
-gfx__handle_from_xcb_window(Xcb_Window *win)
+proc Gfx_Handle
+xcb__gfx_handle_from_window(Xcb_Window *win)
 {
-  Os_Handle result = {0};
+  Gfx_Handle result = {0};
   result.handle = win;
   return(result);
 }
 
 proc Xcb_Window*
-xcb__window_from_gfx_handle(Os_Handle handle)
+xcb__window_from_gfx_handle(Gfx_Handle handle)
 {
   Xcb_Window *result = handle.handle;
   return(result);
@@ -526,11 +540,9 @@ xcb__window_from_gfx_handle(Os_Handle handle)
 // -----------------------------------------------------------------------------
 // events
 
-proc Os_EventList
-xcb_events(Arena *arena)
+proc void
+xcb_events(void)
 {
-  Os_EventList result = {0};
-
   xcb_connection_t *conn = xcb_state->conn;
   xcb_generic_event_t *xcb_event = 0;
   while((xcb_event = xcb_poll_for_event(conn)))
@@ -623,9 +635,11 @@ xcb_events(Arena *arena)
       {
 	xcb_motion_notify_event_t *motion_event = (xcb_motion_notify_event_t*)xcb_event;
 	Xcb_Window *win = xcb_window_from_id(motion_event->event);
-	Os_Event *event = gfx__event_list_push_new(arena, &result, Os_EventKind_move);
-	event->window = gfx__handle_from_xcb_window(win);
+	Gfx_Event *event = gfx__event_new();
+	event->kind = Gfx_EventKind_move;
+	event->window = xcb__gfx_handle_from_window(win);
 	event->pos = v2(motion_event->event_x, motion_event->event_y);
+	gfx__event_push(event);
       }break;
 
       // NOTE: mouse button press/release, discrete mouse wheel scroll
@@ -635,27 +649,30 @@ xcb_events(Arena *arena)
 	xcb_button_press_event_t *button_event = (xcb_button_press_event_t*)xcb_event;
 
 	Xcb_Window *win = xcb_window_from_id(button_event->event);
-	Os_Handle gfx_win = gfx__handle_from_xcb_window(win);
+	Gfx_Handle gfx_win = xcb__gfx_handle_from_window(win);
 	V2 pos = v2(button_event->event_x, button_event->event_y);
 	if(button_event->detail == XCB_BUTTON_INDEX_4 || button_event->detail == XCB_BUTTON_INDEX_5)
 	{
-	  Os_Event *event = gfx__event_list_push_new(arena, &result, Os_EventKind_scroll);
+	  Gfx_Event *event = gfx__event_new();
+	  event->kind = Gfx_EventKind_scroll;
 	  event->window = gfx_win;
 	  event->pos = pos;
 	  event->scroll = v2(0, button_event->detail == XCB_BUTTON_INDEX_4 ? 1 : -1);
+	  gfx__event_push(event);
 	}
 	else
 	{
-	  Os_EventKind event_kind =
-	    xcb_event->response_type == XCB_BUTTON_PRESS ? Os_EventKind_press : Os_EventKind_release;
-	  Os_Event *event = gfx__event_list_push_new(arena, &result, event_kind);
+	  Gfx_Event *event = gfx__event_new();
+	  event->kind = xcb_event->response_type == XCB_BUTTON_PRESS ? Gfx_EventKind_press : Gfx_EventKind_release;
 	  event->window = gfx_win;
 	  event->pos = pos;
 	  event->key = xcb_button_map[button_event->detail];
+	  gfx__event_push(event);
+
 	}
       }break;
 
-      // TODO: translate events to gfx layer format, append to list
+      // TODO: translate events to gfx layer format, push to buffer
       case XCB_KEY_PRESS:
       case XCB_KEY_RELEASE:
 
@@ -664,6 +681,4 @@ xcb_events(Arena *arena)
 
     free(xcb_event);
   }
-
-  return(result);
 }

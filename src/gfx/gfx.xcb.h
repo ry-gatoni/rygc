@@ -21,6 +21,9 @@
 // - integrate with render api
 // - vulkan context
 // - integrate with logging system
+// - support changing cursor shapes
+//   - or providing custom shapes
+//     - maybe even render into the cursor texture dynamically
 // - dynamically load libs
 // - split backend implemenations/states into their own files
 //   - maybe some dynamic functionality
@@ -134,16 +137,16 @@ global xcb_void_cookie_t xcb_request_cookie = {0};
 global xcb_generic_error_t *xcb_error = 0;
 
 // NOTE: documentation appears to be wrong here
-global Os_Key xcb_button_map[] = {
-  [XCB_BUTTON_INDEX_1] = Os_Key_mouse_left,
-  [XCB_BUTTON_INDEX_2] = Os_Key_mouse_middle,
-  [XCB_BUTTON_INDEX_3] = Os_Key_mouse_right,
+global Gfx_Key xcb_button_map[] = {
+  [XCB_BUTTON_INDEX_1] = Gfx_Key_mouse_left,
+  [XCB_BUTTON_INDEX_2] = Gfx_Key_mouse_middle,
+  [XCB_BUTTON_INDEX_3] = Gfx_Key_mouse_right,
 };
 
 // -----------------------------------------------------------------------------
 // state init/uninit
 
-proc B32 xcb_init(void);
+proc B32 xcb_init(Arena *arena);
 proc void xcb_uninit(void);
 
 proc void xcb_init_backend(Xcb_Backend backend);
@@ -163,7 +166,8 @@ proc B32 xcb_select_backend(Xcb_Window *win, Xcb_Backend backend);
 // -----------------------------------------------------------------------------
 // events
 
-proc Os_EventList xcb_events(Arena *arena);
+proc void xcb_events(void);
+/* proc Os_EventList xcb_events(Arena *arena); */
 
 // -----------------------------------------------------------------------------
 // global helpers
@@ -180,5 +184,5 @@ proc void xcb_window_free(Xcb_Window *win);
 
 proc Xcb_Window* xcb_window_from_id(xcb_window_t id);
 
-proc Os_Handle gfx__handle_from_xcb_window(Xcb_Window *win);
-proc Xcb_Window* xcb__window_from_gfx_handle(Os_Handle handle);
+proc Gfx_Handle xcb__gfx_handle_from_window(Xcb_Window *win);
+proc Xcb_Window* xcb__window_from_gfx_handle(Gfx_Handle handle);
