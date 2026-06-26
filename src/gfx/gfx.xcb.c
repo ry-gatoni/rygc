@@ -197,7 +197,7 @@ xcb_init_backend(Xcb_Backend backend)
 // window open/close
 
 proc Xcb_Window*
-xcb_window_open(V2S32 dim)
+xcb_window_open(V2S32 dim, String8 title)
 {
   Xcb_Window *win = xcb_window_alloc();
 
@@ -226,6 +226,19 @@ xcb_window_open(V2S32 dim)
   }
 
   win->id = window_id;
+
+  // NOTE: set title
+  {
+    xcb_connection_t *conn = xcb_state->conn;
+    U8 mode = XCB_PROP_MODE_REPLACE;
+    xcb_atom_t property = XCB_ATOM_WM_NAME;
+    xcb_atom_t type = XCB_ATOM_STRING;
+    U8 fmt = 8;
+    U32 data_len = title.count;
+    const void *data = title.string;
+    XcbCheckRequest(xcb_change_property, (conn, mode, window_id, property, type, fmt, data_len, data),
+		    "window open: set title failure", xcb_window_open_failure);
+  }
 
   // NOTE: init supported backends
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b)
@@ -265,8 +278,7 @@ xcb_window_close(Xcb_Window *win)
 proc Gfx_Handle
 gfx_window_open(S32 width, S32 height, String8 name)
 {
-  Unused(name); // TODO: set window title
-  Xcb_Window *win = xcb_window_open(v2s32(width, height));
+  Xcb_Window *win = xcb_window_open(v2s32(width, height), name);
   Gfx_Handle result = xcb__gfx_handle_from_window(win);
   return result;
 }

@@ -155,7 +155,7 @@ proc void xcb_uninit_backend(Xcb_Backend backend);
 // -----------------------------------------------------------------------------
 // window open/close
 
-proc Xcb_Window* xcb_window_open(V2S32 dim);
+proc Xcb_Window* xcb_window_open(V2S32 dim, String8 title);
 proc void xcb_window_close(Xcb_Window *win);
 
 proc void xcb_window_init_backend(Xcb_Window *win, Xcb_Backend backend);
@@ -167,7 +167,6 @@ proc B32 xcb_select_backend(Xcb_Window *win, Xcb_Backend backend);
 // events
 
 proc void xcb_events(void);
-/* proc Os_EventList xcb_events(Arena *arena); */
 
 // -----------------------------------------------------------------------------
 // global helpers
