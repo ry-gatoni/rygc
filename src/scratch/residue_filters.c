@@ -38,6 +38,22 @@ global R32 residues_mod_9[] = {
   0, 1, 4, 0, 7, 7, 0, 4, 1,
 };
 
+global R32 residues_mod_10[] = {
+  0, 1, 4, 9, 6, 5, 6, 9, 4, 1,
+};
+
+global R32 residues_mod_11[] = {
+  0, 1, 4, 9, 5, 3, 3, 5, 9, 4, 1,
+};
+
+global R32 residues_mod_12[] = {
+  0, 1, 4, 9, 4, 1,
+};
+
+global R32 residues_mod_13[] = {
+  0, 1, 4, 9, 3, 12, 10, 10, 12, 3, 9, 4, 1,
+};
+
 global R32 *residues[] = {
   residues_mod_2,
   residues_mod_3,
@@ -47,10 +63,15 @@ global R32 *residues[] = {
   residues_mod_7,
   residues_mod_8,
   residues_mod_9,
+  residues_mod_10,
+  residues_mod_11,
+  residues_mod_12,
+  residues_mod_13,
 };
 
 typedef struct FilterState
 {
+  R32 gain;
   R32 *coeffs;
   U64 coeff_count;
   Os_RingBuffer samples;
@@ -62,6 +83,13 @@ filter_init(FilterState *fs, R32 *coeffs, U64 coeff_count)
   os_ring_buffer_init(&fs->samples, KB(16));
   fs->coeffs = coeffs;
   fs->coeff_count = coeff_count;
+  os_ring_buffer_write_end(&fs->samples, (coeff_count - 1)*sizeof(*coeffs)); // NOTE: "write" zeros
+  R32 coeff_sum = 0.f;
+  for(U64 coeff_idx = 0; coeff_idx < coeff_count; ++coeff_idx)
+  {
+    coeff_sum += coeffs[coeff_idx];
+  }
+  fs->gain = 1.f / coeff_sum;
 }
 
 proc void
@@ -84,7 +112,7 @@ filter_process(FilterState *fs, R32 *out_samples, R32 const *in_samples, U64 sam
     // NOTE: if not enough samples available to process, zero output and return
     U64 rb_bytes_available = os_ring_buffer_used(rb_samples);
     U64 rb_samples_available = rb_bytes_available / sizeof(*out_samples);
-    if(rb_samples_available < sample_count + fs->coeff_count)
+    if(rb_samples_available < sample_count + fs->coeff_count - 1)
     { ZeroArray(out_samples, R32, sample_count); return; }
 
     Os_RingBufferSpan rb_read_span = os_ring_buffer_read_span(rb_samples);
@@ -98,7 +126,7 @@ filter_process(FilterState *fs, R32 *out_samples, R32 const *in_samples, U64 sam
 	R32 sample = prev_samples[sample_idx + coeff_idx];
 	out_sample += coeff * sample;
       }
-      out_sample /= (R32)fs->coeff_count;
+      out_sample *= fs->gain;
       printf("sample %4lu: %.4f\n",
 	     sample_idx, out_sample);
 
@@ -138,11 +166,11 @@ main(int argc, char **argv)
     R32 phasor = 0.f;
     for(U64 sample_idx = 0; sample_idx < duration_samples; ++sample_idx)
     {
-      saw_samples[sample_idx] = vol * phasor / TAU32;
-
       phasor += freq_rad;
       if(phasor >= TAU32)
       { phasor -= TAU32; }
+
+      saw_samples[sample_idx] = vol * phasor / TAU32;
     }
   }
 
