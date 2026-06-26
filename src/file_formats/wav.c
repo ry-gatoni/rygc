@@ -116,7 +116,7 @@ wav_push_chunk(WavWriter *wav, U64 frame_count)
 }
 
 proc void
-end_wav(WavWriter *wav, String8 file_path)
+wav_end(WavWriter *wav, String8 file_path)
 {
   U32 headers_size =
     sizeof(*wav->riff_header) +

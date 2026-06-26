@@ -56,12 +56,12 @@ arena_release(Arena *arena)
 proc void*
 arena_push(Arena *arena, U64 size, U64 alignment)
 {
-  Assert(alignment); // NOTE: don't use alignment == 0 for packing data. create a buffer with the desired total size and consume structs/arrays to get pointers to the individual pieces. if doing that becomes pratical, reconsider the way memory is used in general.
+  //Assert(alignment); // NOTE: don't use alignment == 0 for packing data. create a buffer with the desired total size and consume structs/arrays to get pointers to the individual pieces. if doing that becomes pratical, reconsider the way memory is used in general.
 
   void *result = 0;
   Arena *current = arena->current;
 
-  U64 aligned_pos = AlignPow2(current->pos, alignment);
+  U64 aligned_pos = alignment ? AlignPow2(current->pos, alignment) : current->pos;
   U64 new_pos = aligned_pos + size;
 
   // NOTE: if the current block can't handle the allocation, push a new block that can
