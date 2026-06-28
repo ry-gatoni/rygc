@@ -137,6 +137,51 @@ gfx_window_event_iterator_next(Gfx_WindowEventIterator *it)
 }
 
 // -----------------------------------------------------------------------------
+// render
+
+proc void
+gfx_render_target_from_window(void *target, Gfx_Handle window)
+{
+  Gfx_RenderTargetKind kind = gfx_render_target_kind(window);
+  switch(kind)
+  {
+    case Gfx_RenderTargetKind_pixels:
+    {
+      Gfx_PixelRenderTarget *pixel_target = target;
+      gfx_pixel_render_target_from_window(pixel_target, window);
+    }break;
+
+    case Gfx_RenderTargetKind_ogl:
+    {
+      Gfx_OglRenderTarget *ogl_target = target;
+      gfx_ogl_render_target_from_window(ogl_target, window);
+    }break;
+
+    default: { Assert(0); }break;
+  }
+}
+
+proc void
+gfx_submit_frame(Gfx_Handle window)
+{
+  Gfx_RenderTargetKind kind = gfx_render_target_kind(window);
+  switch(kind)
+  {
+    case Gfx_RenderTargetKind_pixels:
+    {
+      gfx_submit_frame_pixels(window);
+    }break;
+
+    case Gfx_RenderTargetKind_ogl:
+    {
+      gfx_submit_frame_ogl(window);
+    }break;
+
+    default: { Assert(0); }break;
+  }
+}
+
+// -----------------------------------------------------------------------------
 // helpers
 
 proc Gfx_Event*

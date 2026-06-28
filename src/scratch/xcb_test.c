@@ -5,14 +5,14 @@
 #include "base/base.c"
 #include "gfx/gfx.c"
 
-typedef enum XcbExpose
-{
-  XcbExpose_fill_rect,
-  XcbExpose_put_image,
-  XcbExpose_put_shm_image,
-} XcbExpose;
+/* typedef enum XcbExpose */
+/* { */
+/*   XcbExpose_fill_rect, */
+/*   XcbExpose_put_image, */
+/*   XcbExpose_put_shm_image, */
+/* } XcbExpose; */
 
-global XcbExpose xcb_expose = XcbExpose_put_shm_image;
+//global XcbExpose xcb_expose = XcbExpose_put_shm_image;
 
 int
 main(int argc, char **argv)
@@ -29,8 +29,9 @@ main(int argc, char **argv)
   { result = 1; goto end; }
 
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("xcb_test"));
-  /* xcb_select_backend(window, Xcb_Backend_ogl); */
+  gfx_set_render_target_kind(window, Gfx_RenderTargetKind_pixels);
 
+  U32 frame_counter = 0;
   B32 running = 1;
   while(running)
   {
@@ -51,8 +52,38 @@ main(int argc, char **argv)
 	default: {}break;
       }
     }
+    // TODO: frame-rate wait (explicit or configurable?)
 
-    // TODO: draw
+    // NOTE: draw
+    Gfx_PixelRenderTarget target;
+    gfx_render_target_from_window(&target, window);
+    {
+      R32 frame_sin = sinf((R32)frame_counter / 300.f);
+      R32 frame_cos = cosf((R32)frame_counter / 300.f);
+      R32 frame_sin_sq = frame_sin*frame_sin;
+      R32 frame_cos_sq = frame_cos*frame_cos;
+
+      V4 color_v4 = v4(lerp(0, 1, frame_sin_sq),
+		       0,
+		       lerp(0, 1, frame_cos_sq),
+		       1);
+      U32 color_u32 = color_u32_from_v4(color_v4);
+
+      U8 *row_pixels = target.pixels;
+      for(U32 row_idx = 0; row_idx < target.row_count; ++row_idx)
+      {
+	U8 *row_end = row_pixels + target.stride;
+	for(U32 *pixel = (U32*)row_pixels; pixel < (U32*)row_end; ++pixel)
+	{
+	  *pixel = color_u32;
+	}
+
+	row_pixels = row_end;
+      }
+
+      ++frame_counter;
+    }
+    gfx_submit_frame(window);
   }
 
   gfx_window_close(window);

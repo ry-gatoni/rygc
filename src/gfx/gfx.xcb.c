@@ -593,74 +593,25 @@ xcb_events(void)
     {
       case XCB_EXPOSE:
       {
-	// TODO: we make some requests/api calls here, so it'd be good log/handle any errors
-
 	xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
 	xcb_window_t win_id = expose_event->window;
 	Xcb_Window *win = xcb_window_from_id(win_id);
 	switch(win->selected_backend)
 	{
 	  case Xcb_Backend_base:
-	  {
-	    Xcb_WindowBase *win_base = win->backend_states[Xcb_Backend_base];
-
-	    U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
-	    xcb_drawable_t drawable = win_id;
-	    xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
-	    U16 width = win->dim.width;
-	    U16 height = win->dim.height;
-	    S16 dst_x = 0;
-	    S16 dst_y = 0;
-	    U8 left_pad = 0;
-	    U8 depth = xcb_state->screen->root_depth;
-	    U32 data_len = width*height*sizeof(*win_base->pixels);
-	    U8 *data = (U8*)win_base->pixels;
-	    xcb_put_image(conn, format, drawable, g_ctxt, width, height, dst_x, dst_y, left_pad, depth, data_len, data);
-	  }break;
-
 	  case Xcb_Backend_shm:
 	  {
-	    Xcb_WindowShm *win_shm = win->backend_states[Xcb_Backend_shm];
-
-	    xcb_drawable_t drawable = win_id;
-	    xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
-	    U16 total_width = xcb_state->screen->width_in_pixels;
-	    U16 total_height = xcb_state->screen->height_in_pixels;
-	    U16 src_x = 0;
-	    U16 src_y = 0;
-	    U16 src_width = win->dim.width;
-	    U16 src_height = win->dim.height;
-	    S16 dst_x = 0;
-	    S16 dst_y = 0;
-	    U8 depth = xcb_state->screen->root_depth;
-	    U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
-	    U8 send_event = 0;
-	    xcb_shm_seg_t shm_seg = win_shm->shm_segment;
-	    U32 offset = 0;
-	    xcb_shm_put_image(conn, drawable, g_ctxt, total_width, total_height, src_x, src_y, src_width, src_height, dst_x, dst_y, depth, format, send_event, shm_seg, offset);
+	    xcb_submit_frame_pixels(win);
 	  }break;
 
 	  case Xcb_Backend_ogl:
 	  {
-	    Xcb_BackendOgl *backend_ogl = xcb_state->backend_states[Xcb_Backend_ogl];
-	    Xcb_WindowOgl *win_ogl = win->backend_states[Xcb_Backend_ogl];
-
-	    EGLDisplay dpy = backend_ogl->egl_display;
-	    EGLSurface surf = win_ogl->egl_surface;
-	    EGLContext ctxt = backend_ogl->egl_context;
-	    eglMakeCurrent(dpy, surf, surf, ctxt);
-
-	    glClearColor(1.f, 0.2f, 0.5f, 1.f);
-	    glClear(GL_COLOR_BUFFER_BIT);
-
-	    eglSwapBuffers(dpy, surf);
+	    xcb_submit_frame_ogl(win);
 	  }break;
 
 	  // NOTE: invalid default case
 	  default: { Assert(0); }break;
 	}
-
-	xcb_flush(conn);
       }break;
 
       case XCB_CLIENT_MESSAGE:
@@ -737,4 +688,187 @@ xcb_events(void)
 
     free(xcb_event);
   }
+}
+
+// -----------------------------------------------------------------------------
+// render
+
+global Gfx_RenderTargetKind gfx_render_target_from_xcb_backend[] = {
+  [Xcb_Backend_base] = Gfx_RenderTargetKind_pixels,
+  [Xcb_Backend_shm] = Gfx_RenderTargetKind_pixels,
+  [Xcb_Backend_ogl] = Gfx_RenderTargetKind_ogl,
+};
+
+global Xcb_Backend xcb_backend_from_gfx_render_target[] = {
+  [Gfx_RenderTargetKind_pixels] = Xcb_Backend_shm, // NOTE: if not supported, fall back to base
+  [Gfx_RenderTargetKind_ogl] = Xcb_Backend_ogl, // NOTE: if not supported, fall back to base
+};
+
+proc Gfx_RenderTargetKind
+xcb_render_target_kind(Xcb_Window *window)
+{
+  Gfx_RenderTargetKind result = gfx_render_target_from_xcb_backend[window->selected_backend];
+  return result;
+}
+
+proc void
+xcb_set_render_target_kind(Xcb_Window *window, Gfx_RenderTargetKind kind)
+{
+  Xcb_Backend backend = xcb_backend_from_gfx_render_target[kind];
+  window->selected_backend = xcb_backend_is_supported(backend) ? backend : Xcb_Backend_base;
+}
+
+proc void
+xcb_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Xcb_Window *window)
+{
+  // TODO: same data for base and shm backends?
+  switch(window->selected_backend)
+  {
+    case Xcb_Backend_base:
+    {
+      Xcb_WindowBase *base = window->backend_states[Xcb_Backend_base];
+      target->pixels = (U8*)base->pixels;
+      target->stride = base->pixels_width*sizeof(*base->pixels);
+      target->row_count = base->pixels_height;
+    }break;
+
+    case Xcb_Backend_shm:
+    {
+      Xcb_WindowShm *shm = window->backend_states[Xcb_Backend_shm];
+      target->pixels = (U8*)shm->pixels;
+      target->stride = shm->pixels_width*sizeof(*shm->pixels);
+      target->row_count = shm->pixels_height;
+    }break;
+
+    default: { ZeroStruct(target); }break;
+  }
+}
+
+proc void
+xcb_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Xcb_Window *window)
+{
+  // TODO: implement
+  Unused(window);
+  ZeroStruct(target);
+  Assert(0);
+}
+
+proc void
+xcb_submit_frame_pixels(Xcb_Window *window)
+{
+  // TODO: we make some requests/api calls here, so it'd be good log/handle any errors
+
+  xcb_connection_t *conn = xcb_state->conn;
+  xcb_window_t window_id = window->id;
+  switch(window->selected_backend)
+  {
+    case Xcb_Backend_base:
+    {
+      Xcb_WindowBase *window_base = window->backend_states[Xcb_Backend_base];
+
+      U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+      xcb_drawable_t drawable = window_id;
+      xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+      U16 width = window->dim.width;
+      U16 height = window->dim.height;
+      S16 dst_x = 0;
+      S16 dst_y = 0;
+      U8 left_pad = 0;
+      U8 depth = xcb_state->screen->root_depth;
+      U32 data_len = width*height*sizeof(*window_base->pixels);
+      U8 *data = (U8*)window_base->pixels;
+      xcb_put_image(conn, format, drawable, g_ctxt, width, height, dst_x, dst_y, left_pad, depth, data_len, data);
+    }break;
+
+    case Xcb_Backend_shm:
+    {
+      Xcb_WindowShm *window_shm = window->backend_states[Xcb_Backend_shm];
+
+      xcb_drawable_t drawable = window_id;
+      xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+      U16 total_width = xcb_state->screen->width_in_pixels;
+      U16 total_height = xcb_state->screen->height_in_pixels;
+      U16 src_x = 0;
+      U16 src_y = 0;
+      U16 src_width = window->dim.width;
+      U16 src_height = window->dim.height;
+      S16 dst_x = 0;
+      S16 dst_y = 0;
+      U8 depth = xcb_state->screen->root_depth;
+      U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+      U8 send_event = 0;
+      xcb_shm_seg_t shm_seg = window_shm->shm_segment;
+      U32 offset = 0;
+      xcb_shm_put_image(conn, drawable, g_ctxt, total_width, total_height, src_x, src_y, src_width, src_height, dst_x, dst_y, depth, format, send_event, shm_seg, offset);
+    }break;
+
+    default: { Assert(0); }break;
+  }
+
+  xcb_flush(conn);
+}
+
+proc void
+xcb_submit_frame_ogl(Xcb_Window *window)
+{
+  Assert(window->selected_backend == Xcb_Backend_ogl);
+
+  // TODO: we make some requests/api calls here, so it'd be good log/handle any errors
+
+  // TODO: split some of this off into get render target / render clear
+  Xcb_BackendOgl *backend_ogl = xcb_state->backend_states[Xcb_Backend_ogl];
+  Xcb_WindowOgl *win_ogl = window->backend_states[Xcb_Backend_ogl];
+
+  EGLDisplay dpy = backend_ogl->egl_display;
+  EGLSurface surf = win_ogl->egl_surface;
+  EGLContext ctxt = backend_ogl->egl_context;
+  eglMakeCurrent(dpy, surf, surf, ctxt);
+
+  glClearColor(1.f, 0.2f, 0.5f, 1.f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  eglSwapBuffers(dpy, surf);
+}
+
+proc Gfx_RenderTargetKind
+gfx_render_target_kind(Gfx_Handle window)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  Gfx_RenderTargetKind result = xcb_render_target_kind(xcb_window);
+  return result;
+}
+
+proc void
+gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  xcb_set_render_target_kind(xcb_window, kind);
+}
+
+proc void
+gfx_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Gfx_Handle window)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  xcb_pixel_render_target_from_window(target, xcb_window);
+}
+
+proc void
+gfx_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Gfx_Handle window)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  xcb_ogl_render_target_from_window(target, xcb_window);
+}
+
+proc void
+gfx_submit_frame_pixels(Gfx_Handle window)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  xcb_submit_frame_pixels(xcb_window);
+}
+
+proc void
+gfx_submit_frame_ogl(Gfx_Handle window)
+{
+  Xcb_Window *xcb_window = xcb__window_from_gfx_handle(window);
+  xcb_submit_frame_ogl(xcb_window);
 }

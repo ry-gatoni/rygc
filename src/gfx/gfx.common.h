@@ -143,7 +143,6 @@ struct Gfx_Event
 
   Gfx_EventKind kind;
   Gfx_Handle window;
-  //Value32 data[2];
   V2 pos;
   V2 scroll;
   Gfx_Key key; // NOTE: this represents the _physical key_ on the keyboard/mouse that was pressed, _not_ the key symbol unicode codepoint the keypress maps to according to the user's layout
@@ -173,9 +172,18 @@ typedef struct Gfx_WindowEventIterator
 /*   U64 count; */
 /* } Gfx_EventList; */
 
+typedef enum Gfx_RenderTargetKind
+{
+  Gfx_RenderTargetKind_pixels,
+  Gfx_RenderTargetKind_ogl,
+
+  Gfx_RenderTargetKind_Count,
+} Gfx_RenderTargetKind;
+
 typedef struct Gfx_State
 {
   Arena *arena;
+
   Os_RingBuffer event_buffer;
 } Gfx_State;
 
@@ -215,6 +223,31 @@ proc void gfx_window_event_iterator_next(Gfx_WindowEventIterator *it);
 // -----------------------------------------------------------------------------
 // rendering
 // TODO: move to render module
+
+typedef struct Gfx_OglRenderTarget
+{
+  U32 fbo;//GLUint fbo;
+  V2S32 dim;
+} Gfx_OglRenderTarget;
+
+typedef struct Gfx_PixelRenderTarget
+{
+  U8 *pixels;
+  S32 stride; // bytes per row
+  U32 row_count;
+} Gfx_PixelRenderTarget;
+
+// TODO: select target
+proc Gfx_RenderTargetKind gfx_render_target_kind(Gfx_Handle window);
+proc void gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind);
+
+proc void gfx_render_target_from_window(void *target, Gfx_Handle window);
+proc void gfx_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Gfx_Handle window);
+proc void gfx_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Gfx_Handle window);
+
+proc void gfx_submit_frame(Gfx_Handle window);
+proc void gfx_submit_frame_pixels(Gfx_Handle window);
+proc void gfx_submit_frame_ogl(Gfx_Handle window);
 
 proc void gfx_window_begin_frame(Os_Handle window);
 proc void gfx_window_end_frame(Os_Handle window);

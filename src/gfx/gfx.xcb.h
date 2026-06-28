@@ -16,7 +16,6 @@
 //   - sync to refresh rate
 //   - smooth resize
 //   - smooth scroll
-// - fully integrate with gfx api
 // - integrate with render api
 // - vulkan context
 // - integrate with logging system
@@ -169,6 +168,18 @@ proc B32 xcb_select_backend(Xcb_Window *win, Xcb_Backend backend);
 // events
 
 proc void xcb_events(void);
+
+// -----------------------------------------------------------------------------
+// render
+
+proc Gfx_RenderTargetKind xcb_render_target_kind(Xcb_Window *window);
+proc void xcb_set_render_target_kind(Xcb_Window *window, Gfx_RenderTargetKind kind);
+
+proc void xcb_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Xcb_Window *window);
+proc void xcb_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Xcb_Window *window);
+
+proc void xcb_submit_frame_pixels(Xcb_Window *window);
+proc void xcb_submit_frame_ogl(Xcb_Window *window);
 
 // -----------------------------------------------------------------------------
 // global helpers
