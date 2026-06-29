@@ -1,3 +1,8 @@
+// TODO:
+// - events:
+//   - configure if polling events should block until pending frame has been shown
+//   - events for window
+
 typedef struct Gfx_Handle
 {
   void *handle;

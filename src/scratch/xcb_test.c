@@ -31,10 +31,18 @@ main(int argc, char **argv)
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("xcb_test"));
   gfx_set_render_target_kind(window, Gfx_RenderTargetKind_pixels);
 
+  U64 tsc_fixed_frequency = cpu_counter_fixed_freq();
+  R64 tsc_fixed_period = 1.0 / (R64)tsc_fixed_frequency;
+  U64 frame_end_last_tsc = 0;
   U32 frame_counter = 0;
   B32 running = 1;
   while(running)
   {
+    U64 frame_start_tsc = cpu_counter_fixed();
+    U64 frame_wait_tsc = frame_start_tsc - frame_end_last_tsc;
+    R64 frame_wait_ms = 1000.0 * (R64)frame_wait_tsc * tsc_fixed_period;
+    printf("%.6f ms elapsed between frames\n", frame_wait_ms);
+
     // NOTE: handle events
     Gfx_EventSpan events = gfx_events();
     for(Gfx_Event *event = events.first; event != events.last; ++event)
@@ -84,6 +92,12 @@ main(int argc, char **argv)
       ++frame_counter;
     }
     gfx_submit_frame(window);
+
+    U64 frame_end_tsc = cpu_counter_fixed();
+    U64 frame_elapsed_tsc = frame_end_tsc - frame_start_tsc;
+    R64 frame_elapsed_ms = 1000.0 * (R64)frame_elapsed_tsc * tsc_fixed_period;
+    printf("frame elapsed: %.6f ms\n", frame_elapsed_ms);
+    frame_end_last_tsc = frame_end_tsc;
   }
 
   gfx_window_close(window);

@@ -65,10 +65,13 @@ xcb_init(Arena *arena)
     if(shm_reply && shm_reply->shared_pixmaps)
     {
       extension_flags |= Xcb_Extension_shm;
+      free(shm_reply);
     }
     if(present_reply && present_reply->present)
     {
       extension_flags |= Xcb_Extension_present;
+      xcb_state->present_extension_opcode = present_reply->major_opcode;
+      xcb_state->present_event_stream_id = xcb_generate_id(conn);
     }
   }
 
@@ -100,6 +103,7 @@ xcb_init(Arena *arena)
     XcbCheckRequest(xcb_create_gc, (conn, g_ctxt, drawable, value_mask, values),
 		    "create gc failure", xcb_init_failure);
   }
+  xcb_flush(conn);
   xcb_state->g_ctxt = g_ctxt;
 
   xcb_state->screen = screen;
@@ -270,6 +274,15 @@ xcb_window_open(V2S32 dim, String8 title)
 		    "window open: configure close event failure", xcb_window_open_failure);
   }
 
+  // NOTE: configure present extension, if available
+  if(xcb_state->extensions & Xcb_Extension_present)
+  {
+    xcb_present_event_t eid = xcb_state->present_event_stream_id;
+    U32 event_mask = XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY;
+    XcbCheckRequest(xcb_present_select_input, (conn, eid, window_id, event_mask),
+		    "window open: present select input failure", xcb_window_open_failure);
+  }
+
   // NOTE: init supported backends
   for(Xcb_Backend b = 0; b < Xcb_Backend_Count; ++b)
   {
@@ -284,7 +297,7 @@ xcb_window_open(V2S32 dim, String8 title)
 		    "window open: window map failure", xcb_window_open_failure);
   }
 
-  xcb_flush(xcb_state->conn);
+  xcb_flush(conn);
 
   win->dim = dim;
   return(win);
@@ -586,107 +599,133 @@ xcb_events(void)
 {
   xcb_connection_t *conn = xcb_state->conn;
   xcb_generic_event_t *xcb_event = 0;
-  while((xcb_event = xcb_poll_for_event(conn)))
+  B32 pending_frame = 1; // TODO: configure blocking until pending frame complete
+  while((xcb_event = xcb_poll_for_event(conn)) || pending_frame)
   {
-    // NOTE: mask off top bit to properly identify CLIENT_MESSAGE events
-    switch(xcb_event->response_type & 0x7f)
+    if(xcb_event)
     {
-      case XCB_EXPOSE:
+      // NOTE: mask off top bit to properly identify CLIENT_MESSAGE events
+      U8 response_type = xcb_event->response_type & 0x7F;
+      switch(response_type)
       {
-	xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
-	xcb_window_t win_id = expose_event->window;
-	Xcb_Window *win = xcb_window_from_id(win_id);
-	switch(win->selected_backend)
+	case XCB_EXPOSE:
 	{
-	  case Xcb_Backend_base:
-	  case Xcb_Backend_shm:
+	  xcb_expose_event_t *expose_event = (xcb_expose_event_t*)xcb_event;
+	  xcb_window_t win_id = expose_event->window;
+	  Xcb_Window *win = xcb_window_from_id(win_id);
+	  switch(win->selected_backend)
 	  {
-	    xcb_submit_frame_pixels(win);
-	  }break;
+	    case Xcb_Backend_base:
+	    case Xcb_Backend_shm:
+	    {
+	      xcb_submit_frame_pixels(win);
+	    }break;
 
-	  case Xcb_Backend_ogl:
-	  {
-	    xcb_submit_frame_ogl(win);
-	  }break;
+	    case Xcb_Backend_ogl:
+	    {
+	      xcb_submit_frame_ogl(win);
+	    }break;
 
-	  // NOTE: invalid default case
-	  default: { Assert(0); }break;
-	}
-      }break;
+	    // NOTE: invalid default case
+	    default: { Assert(0); }break;
+	  }
+	}break;
 
-      case XCB_CLIENT_MESSAGE:
-      {
-	xcb_client_message_event_t *client_message = (xcb_client_message_event_t*)xcb_event;
-	Xcb_Window *win = xcb_window_from_id(client_message->window);
-	if(client_message->data.data32[0] == xcb_state->wm_del_win_atom)
+	case XCB_CLIENT_MESSAGE:
 	{
-	  // NOTE: close window
+	  xcb_client_message_event_t *client_message = (xcb_client_message_event_t*)xcb_event;
+	  Xcb_Window *win = xcb_window_from_id(client_message->window);
+	  if(client_message->data.data32[0] == xcb_state->wm_del_win_atom)
+	  {
+	    // NOTE: close window
+	    Gfx_Event *event = gfx__event_new();
+	    event->kind = Gfx_EventKind_close;
+	    event->window = xcb__gfx_handle_from_window(win);
+	    gfx__event_push(event);
+	  }
+	}break;
+
+	case XCB_GE_GENERIC:
+	{
+	  xcb_ge_generic_event_t *ge_event = (xcb_ge_generic_event_t*)xcb_event;
+	  if(ge_event->extension == xcb_state->present_extension_opcode)
+	  {
+	    xcb_present_generic_event_t *present = (xcb_present_generic_event_t*)ge_event;
+	    if(present->evtype == XCB_PRESENT_EVENT_COMPLETE_NOTIFY)
+	    {
+	      // NOTE: present synced with vblank
+	      xcb_present_complete_notify_event_t *complete = (xcb_present_complete_notify_event_t*)present;
+	      Xcb_Window *win = xcb_window_from_id(complete->window);
+	      win->next_msc = complete->msc + 1;
+	      //Assert(complete->serial == xcb_state->pending_frame_serial);
+	      pending_frame = 0;
+	    }
+	  }
+	}break;
+
+	// NOTE: resize
+	case XCB_CONFIGURE_NOTIFY:
+	{
+	  xcb_configure_notify_event_t *configure_event = (xcb_configure_notify_event_t*)xcb_event;
+	  Xcb_Window *win = xcb_window_from_id(configure_event->window);
+	  win->dim.width = configure_event->width;
+	  win->dim.height = configure_event->height;
+	}break;
+
+	// NOTE: mouse move
+	case XCB_MOTION_NOTIFY:
+	{
+	  xcb_motion_notify_event_t *motion_event = (xcb_motion_notify_event_t*)xcb_event;
+	  Xcb_Window *win = xcb_window_from_id(motion_event->event);
 	  Gfx_Event *event = gfx__event_new();
-	  event->kind = Gfx_EventKind_close;
+	  event->kind = Gfx_EventKind_move;
 	  event->window = xcb__gfx_handle_from_window(win);
+	  event->pos = v2(motion_event->event_x, motion_event->event_y);
 	  gfx__event_push(event);
-	}
-      }break;
+	}break;
 
-      // NOTE: resize
-      case XCB_CONFIGURE_NOTIFY:
-      {
-	xcb_configure_notify_event_t *configure_event = (xcb_configure_notify_event_t*)xcb_event;
-	Xcb_Window *win = xcb_window_from_id(configure_event->window);
-	win->dim.width = configure_event->width;
-	win->dim.height = configure_event->height;
-      }break;
-
-      // NOTE: mouse move
-      case XCB_MOTION_NOTIFY:
-      {
-	xcb_motion_notify_event_t *motion_event = (xcb_motion_notify_event_t*)xcb_event;
-	Xcb_Window *win = xcb_window_from_id(motion_event->event);
-	Gfx_Event *event = gfx__event_new();
-	event->kind = Gfx_EventKind_move;
-	event->window = xcb__gfx_handle_from_window(win);
-	event->pos = v2(motion_event->event_x, motion_event->event_y);
-	gfx__event_push(event);
-      }break;
-
-      // NOTE: mouse button press/release, discrete mouse wheel scroll
-      case XCB_BUTTON_PRESS:
-      case XCB_BUTTON_RELEASE:
-      {
-	xcb_button_press_event_t *button_event = (xcb_button_press_event_t*)xcb_event;
-
-	Xcb_Window *win = xcb_window_from_id(button_event->event);
-	Gfx_Handle gfx_win = xcb__gfx_handle_from_window(win);
-	V2 pos = v2(button_event->event_x, button_event->event_y);
-	if(button_event->detail == XCB_BUTTON_INDEX_4 || button_event->detail == XCB_BUTTON_INDEX_5)
+	// NOTE: mouse button press/release, discrete mouse wheel scroll
+	case XCB_BUTTON_PRESS:
+	case XCB_BUTTON_RELEASE:
 	{
-	  Gfx_Event *event = gfx__event_new();
-	  event->kind = Gfx_EventKind_scroll;
-	  event->window = gfx_win;
-	  event->pos = pos;
-	  event->scroll = v2(0, button_event->detail == XCB_BUTTON_INDEX_4 ? 1 : -1);
-	  gfx__event_push(event);
-	}
-	else
+	  xcb_button_press_event_t *button_event = (xcb_button_press_event_t*)xcb_event;
+
+	  Xcb_Window *win = xcb_window_from_id(button_event->event);
+	  Gfx_Handle gfx_win = xcb__gfx_handle_from_window(win);
+	  V2 pos = v2(button_event->event_x, button_event->event_y);
+	  if(button_event->detail == XCB_BUTTON_INDEX_4 || button_event->detail == XCB_BUTTON_INDEX_5)
+	  {
+	    Gfx_Event *event = gfx__event_new();
+	    event->kind = Gfx_EventKind_scroll;
+	    event->window = gfx_win;
+	    event->pos = pos;
+	    event->scroll = v2(0, button_event->detail == XCB_BUTTON_INDEX_4 ? 1 : -1);
+	    gfx__event_push(event);
+	  }
+	  else
+	  {
+	    Gfx_Event *event = gfx__event_new();
+	    event->kind = xcb_event->response_type == XCB_BUTTON_PRESS ? Gfx_EventKind_press : Gfx_EventKind_release;
+	    event->window = gfx_win;
+	    event->pos = pos;
+	    event->key = xcb_button_map[button_event->detail];
+	    gfx__event_push(event);
+
+	  }
+	}break;
+
+	// TODO: translate events to gfx layer format, push to buffer
+	case XCB_KEY_PRESS:
+	case XCB_KEY_RELEASE:
+
+	default:
 	{
-	  Gfx_Event *event = gfx__event_new();
-	  event->kind = xcb_event->response_type == XCB_BUTTON_PRESS ? Gfx_EventKind_press : Gfx_EventKind_release;
-	  event->window = gfx_win;
-	  event->pos = pos;
-	  event->key = xcb_button_map[button_event->detail];
-	  gfx__event_push(event);
+	  printf("xcb_events: unhandled response type: %u\n", xcb_event->response_type);
+	}break;
+      }
 
-	}
-      }break;
-
-      // TODO: translate events to gfx layer format, push to buffer
-      case XCB_KEY_PRESS:
-      case XCB_KEY_RELEASE:
-
-      default: { printf("xcb_events: unhandled response type: %u\n", xcb_event->response_type); }break;
+      free(xcb_event);
     }
-
-    free(xcb_event);
   }
 }
 
@@ -760,46 +799,72 @@ xcb_submit_frame_pixels(Xcb_Window *window)
 
   xcb_connection_t *conn = xcb_state->conn;
   xcb_window_t window_id = window->id;
+
+  // TODO: because shm and base backends go through the same request when the
+  // present extension is available, we should consolidate their states into the
+  // base window (and possibly the other backends as well)
   switch(window->selected_backend)
   {
     case Xcb_Backend_base:
     {
       Xcb_WindowBase *window_base = window->backend_states[Xcb_Backend_base];
 
-      U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
-      xcb_drawable_t drawable = window_id;
-      xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
-      U16 width = window->dim.width;
-      U16 height = window->dim.height;
-      S16 dst_x = 0;
-      S16 dst_y = 0;
-      U8 left_pad = 0;
-      U8 depth = xcb_state->screen->root_depth;
-      U32 data_len = width*height*sizeof(*window_base->pixels);
-      U8 *data = (U8*)window_base->pixels;
-      xcb_put_image(conn, format, drawable, g_ctxt, width, height, dst_x, dst_y, left_pad, depth, data_len, data);
+      if(xcb_state->extensions & Xcb_Extension_present)
+      {
+	xcb_pixmap_t pixmap = window_base->pixmap;
+	U32 serial = xcb_state->request_serial++;
+	U64 target_msc = window->next_msc;
+	xcb_present_pixmap(conn, window_id, pixmap, serial, 0, 0, 0, 0, 0, 0, 0, 0, target_msc, 1, 0, 0, 0);
+	xcb_state->pending_frame_serial = serial;
+      }
+      else
+      {
+	U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+	xcb_drawable_t drawable = window_id;
+	xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+	U16 width = window->dim.width;
+	U16 height = window->dim.height;
+	S16 dst_x = 0;
+	S16 dst_y = 0;
+	U8 left_pad = 0;
+	U8 depth = xcb_state->screen->root_depth;
+	U32 data_len = width*height*sizeof(*window_base->pixels);
+	U8 *data = (U8*)window_base->pixels;
+	xcb_put_image(conn, format, drawable, g_ctxt, width, height, dst_x, dst_y, left_pad, depth, data_len, data);
+      }
     }break;
 
     case Xcb_Backend_shm:
     {
       Xcb_WindowShm *window_shm = window->backend_states[Xcb_Backend_shm];
 
-      xcb_drawable_t drawable = window_id;
-      xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
-      U16 total_width = xcb_state->screen->width_in_pixels;
-      U16 total_height = xcb_state->screen->height_in_pixels;
-      U16 src_x = 0;
-      U16 src_y = 0;
-      U16 src_width = window->dim.width;
-      U16 src_height = window->dim.height;
-      S16 dst_x = 0;
-      S16 dst_y = 0;
-      U8 depth = xcb_state->screen->root_depth;
-      U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
-      U8 send_event = 0;
-      xcb_shm_seg_t shm_seg = window_shm->shm_segment;
-      U32 offset = 0;
-      xcb_shm_put_image(conn, drawable, g_ctxt, total_width, total_height, src_x, src_y, src_width, src_height, dst_x, dst_y, depth, format, send_event, shm_seg, offset);
+      if(xcb_state->extensions & Xcb_Extension_present)
+      {
+	xcb_pixmap_t pixmap = window_shm->pixmap;
+	U32 serial = xcb_state->request_serial++;
+	U64 target_msc = window->next_msc;
+	xcb_present_pixmap(conn, window_id, pixmap, serial, 0, 0, 0, 0, 0, 0, 0, 0, target_msc, 1, 0, 0, 0);
+	xcb_state->pending_frame_serial = serial;
+      }
+      else
+      {
+	xcb_drawable_t drawable = window_id;
+	xcb_gcontext_t g_ctxt = xcb_state->g_ctxt;
+	U16 total_width = xcb_state->screen->width_in_pixels;
+	U16 total_height = xcb_state->screen->height_in_pixels;
+	U16 src_x = 0;
+	U16 src_y = 0;
+	U16 src_width = window->dim.width;
+	U16 src_height = window->dim.height;
+	S16 dst_x = 0;
+	S16 dst_y = 0;
+	U8 depth = xcb_state->screen->root_depth;
+	U8 format = XCB_IMAGE_FORMAT_Z_PIXMAP;
+	U8 send_event = 0;
+	xcb_shm_seg_t shm_seg = window_shm->shm_segment;
+	U32 offset = 0;
+	xcb_shm_put_image(conn, drawable, g_ctxt, total_width, total_height, src_x, src_y, src_width, src_height, dst_x, dst_y, depth, format, send_event, shm_seg, offset);
+      }
     }break;
 
     default: { Assert(0); }break;

@@ -13,7 +13,6 @@
 // TODO:
 // - events:
 //   - read keysyms/keycodes
-//   - sync to refresh rate
 //   - smooth resize
 //   - smooth scroll
 // - integrate with render api
@@ -60,6 +59,8 @@ struct Xcb_Window
   xcb_window_t id;
 
   V2S32 dim;
+
+  U64 next_msc; // NOTE: for vsync using present extension
 
   Xcb_Backend selected_backend;
   void *backend_states[Xcb_Backend_Count];
@@ -124,6 +125,12 @@ typedef struct Xcb_State
 
   xcb_atom_t wm_proto_atom;
   xcb_atom_t wm_del_win_atom;
+
+  U32 request_serial;
+  U32 pending_frame_serial;
+
+  U8 present_extension_opcode;
+  U32 present_event_stream_id;
 
   U32 extensions;
 
