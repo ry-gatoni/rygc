@@ -100,6 +100,7 @@ typedef void NSWindow;
 typedef void NSView;
 typedef void NSEvent;
 typedef void NSDate;
+typedef void NSScreen;
 
 typedef double   NSTimeInterval;
 
@@ -998,6 +999,24 @@ NSString_initWithBytesLength(const char *bytes, NSUInteger length, NSStringEncod
   id nsid = NSAlloc(nsclass);
   SEL nssel = mac_state->sels[MacSelector_initWithBytesLength];
   return ((id (*)(id, SEL, const char*, NSUInteger, NSUInteger))objc_msgSend)(nsid, nssel, bytes, length, encoding);
+}
+
+// NSScreen
+proc inline NSScreen*
+NSScreen_mainScreen(void)
+{
+  Class nsclass = mac_state->classes[MacClass_NSScreen];
+  id nsid = (id)nsclass;
+  SEL nssel = mac_state->sels[MacSelector_mainScreen];
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline NSRect
+NSScreen_frame(NSScreen *screen)
+{
+  id nsid = screen;
+  SEL nssel = mac_state->sels[MacSelector_frame];
+  return ((NSRect (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
 //

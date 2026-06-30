@@ -73,8 +73,11 @@ typedef struct BoxState
 } BoxState;
 
 proc void
-update_and_draw(BoxState *box, U32 *pixels, U32 pixel_stride, V2S32 frame_dim)
+update_and_draw(BoxState *box, Gfx_PixelRenderTarget *target, /* U32 *pixels, U32 pixel_stride, */ V2S32 frame_dim)
 {
+  U32 *pixels = (U32*)target->pixels;
+  U32 pixel_stride = target->stride;
+
   // clear background
   {
     S32 frame_w = frame_dim.width;
@@ -137,6 +140,10 @@ main(int argc, char **argv)
 
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("cocoa test"));
 
+  BoxState box = {0};
+  box.p = v2(20, 40);
+  box.v = v2(1.f, 3.f);
+  box.dim = v2(20, 20);
 #if 1
   B32 running = 1;
   while(running)
@@ -159,7 +166,12 @@ main(int argc, char **argv)
       }
     }
 
-    // TODO: draw
+    // NOTE: draw
+    V2S32 window_dim = gfx_window_dim(window);
+    Gfx_PixelRenderTarget target;
+    gfx_render_target_from_window(&target, window);
+    update_and_draw(&box, &target, window_dim);
+    gfx_submit_frame(window);
   }
 
   gfx_window_close(window);

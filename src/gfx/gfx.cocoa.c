@@ -11,12 +11,36 @@ cocoa_init(Arena *arena)
   if(!NSApplication_setActivationPolicy(app, NSApplicationActivationPolicyRegular))
   { goto cocoa_init_failure; }
 
+  // NOTE: get screen dim
+  S32 screen_width, screen_height;
+  {
+    NSScreen *screen = NSScreen_mainScreen();
+    NSRect screen_rect = NSScreen_frame(screen);
+    screen_width = (S32)screen_rect.size.width;
+    screen_height = (S32)screen_rect.size.height;
+  }
+
+  // NOTE: pixel buffer allocator
+  CFDictionaryRef pbuf_attr;
+  {
+    CFAllocatorRef pbuf_allocator = kCFAllocatorDefault;
+    CFStringRef iosurface_key = kCVPixelBufferIOSurfacePropertiesKey;
+    CFDictionaryRef iosurface_val = CFDictionaryCreate(pbuf_allocator, 0, 0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    const void *pbuf_attr_keys[] = { iosurface_key, };
+    const void *pbuf_attr_vals[] = { iosurface_val, };
+    pbuf_attr = CFDictionaryCreate(pbuf_allocator, pbuf_attr_keys, pbuf_attr_vals, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFRelease(iosurface_val);
+  }
+
   NSApplication_activate(app);
   NSApplication_finishLaunching(app);
 
   cocoa_state = arena_push_struct(arena, Cocoa_State);
   cocoa_state->arena = arena;
   cocoa_state->app = app;
+  cocoa_state->screen_width = screen_width;
+  cocoa_state->screen_height = screen_height;
+  cocoa_state->pbuf_attr = pbuf_attr;
   return(1);
 
 cocoa_init_failure:
@@ -27,6 +51,7 @@ cocoa_init_failure:
 proc void
 cocoa_uninit(void)
 {
+  CFRelease(cocoa_state->pbuf_attr);
   NSApplication_terminate(cocoa_state->app, 0);
   cocoa_state = 0;
 }
@@ -86,13 +111,16 @@ cocoa_window_open(V2S32 dim, String8 title)
   layer = NSView_layer(view);
   CALayer_setContentsGravity(layer, kCAGravityBottomLeft);
 
-  // TODO: alloc buffers
+  Cocoa_PixelBuffer *backbuffer = cocoa__buffer_alloc();
+  Cocoa_PixelBuffer *frontbuffer = cocoa__buffer_alloc();
 
   window = cocoa__window_alloc();
   cocoa__set_window_for_ns_window(ns_window, window);
   window->window = ns_window;
   window->view = view;
   window->layer = layer;
+  window->backbuffer = backbuffer;
+  window->frontbuffer = frontbuffer;
   return(window);
 
 cocoa_window_open_failure:
@@ -105,6 +133,16 @@ cocoa_window_close(Cocoa_Window *win)
 {
   NSWindow_close(win->window);
   cocoa__window_release(win);
+}
+
+proc V2S32
+cocoa_window_dim(Cocoa_Window *win)
+{
+  NSRect bounds = NSView_bounds(win->view);
+  CGFloat width = bounds.size.width;
+  CGFloat height = bounds.size.height;
+  V2S32 result = v2s32((S32)width, (S32)height);
+  return result;
 }
 
 proc Gfx_Handle
@@ -120,6 +158,14 @@ gfx_window_close(Gfx_Handle window)
 {
   Cocoa_Window *win = cocoa__window_from_gfx_handle(window);
   cocoa_window_close(win);
+}
+
+proc V2S32
+gfx_window_dim(Gfx_Handle window)
+{
+  Cocoa_Window *win = cocoa__window_from_gfx_handle(window);
+  V2S32 result = cocoa_window_dim(win);
+  return result;
 }
 
 // -----------------------------------------------------------------------------
@@ -177,7 +223,106 @@ cocoa_events(void)
 // -----------------------------------------------------------------------------
 // render
 
-// TODO:
+proc void
+cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Window *window)
+{
+  Cocoa_PixelBuffer *backbuffer = window->backbuffer;
+  CVPixelBufferLockBaseAddress(backbuffer->buf, 0);
+  target->pixels = (U8*)CVPixelBufferGetBaseAddress(backbuffer->buf);
+  target->stride = CVPixelBufferGetBytesPerRow(backbuffer->buf);
+  target->row_count = backbuffer->pixels_height;
+}
+
+proc void
+cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window)
+{
+  // TODO: implement
+  Assert(0);
+  Unused(target);
+  Unused(window);
+}
+
+proc void
+cocoa_submit_frame_pixels(Cocoa_Window *window)
+{
+  Cocoa_PixelBuffer *backbuffer = window->backbuffer;
+
+  // NOTE: assign layer
+  CVPixelBufferUnlockBaseAddress(backbuffer->buf, 0);
+  CALayer_setContents(window->layer, (id)backbuffer->buf);
+
+  // NOTE: resize layer
+  NSRect bounds = NSView_bounds(window->view);
+  CGFloat norm_w = ClampToRange(bounds.size.width / (CGFloat)backbuffer->pixels_width, 0.0, 1.0);
+  CGFloat norm_h = ClampToRange(bounds.size.height / (CGFloat)backbuffer->pixels_height, 0.0, 1.0);
+  CGFloat norm_y = ClampToRange(1.0 - norm_h, 0.0, 1.0);
+  CGRect contents_rect = CGRectMake(0, norm_y, norm_w, norm_h);
+  CALayer_setContentsRect(window->layer, contents_rect);
+
+  // NOTE: swap buffers
+  Cocoa_PixelBuffer *temp = window->frontbuffer;
+  window->frontbuffer = backbuffer;
+  window->backbuffer = temp;
+}
+
+proc void
+cocoa_submit_frame_ogl(Cocoa_Window *window)
+{
+  // TODO: implement
+  Assert(0);
+  Unused(window);
+}
+
+global Gfx_RenderTargetKind gfx_render_target_kind_from_cocoa_backend[] = {
+  [Cocoa_Backend_pixel_buffer] = Gfx_RenderTargetKind_pixels,
+};
+
+global Cocoa_Backend cocoa_backend_from_gfx_render_target_kind[] = {
+  [Gfx_RenderTargetKind_pixels] = Cocoa_Backend_pixel_buffer,
+};
+
+proc Gfx_RenderTargetKind
+gfx_render_target_kind(Gfx_Handle window)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  Gfx_RenderTargetKind result = gfx_render_target_kind_from_cocoa_backend[cocoa_window->backend];
+  return result;
+}
+
+proc void
+gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  cocoa_window->backend = cocoa_backend_from_gfx_render_target_kind[kind];
+}
+
+proc void
+gfx_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Gfx_Handle window)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  cocoa_pixel_render_target_from_window(target, cocoa_window);
+}
+
+proc void
+gfx_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Gfx_Handle window)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  cocoa_ogl_render_target_from_window(target, cocoa_window);
+}
+
+proc void
+gfx_submit_frame_pixels(Gfx_Handle window)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  cocoa_submit_frame_pixels(cocoa_window);
+}
+
+proc void
+gfx_submit_frame_ogl(Gfx_Handle window)
+{
+  Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
+  cocoa_submit_frame_ogl(cocoa_window);
+}
 
 // -----------------------------------------------------------------------------
 // helpers
@@ -240,4 +385,37 @@ proc inline void
 cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window)
 {
   objc_setAssociatedObject(ns_win, window_association_key, (id)window, OBJC_ASSOCIATION_ASSIGN);
+}
+
+proc inline Cocoa_PixelBuffer*
+cocoa__buffer_alloc(void)
+{
+  Cocoa_PixelBuffer *result = cocoa_state->pbuf_freelist;
+  if(result)
+  {
+    SLLStackPop(cocoa_state->pbuf_freelist);
+  }
+  else
+  {
+    CFAllocatorRef pbuf_allocator = kCFAllocatorDefault;
+    OSType pbuf_fmt = kCVPixelFormatType_32BGRA;
+    S32 screen_width = cocoa_state->screen_width;
+    S32 screen_height = cocoa_state->screen_height;
+    CFDictionaryRef pbuf_attr = cocoa_state->pbuf_attr;
+    CVPixelBufferRef pbuf;
+    CVPixelBufferCreate(pbuf_allocator, screen_width, screen_height, pbuf_fmt, pbuf_attr, &pbuf);
+
+    result = arena_push_struct(cocoa_state->arena, Cocoa_PixelBuffer);
+    result->buf = pbuf;
+    result->pixels_width = screen_width;
+    result->pixels_height = screen_height;
+  }
+  Assert(result);
+  return result;
+}
+
+proc inline void
+cocoa__buffer_release(Cocoa_PixelBuffer *buf)
+{
+  SLLStackPush(cocoa_state->pbuf_freelist, buf);
 }

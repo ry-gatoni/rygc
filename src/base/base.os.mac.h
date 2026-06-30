@@ -24,6 +24,7 @@ typedef enum MacClass
   MacClass_NSEvent,
   MacClass_NSDate,
   MacClass_NSString,
+  MacClass_NSScreen,
   MacClass_CALayer,
   MacClass_CATransaction,
   MacClass_Count,
@@ -98,6 +99,10 @@ typedef enum MacSelector
   // NSString
   MacSelector_stringWithUTF8String,
   MacSelector_initWithBytesLength,
+
+  // NSScreen
+  MacSelector_mainScreen,
+  MacSelector_frame,
 
   // CALayer
   MacSelector_contents,

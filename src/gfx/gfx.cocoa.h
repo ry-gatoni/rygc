@@ -1,12 +1,21 @@
 #include "gfx.cocoa.api_defs.h"
 
-typedef struct Cocoa_PixelBuffer
+typedef enum Cocoa_Backend
 {
+  Cocoa_Backend_pixel_buffer,
+} Cocoa_Backend;
+
+typedef struct Cocoa_PixelBuffer Cocoa_PixelBuffer;
+struct Cocoa_PixelBuffer
+{
+  Cocoa_PixelBuffer *next;
+
+  U32 *pixels;
   S32 pixels_width;
   S32 pixels_height;
 
   CVPixelBufferRef buf;
-} Cocoa_PixelBuffer;
+};
 
 typedef struct Cocoa_Window Cocoa_Window;
 struct Cocoa_Window
@@ -17,6 +26,8 @@ struct Cocoa_Window
   NSWindow *window;
   NSView *view;
   CALayer *layer;
+
+  Cocoa_Backend backend;
 
   union{
     struct{
@@ -33,10 +44,18 @@ typedef struct Cocoa_State
 
   NSApplication *app;
 
+  S32 screen_width;
+  S32 screen_height;
+
   Cocoa_Window *first_window;
   Cocoa_Window *last_window;
   U64 window_count;
   Cocoa_Window *window_freelist;
+
+  // NOTE: buffer allocator
+  CFDictionaryRef pbuf_attr;
+  Cocoa_PixelBuffer *pbuf_freelist;
+
 } Cocoa_State;
 
 global Cocoa_State *cocoa_state = 0;
@@ -63,6 +82,12 @@ proc void cocoa_events();
 // -----------------------------------------------------------------------------
 // render
 
+proc void cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Window *window);
+proc void cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window);
+
+proc void cocoa_submit_frame_pixels(Cocoa_Window *window);
+proc void cocoa_submit_frame_ogl(Cocoa_Window *window);
+
 // -----------------------------------------------------------------------------
 // helpers
 
@@ -74,3 +99,6 @@ proc inline Cocoa_Window* cocoa__window_from_gfx_handle(Gfx_Handle win);
 
 proc inline Cocoa_Window* cocoa__window_from_ns_window(NSWindow *ns_win);
 proc inline void cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window);
+
+proc inline Cocoa_PixelBuffer* cocoa__buffer_alloc(void);
+proc inline void cocoa__buffer_release(Cocoa_PixelBuffer *buf);

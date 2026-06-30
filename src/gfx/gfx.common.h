@@ -208,7 +208,7 @@ proc void gfx_window_close(Gfx_Handle window);
 
 proc B32 gfx_windows_are_equal(Gfx_Handle w1, Gfx_Handle w2);
 
-proc V2S32 gfx_window_get_dim(Os_Handle window);
+proc V2S32 gfx_window_dim(Gfx_Handle window);
 
 // -----------------------------------------------------------------------------
 // events

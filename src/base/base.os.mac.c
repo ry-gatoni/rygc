@@ -21,6 +21,7 @@ mac_init(void)
   mac_state->classes[MacClass_NSEvent] = objc_getClass("NSEvent");
   mac_state->classes[MacClass_NSDate] = objc_getClass("NSDate");
   mac_state->classes[MacClass_NSString] = objc_getClass("NSString");
+  mac_state->classes[MacClass_NSScreen] = objc_getClass("NSScreen");
   mac_state->classes[MacClass_CALayer] = objc_getClass("CALayer");
   mac_state->classes[MacClass_CALayer] = objc_getClass("CATransaction");
 
@@ -94,6 +95,10 @@ mac_init(void)
   // NSString
   mac_state->sels[MacSelector_stringWithUTF8String] = sel_registerName("stringWithUTF8String:");
   mac_state->sels[MacSelector_initWithBytesLength] = sel_registerName("initWithBytes:length:encoding:");
+
+  // NSScreen
+  mac_state->sels[MacSelector_mainScreen] = sel_registerName("mainScreen");
+  mac_state->sels[MacSelector_frame] = sel_registerName("frame");
 
   // CALayer
   mac_state->sels[MacSelector_contents] = sel_registerName("contents");
