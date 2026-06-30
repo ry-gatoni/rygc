@@ -12,9 +12,10 @@ cocoa_init(Arena *arena)
   { goto cocoa_init_failure; }
 
   // NOTE: get screen dim
+  NSScreen *screen;
   S32 screen_width, screen_height;
   {
-    NSScreen *screen = NSScreen_mainScreen();
+    screen = NSScreen_mainScreen();
     NSRect screen_rect = NSScreen_frame(screen);
     screen_width = (S32)screen_rect.size.width;
     screen_height = (S32)screen_rect.size.height;
@@ -38,6 +39,7 @@ cocoa_init(Arena *arena)
   cocoa_state = arena_push_struct(arena, Cocoa_State);
   cocoa_state->arena = arena;
   cocoa_state->app = app;
+  cocoa_state->screen = screen;
   cocoa_state->screen_width = screen_width;
   cocoa_state->screen_height = screen_height;
   cocoa_state->pbuf_attr = pbuf_attr;
@@ -76,6 +78,21 @@ cocoa__on_window_close(id self, SEL cmd, NSWindow *sender)
   return(1);
 }
 
+global const char *display_link_handler_selector_name = "rygc_display_link_handle:";
+// NOTE: private function
+proc void
+cocoa__display_link_handle(id self, SEL cmd, CADisplayLink *sender)
+{
+  Unused(self);
+  Unused(cmd);
+  Cocoa_Window *window = cocoa__window_from_display_link(sender);
+  if(window->pending_frame)
+  {
+    window->pending_frame = 0;
+    --cocoa_state->pending_frame_count;
+  }
+}
+
 proc Cocoa_Window*
 cocoa_window_open(V2S32 dim, String8 title)
 {
@@ -111,6 +128,18 @@ cocoa_window_open(V2S32 dim, String8 title)
   layer = NSView_layer(view);
   CALayer_setContentsGravity(layer, kCAGravityBottomLeft);
 
+  // NOTE: set up frame-rate sync
+  CADisplayLink *display_link;
+  {
+    Class metaclass = objc_getMetaClass("NSObject");
+    id receiver = (id)objc_class_NSObject;
+    SEL display_link_selector = sel_registerName(display_link_handler_selector_name);
+    Assert(class_addMethod(metaclass, display_link_selector, (IMP)cocoa__display_link_handle, "v@:@"));
+    NSRunLoop *run_loop = NSRunLoop_currentRunLoop();
+    display_link = NSScreen_displayLinkWithTarget(cocoa_state->screen, receiver, display_link_selector);
+    CADisplayLink_addToRunLoop(display_link, run_loop, NSRunLoopCommonModes);
+  }
+
   Cocoa_PixelBuffer *backbuffer = cocoa__buffer_alloc();
   Cocoa_PixelBuffer *frontbuffer = cocoa__buffer_alloc();
 
@@ -119,6 +148,8 @@ cocoa_window_open(V2S32 dim, String8 title)
   window->window = ns_window;
   window->view = view;
   window->layer = layer;
+  cocoa__set_window_for_display_link(display_link, window);
+  window->display_link = display_link;
   window->backbuffer = backbuffer;
   window->frontbuffer = frontbuffer;
   return(window);
@@ -192,32 +223,36 @@ global Gfx_EventKind gfx_event_kind_from_cocoa_event_type[] = {
 proc void
 cocoa_events(void)
 {
-  NSEvent *e = 0;
-  NSEventMask mask = NSEventMaskAny;
-  NSRunLoopMode mode = NSDefaultRunLoopMode;
-  while((e = NSApplication_nextEventMatchingMask(cocoa_state->app, mask, 0, mode, true)) != 0)
+  // TODO: make frame-rate wait configurable
+  while(cocoa_state->pending_frame_count)
   {
-    NSEventType type = NSEvent_type(e);
-    NSWindow *ns_window = NSEvent_window(e);
-    Cocoa_Window *window = cocoa__window_from_ns_window(ns_window);
-    switch(type)
+    NSEvent *e = 0;
+    NSEventMask mask = NSEventMaskAny;
+    NSRunLoopMode mode = NSDefaultRunLoopMode;
+    while((e = NSApplication_nextEventMatchingMask(cocoa_state->app, mask, 0, mode, true)) != 0)
     {
-      // TODO: handle events that we don't have os kinds for
-      default:
+      NSEventType type = NSEvent_type(e);
+      NSWindow *ns_window = NSEvent_window(e);
+      Cocoa_Window *window = cocoa__window_from_ns_window(ns_window);
+      switch(type)
       {
-	printf("cocoa event with type %lu\n", type);
-	Gfx_Event *event = gfx__event_new();
-	Assert(event);
-	event->kind = gfx_event_kind_from_cocoa_event_type[type];
-	event->window = cocoa__gfx_handle_from_window(window);
-	gfx__event_push(event);
-      }break;
+	// TODO: handle events that we don't have os kinds for
+	default:
+	{
+	  printf("cocoa event with type %lu\n", type);
+	  Gfx_Event *event = gfx__event_new();
+	  Assert(event);
+	  event->kind = gfx_event_kind_from_cocoa_event_type[type];
+	  event->window = cocoa__gfx_handle_from_window(window);
+	  gfx__event_push(event);
+	}break;
+      }
+
+      NSApplication_sendEvent(cocoa_state->app, e);
     }
 
-    NSApplication_sendEvent(cocoa_state->app, e);
+    NSApplication_updateWindows(cocoa_state->app);
   }
-
-  NSApplication_updateWindows(cocoa_state->app);
 }
 
 // -----------------------------------------------------------------------------
@@ -263,6 +298,9 @@ cocoa_submit_frame_pixels(Cocoa_Window *window)
   Cocoa_PixelBuffer *temp = window->frontbuffer;
   window->frontbuffer = backbuffer;
   window->backbuffer = temp;
+
+  window->pending_frame = 1;
+  ++cocoa_state->pending_frame_count;
 }
 
 proc void
@@ -385,6 +423,19 @@ proc inline void
 cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window)
 {
   objc_setAssociatedObject(ns_win, window_association_key, (id)window, OBJC_ASSOCIATION_ASSIGN);
+}
+
+proc inline Cocoa_Window*
+cocoa__window_from_display_link(CADisplayLink *link)
+{
+  Cocoa_Window *result = (Cocoa_Window*)objc_getAssociatedObject(link, window_association_key);
+  return result;
+}
+
+proc inline void
+cocoa__set_window_for_display_link(CADisplayLink *link, Cocoa_Window *window)
+{
+  objc_setAssociatedObject(link, window_association_key, (id)window, OBJC_ASSOCIATION_ASSIGN);
 }
 
 proc inline Cocoa_PixelBuffer*

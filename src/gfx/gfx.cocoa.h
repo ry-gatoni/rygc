@@ -26,6 +26,9 @@ struct Cocoa_Window
   NSWindow *window;
   NSView *view;
   CALayer *layer;
+  CADisplayLink *display_link;
+
+  B32 pending_frame;
 
   Cocoa_Backend backend;
 
@@ -43,6 +46,7 @@ typedef struct Cocoa_State
   Arena *arena;
 
   NSApplication *app;
+  NSScreen *screen;
 
   S32 screen_width;
   S32 screen_height;
@@ -51,6 +55,8 @@ typedef struct Cocoa_State
   Cocoa_Window *last_window;
   U64 window_count;
   Cocoa_Window *window_freelist;
+
+  U32 pending_frame_count;
 
   // NOTE: buffer allocator
   CFDictionaryRef pbuf_attr;
@@ -99,6 +105,9 @@ proc inline Cocoa_Window* cocoa__window_from_gfx_handle(Gfx_Handle win);
 
 proc inline Cocoa_Window* cocoa__window_from_ns_window(NSWindow *ns_win);
 proc inline void cocoa__set_window_for_ns_window(NSWindow *ns_win, Cocoa_Window *window);
+
+proc inline Cocoa_Window* cocoa__window_from_display_link(CADisplayLink *link);
+proc inline void cocoa__set_window_for_display_link(CADisplayLink *link, Cocoa_Window *window);
 
 proc inline Cocoa_PixelBuffer* cocoa__buffer_alloc(void);
 proc inline void cocoa__buffer_release(Cocoa_PixelBuffer *buf);
