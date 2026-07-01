@@ -33,6 +33,47 @@ audio_midi_get_pitch_bend(Audio_MidiMessage *msg)
 proc R32
 audio_hertz_from_midi_note(U32 note)
 {
-  R32 result = 440.f*powf(2.f, (R32)((S32)note - 69)/12.f);  
+  R32 result = 440.f*powf(2.f, (R32)((S32)note - 69)/12.f);
   return(result);
+}
+
+// -----------------------------------------------------------------------------
+// state
+
+proc B32
+audio_init(void)
+{
+  Arena *arena = arena_alloc();
+  audio_state = arena_push_struct(arena, Audio_State);
+  audio_state->arena = arena;
+
+  B32 result;
+#if AUDIO_BACKEND == AUDIO_BACKEND_JACK
+  result = jack_init(arena);
+#elif AUDIO_BACKEND == AUDIO_BACKEND_WASAPI
+  result = wasapi_init(arena);
+#elif AUDIO_BACKEND == AUDIO_BACKEND_CORE_AUDIO
+  result = core_audio_init(arena);
+#else
+# error backend not implemented
+#endif
+  return result;
+}
+
+proc void
+audio_uninit(void)
+{
+#if AUDIO_BACKEND == AUDIO_BACKEND_JACK
+  jack_uninit();
+#elif AUDIO_BACKEND == AUDIO_BACKEND_WASAPI
+  wasapi_uninit();
+#elif AUDIO_BACKEND == AUDIO_BACKEND_CORE_AUDIO
+  core_audio_uninit();
+#else
+# error backend not implemented
+#endif
+
+  Arena *arena = audio_state->arena;
+  audio_state = 0;
+  arena_clear(arena);
 }

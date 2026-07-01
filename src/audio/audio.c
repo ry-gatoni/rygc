@@ -1,10 +1,11 @@
-#include "audio/audio_common.c"
+#include "audio_common.c"
 
-// TODO: implement audio backends for mac and windows (and maybe other linux ones)
-#if OS_LINUX
+#if AUDIO_BACKEND == AUDIO_BACKEND_JACK
 #  include "audio/JACK/jack.c"
-#elif OS_WINDOWS
+#elif AUDIO_BACKEND == AUDIO_BACKEND_WASAPI
 #  include "audio/WASAPI/wasapi.c"
+#elif AUDIO_BACKEND == AUDIO_BACKEND_CORE_AUDIO
+#  include "audio/audio.core_audio.c"
 #else
-#  error ERROR: no audio backend for this platform yet :(
+#  error ERROR: unsuppored audio backend
 #endif

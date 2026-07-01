@@ -1,10 +1,28 @@
-#include "audio/audio_common.h"
+#include "audio_common.h"
 
-// TODO: implement audio backends for mac and windows (and maybe other linux ones)
-#if OS_LINUX
+#define AUDIO_BACKEND_NULL 0
+#define AUDIO_BACKEND_JACK 1
+#define AUDIO_BACKEND_WASAPI 2
+#define AUDIO_BACKEND_CORE_AUDIO 3
+
+#ifndef AUDIO_BACKEND
+#  if OS_LINUX
+#    define AUDIO_BACKEND AUDIO_BACKEND_JACK
+#  elif OS_WINDOWS
+#    define AUDIO_BACKEND AUDIO_BACKEND_WASAPI
+#  elif OS_MAC
+#    define AUDIO_BACKEND AUDIO_BACKEND_CORE_AUDIO
+#  else
+#    define AUDIO_BACKEND AUDIO_BACKEND_NULL
+#  endif
+#endif
+
+#if AUDIO_BACKEND == AUDIO_BACKEND_JACK
 #  include "audio/JACK/jack.h"
-#elif OS_WINDOWS
+#elif AUDIO_BACKEND == AUDIO_BACKEND_WASAPI
 #  include "audio/WASAPI/wasapi.h"
+#elif AUDIO_BACKEND == AUDIO_BACKEND_CORE_AUDIO
+#  include "audio/audio.core_audio.h"
 #else
-#  error ERROR: no audio backend for this platform yet :(
+#  error ERROR: unrecognized value for `AUDIO_BACKEND`
 #endif
