@@ -24,6 +24,16 @@ main(int argc, char **argv)
     printf("name: %.*s\n", (int)device_name.count, device_name.string);
   }
 
+  String8 default_input_name = audio_device_name(audio_default_input_device());
+  printf("input device: %.*s\n", (int)default_input_name.count, default_input_name.string);
+
+  String8 default_output_name = audio_device_name(audio_default_output_device());
+  printf("output device: %.*s\n", (int)default_output_name.count, default_output_name.string);
+
+  audio_start();
+  while(1) {}
+  audio_stop();
+
   return 0;
 
 failure:

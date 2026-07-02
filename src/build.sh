@@ -49,7 +49,7 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/xcb_test.c -lxcb -lxcb-shm -lxcb-present -lEGL -lGL -o xcb_test
 # clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -framework QuartzCore -o cocoa_test
 # clang $CFLAGS $SRC/scratch/residue_filters.c -o residue_filters
-clang $CFLAGS $SRC/scratch/core_audio_test.c -lobjc -framework CoreFoundation -framework CoreAudio -o core_audio_test
+clang $CFLAGS $SRC/scratch/core_audio_test.c -lobjc -framework CoreFoundation -framework CoreAudio -framework AudioToolbox -o core_audio_test
 
 popd > /dev/null # ./build -> ./src
 

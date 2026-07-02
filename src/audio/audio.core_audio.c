@@ -67,6 +67,92 @@ core_audio_init(Arena *arena)
     device_names[device_idx] = device_name;
   }
 
+  // NOTE: instantiate and configure audio units for default input and output devices
+  AudioComponentDescription auhal_desc = {
+    .componentType = kAudioUnitType_Output,
+    .componentSubType = kAudioUnitSubType_HALOutput,
+    .componentManufacturer = kAudioUnitManufacturer_Apple,
+    .componentFlags = 0,
+    .componentFlagsMask = 0,
+  };
+  AudioComponent auhal_comp = AudioComponentFindNext(0, &auhal_desc);
+  if(!auhal_comp)
+  { goto core_audio_init_failure; }
+
+  AudioUnit au_in;
+  AudioUnit au_out;
+  if((status = AudioComponentInstanceNew(auhal_comp, &au_in)))
+  { goto core_audio_init_failure; }
+  if((status = AudioComponentInstanceNew(auhal_comp, &au_out)))
+  { goto core_audio_init_failure; }
+
+  U32 enable_io = 1;
+  U32 disable_io = 0;
+
+  if((status = AudioUnitSetProperty(au_in, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enable_io, sizeof(enable_io))))
+  { goto core_audio_init_failure; }
+  if((status = AudioUnitSetProperty(au_in, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &disable_io, sizeof(disable_io))))
+  { goto core_audio_init_failure; }
+
+  if((status = AudioUnitSetProperty(au_out, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &disable_io, sizeof(disable_io))))
+  { goto core_audio_init_failure; }
+  if((status = AudioUnitSetProperty(au_out, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enable_io, sizeof(enable_io))))
+  { goto core_audio_init_failure; }
+
+  if((status = AudioUnitSetProperty(au_in, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &default_input_device_id, sizeof(default_input_device_id))))
+  { goto core_audio_init_failure; }
+  if((status = AudioUnitSetProperty(au_out, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &default_output_device_id, sizeof(default_output_device_id))))
+  { goto core_audio_init_failure; }
+
+  // NOTE: set input and output stream formats
+  AudioStreamBasicDescription in_fmt = {
+    .sample_rate = 48000.0,
+    .format_id = kAudioFormatLinearPCM,
+    .format_flags = kLinearPCMFormatFlagIsFloat,
+    .bytes_per_packet = 1*sizeof(R32),
+    .frames_per_packet = 1,
+    .bytes_per_frame = 1*sizeof(R32),
+    .channels_per_frame = 1,
+    .bits_per_channel = 8*sizeof(R32),
+  };
+  if((status = AudioUnitSetProperty(au_in, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &in_fmt, sizeof(in_fmt))))
+  { goto core_audio_init_failure; }
+
+  AudioStreamBasicDescription out_fmt = {
+    .sample_rate = 48000.0,
+    .format_id = kAudioFormatLinearPCM,
+    .format_flags = kLinearPCMFormatFlagIsFloat|kLinearPCMFormatFlagIsNonInterleaved,
+    .bytes_per_packet = 1*sizeof(R32),
+    .frames_per_packet = 1,
+    .bytes_per_frame = 1*sizeof(R32),
+    .channels_per_frame = 2,
+    .bits_per_channel = 8*sizeof(R32),
+  };
+  if((status = AudioUnitSetProperty(au_out, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &out_fmt, sizeof(out_fmt))))
+  { goto core_audio_init_failure; }
+
+  // NOTE: set input and output callbacks
+  AURenderCallbackStruct in_cb = {
+    .input_proc = core_audio_input_device_proc,
+    .input_proc_ref_con = 0,
+  };
+
+  // TODO: do I set the _render_ callback on the _input_ unit?
+  if((status = AudioUnitSetProperty(au_in, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0, &in_cb, sizeof(in_cb))))
+  { goto core_audio_init_failure; }
+
+  AURenderCallbackStruct out_cb = {
+    .input_proc = core_audio_output_device_proc,
+    .input_proc_ref_con = 0,
+  };
+
+  if((status = AudioUnitSetProperty(au_out, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Global, 0, &out_cb, sizeof(out_cb))))
+  { goto core_audio_init_failure; }
+
+  AudioUnitInitialize(au_in);
+  AudioUnitInitialize(au_out);
+
+  // NOTE: allocate state
   core_audio_state = arena_push_struct(arena, CoreAudio_State);
   core_audio_state->arena = arena;
 
@@ -89,6 +175,11 @@ core_audio_init(Arena *arena)
     }
   }
 
+  core_audio_state->input_unit = au_in;
+  core_audio_state->output_unit = au_out;
+
+  os_ring_buffer_init(&core_audio_state->samples, KB(64));
+
   arena_release_scratch(scratch);
   return 1;
 
@@ -100,7 +191,8 @@ core_audio_init_failure:
 proc void
 core_audio_uninit(void)
 {
-
+  os_ring_buffer_release(&core_audio_state->samples);
+  core_audio_state = 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -224,6 +316,85 @@ audio_device_iterator_next(Audio_DeviceIterator it)
   Audio_DeviceIterator result = {0};
   result.device = core_audio__handle_from_device(next_device);
   return result;
+}
+
+// -----------------------------------------------------------------------------
+// process
+
+proc OSStatus
+core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_action_flags,
+			     const AudioTimestamp *in_timestamp, U32 in_bus_number,
+			     U32 in_num_frames, AudioBufferList *io_data)
+{
+  Unused(in_ref_con);
+  Unused(io_action_flags);
+  Unused(in_timestamp);
+  Unused(in_bus_number);
+  Unused(io_data);
+  OSStatus status = 0;
+
+  Os_RingBuffer *rb = &core_audio_state->samples;
+  Assert(os_ring_buffer_free(rb) >= in_num_frames*sizeof(R32));
+
+  Os_RingBufferSpan dest = os_ring_buffer_write_span(rb);
+  AudioBufferList dest_buf = {
+    .num_buffers = 1,
+    .buffers[0] = {
+      .num_channels = 1,
+      .data_byte_size = in_num_frames*sizeof(R32),
+      .data = dest.start,
+    },
+  };
+  AudioUnit in_unit = core_audio_state->input_unit;
+  status = AudioUnitRender(in_unit, io_action_flags, in_timestamp, in_bus_number, in_num_frames, &dest_buf);
+  Assert(status == 0);
+  os_ring_buffer_write_end(rb, in_num_frames*sizeof(R32));
+
+  return status;
+}
+
+proc OSStatus
+core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_action_flags,
+			      const AudioTimestamp *in_timestamp, U32 in_bus_number,
+			      U32 in_num_frames, AudioBufferList *io_data)
+{
+  Unused(in_ref_con);
+  Unused(io_action_flags);
+  Unused(in_timestamp);
+  Unused(in_bus_number);
+
+  Os_RingBuffer *rb = &core_audio_state->samples;
+  Assert(io_data->num_buffers == 2);
+  R32 *dest0 = io_data->buffers[0].data;
+  R32 *dest1 = io_data->buffers[1].data;
+  if(os_ring_buffer_used(rb) < in_num_frames*sizeof(R32))
+  {
+    ZeroArray(dest0, R32, in_num_frames);
+    ZeroArray(dest1, R32, in_num_frames);
+  }
+  else
+  {
+    Os_RingBufferSpan src = os_ring_buffer_read_span(rb);
+    CopyArray(dest0, src.start, R32, in_num_frames);
+    CopyArray(dest1, src.start, R32, in_num_frames);
+    os_ring_buffer_read_end(rb, in_num_frames*sizeof(R32));
+  }
+
+  return 0;
+}
+
+proc void
+audio_start(void)
+{
+  AudioOutputUnitStart(core_audio_state->output_unit);
+  AudioOutputUnitStart(core_audio_state->input_unit);
+}
+
+proc void
+audio_stop(void)
+{
+  AudioOutputUnitStop(core_audio_state->input_unit);
+  AudioOutputUnitStop(core_audio_state->output_unit);
 }
 
 // -----------------------------------------------------------------------------

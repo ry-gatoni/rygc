@@ -68,6 +68,13 @@ rygc_log2(U32 num)
 // TODO: stop depending on crt
 
 proc R32
+rygc_abs(R32 num)
+{
+  R32 result = fabsf(num);
+  return result;
+}
+
+proc R32
 rygc_sqrt(R32 num)
 {
   return(sqrtf(num));

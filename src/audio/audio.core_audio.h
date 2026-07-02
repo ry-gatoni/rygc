@@ -1,91 +1,4 @@
-// -----------------------------------------------------------------------------
-// api types/constants/functions
-
-typedef S32 OSStatus;
-
-typedef bool Boolean;
-
-typedef long CFIndex;
-
-typedef struct CFRange
-{
-  CFIndex location;
-  CFIndex length;
-} CFRange;
-
-proc inline CFRange
-CFRangeMake(CFIndex loc, CFIndex len)
-{
-  CFRange range = {
-    .location = loc,
-    .length = len,
-  };
-  return range;
-}
-
-typedef U32 CFStringEncoding;
-enum
-{
-  kCFStringEncodingMacRoman = 0,
-  kCFStringEncodingWindowsLatin1 = 0x0500, /* ANSI codepage 1252 */
-  kCFStringEncodingISOLatin1 = 0x0201, /* ISO 8859-1 */
-  kCFStringEncodingNextStepLatin = 0x0B01, /* NextStep encoding*/
-  kCFStringEncodingASCII = 0x0600, /* 0..127 (in creating CFString, values greater than 0x7F are treated as corresponding Unicode value) */
-  kCFStringEncodingUnicode = 0x0100, /* kTextEncodingUnicodeDefault  + kTextEncodingDefaultFormat (aka kUnicode16BitFormat) */
-  kCFStringEncodingUTF8 = 0x08000100, /* kTextEncodingUnicodeDefault + kUnicodeUTF8Format */
-  kCFStringEncodingNonLossyASCII = 0x0BFF, /* 7bit Unicode variants used by Cocoa & Java */
-
-  kCFStringEncodingUTF16 = 0x0100, /* kTextEncodingUnicodeDefault + kUnicodeUTF16Format (alias of kCFStringEncodingUnicode) */
-  kCFStringEncodingUTF16BE = 0x10000100, /* kTextEncodingUnicodeDefault + kUnicodeUTF16BEFormat */
-  kCFStringEncodingUTF16LE = 0x14000100, /* kTextEncodingUnicodeDefault + kUnicodeUTF16LEFormat */
-
-  kCFStringEncodingUTF32 = 0x0c000100, /* kTextEncodingUnicodeDefault + kUnicodeUTF32Format */
-  kCFStringEncodingUTF32BE = 0x18000100, /* kTextEncodingUnicodeDefault + kUnicodeUTF32BEFormat */
-  kCFStringEncodingUTF32LE = 0x1c000100 /* kTextEncodingUnicodeDefault + kUnicodeUTF32LEFormat */
-};
-
-typedef struct __CFString *CFStringRef;
-
-extern CFIndex CFStringGetLength(CFStringRef str);
-extern CFIndex CFStringGetMaximumSizeForEncoding(CFIndex length, CFStringEncoding encoding);
-extern CFIndex CFStringGetBytes(CFStringRef str, CFRange rng, CFStringEncoding encoding, U8 loss_byte, Boolean external_representation, U8 *buf, CFIndex max_buf_len, CFIndex *used_buf_len);
-extern Boolean CFStringGetCString(CFStringRef str, char *buffer, CFIndex buffer_size, CFStringEncoding encoding);
-
-typedef U32 AudioObjectID;
-
-global int kAudioObjectSystemObject = 1;
-
-typedef U32 AudioObjectPropertySelector;
-enum
-{
-  kAudioObjectPropertyName                                    = 'lnam',
-
-  kAudioHardwarePropertyDevices                               = 'dev#',
-  kAudioHardwarePropertyDefaultInputDevice                    = 'dIn ',
-  kAudioHardwarePropertyDefaultOutputDevice                   = 'dOut',
-};
-
-typedef U32 AudioObjectPropertyScope;
-enum
-{
-  kAudioObjectPropertyScopeGlobal         = 'glob',
-  kAudioObjectPropertyScopeInput          = 'inpt',
-  kAudioObjectPropertyScopeOutput         = 'outp',
-  kAudioObjectPropertyScopePlayThrough    = 'ptru',
-  kAudioObjectPropertyElementMain         = 0,
-};
-
-typedef U32 AudioObjectPropertyElement;
-
-typedef struct AudioObjectPropertyAddress
-{
-  AudioObjectPropertySelector selector;
-  AudioObjectPropertyScope scope;
-  AudioObjectPropertyElement element;
-} AudioObjectPropertyAddress;
-
-extern OSStatus AudioObjectGetPropertyDataSize(AudioObjectID inObjectID, const AudioObjectPropertyAddress *inAddress, U32 inQualifierDataSize, const void *inQualifierData, U32 *outDataSize);
-extern OSStatus AudioObjectGetPropertyData(AudioObjectID inObjectID, const AudioObjectPropertyAddress *inAddress, U32 inQualifierDataSize, const void *inQualifierData, U32 *ioDataSize, void *outData);
+#include "audio.core_audio.api_defs.h"
 
 // -----------------------------------------------------------------------------
 // internal types
@@ -105,6 +18,23 @@ struct CoreAudio_Device
   AudioObjectID id;
 };
 
+#define AU_CALLBACK_PROC(name) OSStatus (name)(void *in_ref_con, AudioUnitRenderActionFlags *io_action_flags, const AudioTimestamp *in_timestamp, U32 in_bus_number, U32 in_num_frames, AudioBufferList *io_data)
+typedef AU_CALLBACK_PROC(CoreAudio_StreamProc);
+
+typedef struct CoreAudio_Stream CoreAudio_Stream;
+struct CoreAudio_Stream
+{
+  CoreAudio_Stream *next;
+  CoreAudio_Stream *prev;
+
+  AudioUnit unit;
+  CoreAudio_Device *device;
+  U64 sample_rate;
+
+  Os_RingBuffer samples;
+  CoreAudio_StreamProc *refill;
+};
+
 typedef struct CoreAudio_State
 {
   Arena *arena;
@@ -121,6 +51,15 @@ typedef struct CoreAudio_State
 
   CoreAudio_Device *input_device;
   CoreAudio_Device *output_device;
+
+  // TODO: abstract this so we can have multiple streams at the same time
+  AudioUnit input_unit;
+  AudioUnit output_unit;
+
+  U32 input_sample_rate;
+  U32 output_sample_rate;
+
+  Os_RingBuffer samples; // TODO: several ring buffers for multi channels?
 } CoreAudio_State;
 
 global CoreAudio_State *core_audio_state = 0;
@@ -142,6 +81,12 @@ proc CoreAudio_Device* core_audio_output_device(void);
 
 proc void core_audio_set_input_device(CoreAudio_Device *input);
 proc void core_audio_set_output_device(CoreAudio_Device *output);
+
+// -----------------------------------------------------------------------------
+// process
+
+proc AU_CALLBACK_PROC(core_audio_input_device_proc);
+proc AU_CALLBACK_PROC(core_audio_output_device_proc);
 
 // -----------------------------------------------------------------------------
 // helpers
