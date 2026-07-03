@@ -180,7 +180,7 @@ mac_ring_buffer_init(Os_RingBuffer *rb, U64 min_size)
   mach_port_t task = mach_task_self();
   mach_vm_address_t addr = 0;
   mach_port_t port = 0;
-  mach_vm_size_t image_size = mach_vm_round_page(min_size);
+  mach_vm_size_t image_size = RoundUpPow2(mach_vm_round_page(min_size));
   mach_vm_size_t total_alloc_size = 2*image_size;
 
   // NOTE: allocate memory for all mapped images

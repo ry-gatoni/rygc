@@ -77,3 +77,12 @@ audio_uninit(void)
   audio_state = 0;
   arena_clear(arena);
 }
+
+// -----------------------------------------------------------------------------
+// process
+
+proc void
+audio_set_process_data(void *data)
+{
+  audio_state->process_user_data = data;
+}

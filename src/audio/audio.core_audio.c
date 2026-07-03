@@ -375,9 +375,25 @@ core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_a
   else
   {
     Os_RingBufferSpan src = os_ring_buffer_read_span(rb);
-    CopyArray(dest0, src.start, R32, in_num_frames);
-    CopyArray(dest1, src.start, R32, in_num_frames);
+
+    ArenaTemp scratch = arena_get_scratch(0, 0);
+
+    R32 *input_samples = arena_push_array_z(scratch.arena, R32, 2*in_num_frames);
+    Audio_ProcessData data = {0};
+    data.input[0] = input_samples + 0*in_num_frames;
+    data.input[1] = input_samples + 1*in_num_frames;
+    data.output[0] = dest0;
+    data.output[1] = dest1;
+    data.sample_count = in_num_frames;
+    data.user_data = audio_state->process_user_data;
+
+    CopyArray(data.input[0], src.start, R32, in_num_frames);
+    CopyArray(data.input[1], src.start, R32, in_num_frames);
     os_ring_buffer_read_end(rb, in_num_frames*sizeof(R32));
+
+    audio_process(&data);
+
+    arena_release_scratch(scratch);
   }
 
   return 0;
