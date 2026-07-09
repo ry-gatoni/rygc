@@ -46,12 +46,93 @@ typedef struct Audio_ProcessData
   void *user_data;
 } Audio_ProcessData;
 
+typedef enum Audio_StreamStatus
+{
+  Audio_StreamStatus_ok,
+  Audio_StreamStatus_error,
+} Audio_StreamStatus;
+
+typedef struct Audio_Stream Audio_Stream;
+typedef Audio_StreamStatus Audio_StreamRefillProc(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count);
+struct Audio_Stream
+{
+  R32 *samples_start;
+  R32 *samples_end;
+  R32 *sample_cursor;
+  Audio_StreamRefillProc *refill;
+};
+
+typedef struct Audio_InputStream
+{
+  Audio_Stream self;
+  Os_RingBuffer samples;
+} Audio_InputStream;
+
+proc Audio_StreamStatus
+audio_input_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
+{
+  Audio_InputStream *input = (Audio_InputStream*)self;
+  Unused(dest_samples);
+  Unused(channel_count);
+  Unused(sample_count);
+
+  Os_RingBuffer *samples = &input->samples;
+
+  U64 samples_read = self->sample_cursor - self->samples_start;
+  os_ring_buffer_read_end(samples, samples_read*sizeof(R32));
+
+  Os_RingBufferSpan read_span = os_ring_buffer_read_span(samples);
+  U64 samples_available = (read_span.end - read_span.start)/sizeof(R32);
+  self->samples_start = (R32*)read_span.start;
+  self->samples_end = self->samples_start + samples_available;
+  self->sample_cursor = self->samples_start;
+
+  return Audio_StreamStatus_ok;
+}
+
+typedef struct Audio_PassthruStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+} Audio_PassthruStream;
+
+proc Audio_StreamStatus
+audio_passthru_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
+{
+  Audio_PassthruStream *passthru = (Audio_PassthruStream*)self;
+
+  Assert(dest_samples);
+  Assert(channel_count);
+  Assert(sample_count);
+
+  Audio_Stream *source = passthru->source;
+  source->sample_cursor = source->samples_end;
+  source->refill(source, 0, 0, 0);
+  U64 samples_available = IntFromPtr(source->samples_end - source->samples_start)/sizeof(R32);
+  Assert(sample_count <= samples_available);
+
+  R32 *src = source->samples_start;
+  for(U32 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+  {
+    R32 *dest = dest_samples[channel_idx];
+    CopyArray(dest, src, R32, sample_count);
+  }
+
+  return Audio_StreamStatus_ok;
+}
+
 typedef struct Audio_State
 {
   Arena *arena;
 
   U64 sample_rate;
   void *process_user_data;
+
+  Audio_Stream **streams;
+  U32 stream_count;
+  U32 stream_capacity;
+
+  Audio_InputStream *input_stream;
 } Audio_State;
 
 global Audio_State *audio_state = 0;
@@ -92,6 +173,13 @@ extern void audio_process(Audio_ProcessData *data); // NOTE: audio process entry
 
 proc void audio_start(void);
 proc void audio_stop(void);
+
+// -----------------------------------------------------------------------------
+// streams
+
+proc void audio_stream_add(Audio_Stream *stream);
+
+proc Audio_Stream* audio_stream_get_input(void);
 
 // -----------------------------------------------------------------------------
 // helpers

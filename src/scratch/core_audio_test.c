@@ -141,6 +141,170 @@ allpass_filter_process(Audio_ProcessData *data)
   }
 }
 
+typedef struct DelayStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+
+  Os_RingBuffer prev_samples[2];
+  U64 delay_samples;
+} DelayStream;
+
+proc Audio_StreamStatus
+delay_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
+{
+  // TODO: implement
+  Assert(0);
+  Unused(self);
+  Unused(dest_samples);
+  Unused(channel_count);
+  Unused(sample_count);
+  return Audio_StreamStatus_ok;
+}
+
+proc void
+delay_stream_init(DelayStream *stream, Audio_Stream *source, U64 delay_samples)
+{
+  stream->self.refill = delay_stream_refill;
+  stream->source = source;
+  os_ring_buffer_init(&stream->prev_samples[0], 2*delay_samples*sizeof(R32));
+  os_ring_buffer_init(&stream->prev_samples[1], 2*delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&stream->prev_samples[0], delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&stream->prev_samples[1], delay_samples*sizeof(R32));
+  stream->delay_samples = delay_samples;
+}
+
+typedef struct CombFilterStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+
+  Os_RingBuffer prev_samples;
+  U64 delay_samples;
+} CombFilterStream;
+
+proc Audio_StreamStatus
+comb_filter_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
+{
+  // TODO: implement
+  Assert(0);
+  Unused(self);
+  Unused(dest_samples);
+  Unused(channel_count);
+  Unused(sample_count);
+  return Audio_StreamStatus_ok;
+}
+
+proc void
+comb_filter_stream_init(CombFilterStream *stream, Audio_Stream *source, U64 delay_samples)
+{
+  stream->self.refill = comb_filter_stream_refill;
+  stream->source = source;
+  os_ring_buffer_init(&stream->prev_samples, 2*delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&stream->prev_samples, delay_samples*sizeof(R32));
+  stream->delay_samples = delay_samples;
+}
+
+typedef struct AllpassFilterStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+
+  Os_RingBuffer ff_samples;
+  Os_RingBuffer fb_samples;
+  U64 order;
+
+  // TODO: avoid, in case of being connected to output?
+  Os_RingBuffer dest_samples;
+} AllpassFilterStream;
+
+proc Audio_StreamStatus
+allpass_filter_stream_refill(Audio_Stream *self, R32 **dest_samples_, U32 channel_count, U32 sample_count)
+{
+  AllpassFilterStream *allpass_filter = (AllpassFilterStream*)self;
+
+  Audio_Stream *source = allpass_filter->source;
+  Os_RingBuffer *ff_samples = &allpass_filter->ff_samples;
+  Os_RingBuffer *fb_samples = &allpass_filter->fb_samples;
+  Os_RingBuffer *dest_samples = &allpass_filter->dest_samples;
+
+  // NOTE: advance read cursor
+  U64 samples_read = IntFromPtr(self->sample_cursor - self->samples_start);
+  os_ring_buffer_read_end(dest_samples, samples_read*sizeof(R32));
+
+  // NOTE: pull from source
+  source->sample_cursor = source->samples_end;
+  source->refill(source, 0, 0, 0);
+  U64 samples_to_read = IntFromPtr(source->samples_end - source->samples_start);
+
+  // NOTE: fill feedforward buffer
+  {
+    R32 *src = self->samples_start;
+
+    Os_RingBufferSpan write_span = os_ring_buffer_write_span(ff_samples);
+    R32 *dest = (R32*)write_span.start;
+
+    CopyArray(dest, src, R32, samples_to_read);
+    os_ring_buffer_write_end(ff_samples, samples_to_read*sizeof(R32));
+  }
+
+  // NOTE: write to dest, fill feedback buffer
+  {
+    R32 *src = self->samples_start;
+
+    Os_RingBufferSpan ff_read_span = os_ring_buffer_read_span(ff_samples);
+    R32 *ff_src = (R32*)ff_read_span.start;
+
+    Os_RingBufferSpan fb_read_span = os_ring_buffer_read_span(fb_samples);
+    R32 *fb_src = (R32*)fb_read_span.start;
+
+    Os_RingBufferSpan fb_write_span = os_ring_buffer_write_span(fb_samples);
+    R32 *fb_dest = (R32*)fb_write_span.start;
+
+    Os_RingBufferSpan dest_span = os_ring_buffer_write_span(dest_samples);
+    R32 *dest = (R32*)dest_span.start;
+    for(U64 sample_idx = 0; sample_idx < samples_to_read; ++sample_idx)
+    {
+      R32 out_sample = src[sample_idx] + 0.5f*(fb_src[sample_idx] - ff_src[sample_idx]);
+      fb_dest[sample_idx] = out_sample;
+      dest[sample_idx] = out_sample;
+    }
+
+    os_ring_buffer_write_end(dest_samples, samples_to_read*sizeof(R32));
+    os_ring_buffer_write_end(ff_samples, samples_to_read*sizeof(R32));
+    os_ring_buffer_read_end(fb_samples, samples_to_read*sizeof(R32));
+    os_ring_buffer_read_end(ff_samples, samples_to_read*sizeof(R32));
+  }
+
+  // TODO: write to dest samples when they are available
+  Unused(dest_samples_);
+  Unused(channel_count);
+  Unused(sample_count);
+  // NOTE: expose buffer
+  {
+    Os_RingBufferSpan read_span = os_ring_buffer_read_span(dest_samples);
+    U64 samples_available = (read_span.end - read_span.start)/sizeof(R32);
+    self->samples_start = (R32*)read_span.start;
+    self->samples_end = self->samples_start + samples_available;
+    self->sample_cursor = self->samples_start;
+  }
+
+  return Audio_StreamStatus_ok;
+}
+
+proc void
+allpass_filter_stream_init(AllpassFilterStream *stream, Audio_Stream *source, U64 delay_samples)
+{
+  stream->self.refill = allpass_filter_stream_refill;
+  stream->source = source;
+  os_ring_buffer_init(&stream->dest_samples, 2048*sizeof(R32));
+  os_ring_buffer_init(&stream->ff_samples, 2*delay_samples*sizeof(R32));
+  os_ring_buffer_init(&stream->fb_samples, 2*delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&stream->ff_samples, delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&stream->fb_samples, delay_samples*sizeof(R32));
+  stream->order = delay_samples;
+}
+
 void
 audio_process(Audio_ProcessData *data)
 {

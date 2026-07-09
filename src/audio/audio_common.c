@@ -47,6 +47,10 @@ audio_init(void)
   audio_state = arena_push_struct(arena, Audio_State);
   audio_state->arena = arena;
 
+  audio_state->stream_capacity = 128;
+  audio_state->stream_count = 0;
+  audio_state->streams = arena_push_array(arena, Audio_Stream*, audio_state->stream_capacity);
+
   B32 result;
 #if AUDIO_BACKEND == AUDIO_BACKEND_JACK
   result = jack_init(arena);
@@ -85,4 +89,15 @@ proc void
 audio_set_process_data(void *data)
 {
   audio_state->process_user_data = data;
+}
+
+// -----------------------------------------------------------------------------
+// streams
+
+proc void
+audio_stream_add(Audio_Stream *stream)
+{
+  Assert(audio_state->stream_count < audio_state->stream_capacity);
+  Audio_Stream **slot = audio_state->streams + audio_state->stream_count++;
+  *slot = stream;
 }
