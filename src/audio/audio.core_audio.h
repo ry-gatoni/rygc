@@ -85,6 +85,7 @@ proc void core_audio_set_output_device(CoreAudio_Device *output);
 // -----------------------------------------------------------------------------
 // process
 
+// NOTE: internal
 proc AU_CALLBACK_PROC(core_audio_input_device_proc);
 proc AU_CALLBACK_PROC(core_audio_output_device_proc);
 

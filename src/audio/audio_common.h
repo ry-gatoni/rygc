@@ -1,3 +1,13 @@
+// TODO:
+// - devices:
+//   - change active device
+//   - use mutliple devices
+//   - configure buffer size
+// - streams:
+//   - distinguish pull direction (caller is requesting samples) from push direction (caller has samples to give)
+// - midi?
+// - parameters?
+
 typedef struct Audio_MidiMessage Audio_MidiMessage;
 struct Audio_MidiMessage
 {
@@ -53,14 +63,21 @@ typedef enum Audio_StreamStatus
 } Audio_StreamStatus;
 
 typedef struct Audio_Stream Audio_Stream;
-typedef Audio_StreamStatus Audio_StreamRefillProc(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count);
+typedef Audio_StreamStatus Audio_StreamRefillProc(Audio_Stream *self, Audio_Stream *caller);
 struct Audio_Stream
 {
   R32 *samples_start;
   R32 *samples_end;
   R32 *sample_cursor;
-  Audio_StreamRefillProc *refill;
+  Audio_StreamRefillProc *refill; // NOTE: null iff this is a sentinel stream (endpoint in a particular direction)
 };
+
+typedef struct Audio_OutputStream
+{
+#define AUDIO_OUTPUT_MAX_CHANNEL_COUNT 32
+  Audio_Stream self;
+  Audio_Stream *sources[AUDIO_OUTPUT_MAX_CHANNEL_COUNT];
+} Audio_OutputStream;
 
 typedef struct Audio_InputStream
 {
@@ -68,58 +85,11 @@ typedef struct Audio_InputStream
   Os_RingBuffer samples;
 } Audio_InputStream;
 
-proc Audio_StreamStatus
-audio_input_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
-{
-  Audio_InputStream *input = (Audio_InputStream*)self;
-  Unused(dest_samples);
-  Unused(channel_count);
-  Unused(sample_count);
-
-  Os_RingBuffer *samples = &input->samples;
-
-  U64 samples_read = self->sample_cursor - self->samples_start;
-  os_ring_buffer_read_end(samples, samples_read*sizeof(R32));
-
-  Os_RingBufferSpan read_span = os_ring_buffer_read_span(samples);
-  U64 samples_available = (read_span.end - read_span.start)/sizeof(R32);
-  self->samples_start = (R32*)read_span.start;
-  self->samples_end = self->samples_start + samples_available;
-  self->sample_cursor = self->samples_start;
-
-  return Audio_StreamStatus_ok;
-}
-
 typedef struct Audio_PassthruStream
 {
   Audio_Stream self;
   Audio_Stream *source;
 } Audio_PassthruStream;
-
-proc Audio_StreamStatus
-audio_passthru_stream_refill(Audio_Stream *self, R32 **dest_samples, U32 channel_count, U32 sample_count)
-{
-  Audio_PassthruStream *passthru = (Audio_PassthruStream*)self;
-
-  Assert(dest_samples);
-  Assert(channel_count);
-  Assert(sample_count);
-
-  Audio_Stream *source = passthru->source;
-  source->sample_cursor = source->samples_end;
-  source->refill(source, 0, 0, 0);
-  U64 samples_available = IntFromPtr(source->samples_end - source->samples_start)/sizeof(R32);
-  Assert(sample_count <= samples_available);
-
-  R32 *src = source->samples_start;
-  for(U32 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
-  {
-    R32 *dest = dest_samples[channel_idx];
-    CopyArray(dest, src, R32, sample_count);
-  }
-
-  return Audio_StreamStatus_ok;
-}
 
 typedef struct Audio_State
 {
@@ -132,7 +102,9 @@ typedef struct Audio_State
   U32 stream_count;
   U32 stream_capacity;
 
-  Audio_InputStream *input_stream;
+#define AUDIO_INPUT_MAX_CHANNEL_COUNT 32
+  Audio_InputStream input_streams[AUDIO_INPUT_MAX_CHANNEL_COUNT];
+  Audio_OutputStream *output_stream;
 } Audio_State;
 
 global Audio_State *audio_state = 0;
@@ -179,7 +151,8 @@ proc void audio_stop(void);
 
 proc void audio_stream_add(Audio_Stream *stream);
 
-proc Audio_Stream* audio_stream_get_input(void);
+proc void audio_stream_connect_output(Audio_Stream *stream, U32 channel_idx);
+proc Audio_Stream* audio_stream_get_input(U32 channel_idx);
 
 // -----------------------------------------------------------------------------
 // helpers

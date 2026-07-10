@@ -321,6 +321,7 @@ audio_device_iterator_next(Audio_DeviceIterator it)
 // -----------------------------------------------------------------------------
 // process
 
+// NOTE: internal
 proc OSStatus
 core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_action_flags,
 			     const AudioTimestamp *in_timestamp, U32 in_bus_number,
@@ -333,6 +334,34 @@ core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_ac
   Unused(io_data);
   OSStatus status = 0;
 
+#if 1
+  //U32 channel_count = io_data->num_buffers;
+  U32 channel_count = 2; // TODO: make dynamic
+  for(U32 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+  {
+     Audio_InputStream *stream = &audio_state->input_streams[channel_idx];
+     if(stream)
+     {
+       Os_RingBuffer *samples = &stream->samples;
+       Os_RingBufferSpan write_span = os_ring_buffer_write_span(samples);
+       U64 samples_available = IntFromPtr(write_span.end - write_span.start)/sizeof(R32);
+       Assert(samples_available >= in_num_frames);
+
+       AudioBufferList dest_buf = {
+	 .num_buffers = 1,
+	 .buffers[0] = {
+	   .num_channels = 1,
+	   .data_byte_size = in_num_frames*sizeof(R32),
+	   .data = write_span.start,
+	 },
+       };
+       AudioUnit in_unit = core_audio_state->input_unit;
+       status = AudioUnitRender(in_unit, io_action_flags, in_timestamp, in_bus_number, in_num_frames, &dest_buf);
+       Assert(status == 0);
+       os_ring_buffer_write_end(samples, in_num_frames*sizeof(R32));
+     }
+  }
+#else
   Os_RingBuffer *rb = &core_audio_state->samples;
   Assert(os_ring_buffer_free(rb) >= in_num_frames*sizeof(R32));
 
@@ -349,10 +378,11 @@ core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_ac
   status = AudioUnitRender(in_unit, io_action_flags, in_timestamp, in_bus_number, in_num_frames, &dest_buf);
   Assert(status == 0);
   os_ring_buffer_write_end(rb, in_num_frames*sizeof(R32));
-
+#endif
   return status;
 }
 
+// NOTE: internal
 proc OSStatus
 core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_action_flags,
 			      const AudioTimestamp *in_timestamp, U32 in_bus_number,
@@ -363,6 +393,33 @@ core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_a
   Unused(in_timestamp);
   Unused(in_bus_number);
 
+#if 1
+  Audio_OutputStream *output_stream = audio_state->output_stream;
+
+  // NOTE: call all connected streams for each channel; if no stream connected, output zeros
+  U32 channel_count = io_data->num_buffers;
+  Assert(channel_count <= ArrayCount(output_stream->sources));
+  for(U32 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+  {
+    R32 *dest = io_data->buffers[channel_idx].data;
+
+    Audio_Stream *source = output_stream->sources[channel_idx];
+    if(source)
+    {
+      Audio_Stream *self = &output_stream->self;
+      self->samples_start = dest;
+      self->samples_end = dest + in_num_frames;
+      self->sample_cursor = dest;
+      Assert(self->refill == 0);
+
+      source->refill(source, self);
+    }
+    else
+    {
+      ZeroArray(dest, R32, in_num_frames);
+    }
+  }
+#else
   Os_RingBuffer *rb = &core_audio_state->samples;
   Assert(io_data->num_buffers == 2);
   R32 *dest0 = io_data->buffers[0].data;
@@ -396,6 +453,7 @@ core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_a
     arena_release_scratch(scratch);
   }
 
+#endif
   return 0;
 }
 
