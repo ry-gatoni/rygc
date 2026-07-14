@@ -3,6 +3,7 @@
 typedef enum Cocoa_Backend
 {
   Cocoa_Backend_pixel_buffer,
+  Cocoa_Backend_opengl,
 } Cocoa_Backend;
 
 typedef struct Cocoa_PixelBuffer Cocoa_PixelBuffer;
@@ -24,7 +25,12 @@ struct Cocoa_Window
   Cocoa_Window *prev;
 
   NSWindow *window;
-  NSView *view;
+
+  NSView *ns_view;
+
+  NSOpenGLView *ogl_view;
+  NSOpenGLContext *ogl_ctxt;
+
   CALayer *layer;
   CADisplayLink *display_link;
 

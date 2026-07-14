@@ -98,7 +98,9 @@ cocoa_window_open(V2S32 dim, String8 title)
 {
   NSWindow *ns_window = 0;
   NSString *ns_title = 0;
-  NSView *view = 0;
+  NSView *ns_view = 0;
+  NSOpenGLView *ogl_view = 0;
+  NSOpenGLContext *ogl_ctxt = 0;
   CALayer *layer = 0;
   Cocoa_Window *window = 0;
 
@@ -122,10 +124,24 @@ cocoa_window_open(V2S32 dim, String8 title)
   ns_title = NSString_initWithBytesLength((const char*)title.string, title.count, NSUTF8StringEncoding);
   NSWindow_setTitle(ns_window, ns_title);
 
-  view = NSWindow_contentView(ns_window);
-  NSView_setWantsLayer(view, true);
+  ns_view = NSWindow_contentView(ns_window);
+  NSView_setWantsLayer(ns_view, true);
 
-  layer = NSView_layer(view);
+  // NOTE: opengl initialization
+  {
+    NSOpenGLPixelFormat *ogl_pixel_fmt = NSOpenGLView_defaultPixelFormat();
+    ogl_view = NSOpenGLView_initWithFrame(ns_window_rect, ogl_pixel_fmt);
+    if(ogl_view == 0)
+    { goto cocoa_window_open_failure; }
+    NSOpenGLView_prepareOpenGL(ogl_view);
+
+    ogl_ctxt = NSOpenGLView_openGLContext(ogl_view);
+    if(ogl_ctxt == 0)
+    { goto cocoa_window_open_failure; }
+    NSOpenGLContext_makeCurrentContext(ogl_ctxt);
+  }
+
+  layer = NSView_layer(ns_view);
   CALayer_setContentsGravity(layer, kCAGravityBottomLeft);
 
   // NOTE: set up frame-rate sync
@@ -146,7 +162,9 @@ cocoa_window_open(V2S32 dim, String8 title)
   window = cocoa__window_alloc();
   cocoa__set_window_for_ns_window(ns_window, window);
   window->window = ns_window;
-  window->view = view;
+  window->ns_view = ns_view;
+  window->ogl_view = ogl_view;
+  window->ogl_ctxt = ogl_ctxt;
   window->layer = layer;
   cocoa__set_window_for_display_link(display_link, window);
   window->display_link = display_link;
@@ -169,7 +187,7 @@ cocoa_window_close(Cocoa_Window *win)
 proc V2S32
 cocoa_window_dim(Cocoa_Window *win)
 {
-  NSRect bounds = NSView_bounds(win->view);
+  NSRect bounds = NSView_bounds(win->ns_view);
   CGFloat width = bounds.size.width;
   CGFloat height = bounds.size.height;
   V2S32 result = v2s32((S32)width, (S32)height);
@@ -287,7 +305,7 @@ cocoa_submit_frame_pixels(Cocoa_Window *window)
   CALayer_setContents(window->layer, (id)backbuffer->buf);
 
   // NOTE: resize layer
-  NSRect bounds = NSView_bounds(window->view);
+  NSRect bounds = NSView_bounds(window->ns_view);
   CGFloat norm_w = ClampToRange(bounds.size.width / (CGFloat)backbuffer->pixels_width, 0.0, 1.0);
   CGFloat norm_h = ClampToRange(bounds.size.height / (CGFloat)backbuffer->pixels_height, 0.0, 1.0);
   CGFloat norm_y = ClampToRange(1.0 - norm_h, 0.0, 1.0);
@@ -313,10 +331,12 @@ cocoa_submit_frame_ogl(Cocoa_Window *window)
 
 global Gfx_RenderTargetKind gfx_render_target_kind_from_cocoa_backend[] = {
   [Cocoa_Backend_pixel_buffer] = Gfx_RenderTargetKind_pixels,
+  [Cocoa_Backend_opengl] = Gfx_RenderTargetKind_ogl,
 };
 
 global Cocoa_Backend cocoa_backend_from_gfx_render_target_kind[] = {
   [Gfx_RenderTargetKind_pixels] = Cocoa_Backend_pixel_buffer,
+  [Gfx_RenderTargetKind_ogl] = Cocoa_Backend_opengl,
 };
 
 proc Gfx_RenderTargetKind

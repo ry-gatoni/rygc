@@ -8,103 +8,118 @@
   X(NSString)\
   X(NSScreen)\
   X(NSRunLoop)\
+  X(NSOpenGLView)\
+  X(NSOpenGLContext)\
+  X(NSOpenGLPixelFormat)\
   X(CALayer)\
   X(CATransaction)\
   X(CADisplayLink)\
 
 #define ObjcSelXlist\
-  X(alloc, "alloc")\
-  X(release, "release")\
-  X(init, "init")\
-  X(sharedApplication, "sharedApplication")\
-  X(setActivationPolicy, "setActivationPolicy:")\
-  X(activate, "activate")\
-  X(finishLaunching, "finishLaunching")\
-  X(nextEventMatchingMask, "nextEventMatchingMask:untilDate:inMode:dequeue:")\
-  X(sendEvent, "sendEvent:")\
-  X(updateWindows, "updateWindows")\
-  X(terminate, "terminate:")\
-  X(initWithContentRect, "initWithContentRect:styleMask:backing:defer:")\
-  X(contentView, "contentView")\
-  X(setContentView, "setContentView:")\
-  X(makeKeyAndOrderFront, "makeKeyAndOrderFront:")\
-  X(setIsVisible, "setIsVisible:")\
-  X(close, "close")\
-  X(title, "title")\
-  X(setTitle, "setTitle")\
-  X(windowWillResize, "windowWillResize:toSize:")\
-  X(windowShouldClose, "windowShouldClose:")\
-  X(initWithFrame, "initWithFrame:")\
-  X(bounds, "bounds")\
-  X(wantsLayer, "wantsLayer")\
-  X(setWantsLayer, "setWantsLayer:")\
-  X(layer, "layer")\
-  X(setLayer, "setLayer:")\
-  X(layerContentsRedrawPolicy, "layerContentsRedrawPolicy")\
-  X(setLayerContentsRedrawPolicy, "setLayerContentsRedrawPolicy:")\
-  X(type, "type")\
-  X(subtype, "subtype")\
-  X(locationInWindow, "locationInWindow")\
-  X(timestamp, "timestamp")\
-  X(window, "window")\
-  X(windowNumber, "windowNumber")\
-  X(modifierFlags, "modifierFlags")\
-  X(keyCode, "keyCode")\
-  X(keyRepeatDelay, "keyRepeatDelay")\
-  X(keyRepeatInterval, "keyRepeatInterval")\
-  X(pressedMouseButtons, "pressedMouseButtons")\
-  X(doubleClickInterval, "doubleClickInterval")\
-  X(mouseLocation, "mouseLocation")\
-  X(buttonNumber, "buttonNumber")\
-  X(clickCount, "clickCount")\
-  X(deltaX, "deltaX")\
-  X(deltaY, "deltaY")\
-  X(deltaZ, "deltaZ")\
-  X(hasPreciseScrollingDeltas, "hasPreciseScrollingDeltas")\
-  X(scrollingDeltaX, "scrollingDeltaX")\
-  X(scrollingDeltaY, "scrollingDeltaY")\
-  X(momentumPhase, "momentumPhase")\
-  X(isDirectionInvertedFromDevice, "isDirectionInvertedFromDevice")\
-  X(stringWithUTF8String, "stringWithUTF8String:")\
-  X(initWithBytesLength, "initWithBytes:length:encoding:")\
-  X(mainScreen, "mainScreen")\
-  X(frame, "frame")\
-  X(currentRunLoop, "currentRunLoop")\
-  X(contents, "contents")\
-  X(setContents, "setContents:")\
-  X(contentsRect, "contentsRect")\
-  X(setContentsRect, "setContentsRect:")\
-  X(contentsGravity, "contentsGravity")\
-  X(setContentsGravity, "setContentsGravity:")\
-  X(geometryFlipped, "geometryFlipped")\
-  X(setGeometryFlipped, "setGeometryFlipped:")\
-  X(needsDisplay, "needsDisplay")\
-  X(setNeedsDisplay, "setNeedsDisplay")\
-  X(begin, "begin")\
-  X(commit, "commit")\
-  X(flush, "flush")\
-  X(disableActions, "disableActions")\
-  X(setDisableActions, "setDisableActions:")\
-  X(displayLinkWithTarget, "displayLinkWithTarget:selector:")\
-  X(addToRunLoop, "addToRunLoop:forMode:")\
+  X(NSObject, alloc, "alloc")\
+  X(NSObject, release, "release")\
+  X(NSObject, init, "init")\
+  X(NSApplication, sharedApplication, "sharedApplication")\
+  X(NSApplication, setActivationPolicy, "setActivationPolicy:")\
+  X(NSApplication, activate, "activate")\
+  X(NSApplication, finishLaunching, "finishLaunching")\
+  X(NSApplication, nextEventMatchingMask, "nextEventMatchingMask:untilDate:inMode:dequeue:")\
+  X(NSApplication, sendEvent, "sendEvent:")\
+  X(NSApplication, updateWindows, "updateWindows")\
+  X(NSApplication, terminate, "terminate:")\
+  X(NSWindow, initWithContentRect, "initWithContentRect:styleMask:backing:defer:")\
+  X(NSWindow, contentView, "contentView")\
+  X(NSWindow, setContentView, "setContentView:")\
+  X(NSWindow, makeKeyAndOrderFront, "makeKeyAndOrderFront:")\
+  X(NSWindow, setIsVisible, "setIsVisible:")\
+  X(NSWindow, close, "close")\
+  X(NSWindow, title, "title")\
+  X(NSWindow, setTitle, "setTitle")\
+  X(NSWindowController, windowWillResize, "windowWillResize:toSize:")\
+  X(NSWindowController, windowShouldClose, "windowShouldClose:")\
+  X(NSView, initWithFrame, "initWithFrame:")\
+  X(NSView, bounds, "bounds")\
+  X(NSView, wantsLayer, "wantsLayer")\
+  X(NSView, setWantsLayer, "setWantsLayer:")\
+  X(NSView, layer, "layer")\
+  X(NSView, setLayer, "setLayer:")\
+  X(NSView, layerContentsRedrawPolicy, "layerContentsRedrawPolicy")\
+  X(NSView, setLayerContentsRedrawPolicy, "setLayerContentsRedrawPolicy:")\
+  X(NSEvent, type, "type")\
+  X(NSEvent, subtype, "subtype")\
+  X(NSEvent, locationInWindow, "locationInWindow")\
+  X(NSEvent, timestamp, "timestamp")\
+  X(NSEvent, window, "window")\
+  X(NSEvent, windowNumber, "windowNumber")\
+  X(NSEvent, modifierFlags, "modifierFlags")\
+  X(NSEvent, keyCode, "keyCode")\
+  X(NSEvent, keyRepeatDelay, "keyRepeatDelay")\
+  X(NSEvent, keyRepeatInterval, "keyRepeatInterval")\
+  X(NSEvent, pressedMouseButtons, "pressedMouseButtons")\
+  X(NSEvent, doubleClickInterval, "doubleClickInterval")\
+  X(NSEvent, mouseLocation, "mouseLocation")\
+  X(NSEvent, buttonNumber, "buttonNumber")\
+  X(NSEvent, clickCount, "clickCount")\
+  X(NSEvent, deltaX, "deltaX")\
+  X(NSEvent, deltaY, "deltaY")\
+  X(NSEvent, deltaZ, "deltaZ")\
+  X(NSEvent, hasPreciseScrollingDeltas, "hasPreciseScrollingDeltas")\
+  X(NSEvent, scrollingDeltaX, "scrollingDeltaX")\
+  X(NSEvent, scrollingDeltaY, "scrollingDeltaY")\
+  X(NSEvent, momentumPhase, "momentumPhase")\
+  X(NSEvent, isDirectionInvertedFromDevice, "isDirectionInvertedFromDevice")\
+  X(NSEvent, stringWithUTF8String, "stringWithUTF8String:")\
+  X(NSEvent, initWithBytesLength, "initWithBytes:length:encoding:")\
+  X(NSScreen, mainScreen, "mainScreen")\
+  X(NSScreen, frame, "frame")\
+  X(NSScreen, displayLinkWithTarget, "displayLinkWithTarget:selector:")\
+  X(NSRunLoop, currentRunLoop, "currentRunLoop")\
+  X(NSOpenGLView, defaultPixelFormat, "defaultPixelFormat")\
+  X(NSOpenGLView, initWithFrame, "initWithFrame:pixelFormat:")\
+  X(NSOpenGLView, prepareOpenGL, "prepareOpenGL")\
+  X(NSOpenGLView, openGLContext, "openGLContext")\
+  X(NSOpenGLContext, makeCurrentContext, "makeCurrentContext")\
+  X(CALayer, contents, "contents")\
+  X(CALayer, setContents, "setContents:")\
+  X(CALayer, contentsRect, "contentsRect")\
+  X(CALayer, setContentsRect, "setContentsRect:")\
+  X(CALayer, contentsGravity, "contentsGravity")\
+  X(CALayer, setContentsGravity, "setContentsGravity:")\
+  X(CALayer, geometryFlipped, "geometryFlipped")\
+  X(CALayer, setGeometryFlipped, "setGeometryFlipped:")\
+  X(CALayer, needsDisplay, "needsDisplay")\
+  X(CALayer, setNeedsDisplay, "setNeedsDisplay")\
+  X(CATransaction, begin, "begin")\
+  X(CATransaction, commit, "commit")\
+  X(CATransaction, flush, "flush")\
+  X(CATransaction, disableActions, "disableActions")\
+  X(CATransaction, setDisableActions, "setDisableActions:")\
+  X(CADisplayLink, displayLinkWithTarget, "displayLinkWithTarget:selector:")\
+  X(CADisplayLink, addToRunLoop, "addToRunLoop:forMode:")\
 
-#define ObjcClassDecl(name)\
-  static Class Glue(objc_class_, name)
-
-#define ObjcClassDef(name)\
+#define ObjcClassName(name)\
   Glue(objc_class_, name)
 
-#define ObjcSelDecl(name)\
-  static SEL Glue(objc_sel_, name)
+#define ObjcClassDecl(name)\
+  static Class ObjcClassName(name)
 
-#define ObjcSelDef(name)\
-  Glue(objc_sel_, name)
+#define ObjcClassDef(name)\
+  ObjcClassName(name)
+
+#define ObjcSelName(class, name)\
+  Glue(objc_sel_, Glue(class, Glue(_, name)))
+
+#define ObjcSelDecl(class, name)\
+  static SEL ObjcSelName(class, name)
+
+#define ObjcSelDef(class, name)\
+  ObjcSelName(class, name)
 
 #define X(name) ObjcClassDecl(name); typedef void name;
 ObjcClassXlist
 #undef X
 
-#define X(name, selstr) ObjcSelDecl(name);
+#define X(class, name, selstr) ObjcSelDecl(class, name);
 ObjcSelXlist
 #undef X
 
@@ -114,7 +129,7 @@ BeforeMain()
   ObjcClassXlist;
 #undef X
 
-#define X(name, selstr) ObjcSelDef(name) = sel_registerName(selstr);
+#define X(class, name, selstr) ObjcSelDef(class, name) = sel_registerName(selstr);
   ObjcSelXlist;
 #undef X
 }
@@ -1145,7 +1160,7 @@ NSScreen_displayLinkWithTarget(NSScreen *screen, id target, SEL selector)
 {
   // NOTE: macos only
   id nsid = screen;
-  SEL nssel = objc_sel_displayLinkWithTarget;
+  SEL nssel = ObjcSelName(NSScreen, displayLinkWithTarget);//objc_sel_displayLinkWithTarget;
   return ((id (*)(id, SEL, id, SEL))objc_msgSend)(nsid, nssel, target, selector);
 }
 
@@ -1153,10 +1168,54 @@ NSScreen_displayLinkWithTarget(NSScreen *screen, id target, SEL selector)
 proc inline NSRunLoop*
 NSRunLoop_currentRunLoop(void)
 {
-  Class nsclass = objc_class_NSRunLoop;
+  Class nsclass = ObjcClassName(NSRunLoop);//objc_class_NSRunLoop;
   id nsid = (id)nsclass;
-  SEL nssel = objc_sel_currentRunLoop;
+  SEL nssel = ObjcSelName(NSRunLoop, currentRunLoop);//objc_sel_currentRunLoop;
   return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+// NSOpenGLView
+proc inline NSOpenGLPixelFormat*
+NSOpenGLView_defaultPixelFormat(void)
+{
+  Class nsclass = ObjcClassName(NSOpenGLView);
+  id nsid = (id)nsclass;
+  SEL nssel = ObjcSelName(NSOpenGLView, defaultPixelFormat);
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline NSOpenGLView*
+NSOpenGLView_initWithFrame(NSRect frame, NSOpenGLPixelFormat *fmt)
+{
+  Class nsclass = ObjcClassName(NSOpenGLView);
+  id nsid = NSAlloc(nsclass);
+  SEL nssel = ObjcSelName(NSOpenGLView, initWithFrame);
+  return ((id (*)(id, SEL, NSRect, id))objc_msgSend)(nsid, nssel, frame, fmt);
+}
+
+proc inline void
+NSOpenGLView_prepareOpenGL(NSOpenGLView *view)
+{
+  id nsid = view;
+  SEL nssel = ObjcSelName(NSOpenGLView, prepareOpenGL);
+  return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline NSOpenGLContext*
+NSOpenGLView_openGLContext(NSOpenGLView *view)
+{
+  id nsid = view;
+  SEL nssel = ObjcSelName(NSOpenGLView, openGLContext);
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+// NSOpenGLContext
+proc inline void
+NSOpenGLContext_makeCurrentContext(NSOpenGLContext *ctxt)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, makeCurrentContext);
+  return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
 //
@@ -1295,9 +1354,9 @@ proc inline CADisplayLink*
 CADisplayLink_displayLinkWithTarget(id target, SEL selector)
 {
   // NOTE: stubbed out on macos
-  Class nsclass = objc_class_CADisplayLink;
+  Class nsclass = ObjcClassName(CADisplayLink);//objc_class_CADisplayLink;
   id nsid = (id)nsclass;
-  SEL nssel = objc_sel_displayLinkWithTarget;
+  SEL nssel = ObjcSelName(CADisplayLink, displayLinkWithTarget);//objc_sel_displayLinkWithTarget;
   return ((id (*)(id, SEL, id, SEL))objc_msgSend)(nsid, nssel, target, selector);
 }
 
@@ -1305,6 +1364,6 @@ proc inline void
 CADisplayLink_addToRunLoop(CADisplayLink *link, NSRunLoop *run_loop, NSRunLoopMode mode)
 {
   id nsid = link;
-  SEL nssel = objc_sel_addToRunLoop;
+  SEL nssel = ObjcSelName(CADisplayLink, addToRunLoop);//objc_sel_addToRunLoop;
   return ((void (*)(id, SEL, id, id))objc_msgSend)(nsid, nssel, run_loop, mode);
 }
