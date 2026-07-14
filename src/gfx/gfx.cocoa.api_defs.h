@@ -79,6 +79,8 @@
   X(NSOpenGLView, prepareOpenGL, "prepareOpenGL")\
   X(NSOpenGLView, openGLContext, "openGLContext")\
   X(NSOpenGLContext, makeCurrentContext, "makeCurrentContext")\
+  X(NSOpenGLContext, flushBuffer, "flushBuffer")\
+  X(NSOpenGLContext, setValues, "setValues:forParameter:")\
   X(CALayer, contents, "contents")\
   X(CALayer, setContents, "setContents:")\
   X(CALayer, contentsRect, "contentsRect")\
@@ -101,7 +103,7 @@
   Glue(objc_class_, name)
 
 #define ObjcClassDecl(name)\
-  static Class ObjcClassName(name)
+  global Class ObjcClassName(name)
 
 #define ObjcClassDef(name)\
   ObjcClassName(name)
@@ -110,7 +112,7 @@
   Glue(objc_sel_, Glue(class, Glue(_, name)))
 
 #define ObjcSelDecl(class, name)\
-  static SEL ObjcSelName(class, name)
+  global SEL ObjcSelName(class, name)
 
 #define ObjcSelDef(class, name)\
   ObjcSelName(class, name)
@@ -626,6 +628,11 @@ Cocoa_Enum(NSStringEncoding, NSUInteger)
   NSUTF32StringEncoding = 0x8c000100,
   NSUTF32BigEndianStringEncoding = 0x98000100,          /* NSUTF32StringEncoding encoding with explicit endianness specified */
   NSUTF32LittleEndianStringEncoding = 0x9c000100        /* NSUTF32StringEncoding encoding with explicit endianness specified */
+};
+
+Cocoa_Enum(NSOpenGLContextParameter, NSInteger)
+{
+  NSOpenGLContextParameterSwapInterval = 222,
 };
 
 //
@@ -1216,6 +1223,22 @@ NSOpenGLContext_makeCurrentContext(NSOpenGLContext *ctxt)
   id nsid = ctxt;
   SEL nssel = ObjcSelName(NSOpenGLContext, makeCurrentContext);
   return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+NSOpenGLContext_flushBuffer(NSOpenGLContext *ctxt)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, flushBuffer);
+  return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+NSOpenGLContext_setValues(NSOpenGLContext *ctxt, const int *vals, NSOpenGLContextParameter param)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, setValues);
+  return ((void (*)(id, SEL, const int*, NSInteger))objc_msgSend)(nsid, nssel, vals, param);
 }
 
 //

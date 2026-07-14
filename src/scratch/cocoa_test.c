@@ -9,6 +9,7 @@
 // -----------------------------------------------------------------------------
 // main
 
+#if 0
 global Cocoa_PixelBuffer *backbuffer  = 0;
 global Cocoa_PixelBuffer *frontbuffer = 0;
 
@@ -64,6 +65,7 @@ on_window_resize(id self, SEL cmd, NSWindow *sender, NSSize frame_size)
 
   return(frame_size);
 }
+#endif
 
 typedef struct BoxState
 {
@@ -73,7 +75,7 @@ typedef struct BoxState
 } BoxState;
 
 proc void
-update_and_draw(BoxState *box, Gfx_PixelRenderTarget *target, /* U32 *pixels, U32 pixel_stride, */ V2S32 frame_dim)
+update_and_draw(BoxState *box, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
 {
   U32 *pixels = (U32*)target->pixels;
   U32 pixel_stride = target->stride;
@@ -139,12 +141,12 @@ main(int argc, char **argv)
   { result = 1; goto end; }
 
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("cocoa test"));
+  gfx_set_render_target_kind(window, Gfx_RenderTargetKind_ogl);
 
   BoxState box = {0};
   box.p = v2(20, 40);
   box.v = v2(1.f, 3.f);
   box.dim = v2(20, 20);
-#if 1
   B32 running = 1;
   while(running)
   {
@@ -167,38 +169,21 @@ main(int argc, char **argv)
     }
 
     // NOTE: draw
+#if 1
+    gfx_render_target_from_window(0, window);
+    gfx_submit_frame(window);
+#else
     V2S32 window_dim = gfx_window_dim(window);
     Gfx_PixelRenderTarget target;
     gfx_render_target_from_window(&target, window);
     update_and_draw(&box, &target, window_dim);
     gfx_submit_frame(window);
+#endif
   }
 
   gfx_window_close(window);
 
   gfx_uninit();
-#else
-  Arena *frame_arena = arena_alloc();
-  B32 running = 1;
-  while(running)
-  {
-    Gfx_EventList events = cocoa_events(frame_arena);
-    for(Gfx_Event *e = events.first; e; e = e->next)
-    {
-      switch(e->kind)
-      {
-	case Gfx_EventKind_close:
-	{
-	  running = 0;
-	}break;
-
-	default: {}break;
-      }
-    }
-
-    arena_clear(frame_arena);
-  }
-#endif
 
 #if 0
   NSDefaultRunLoopMode = NSString_stringWithUTF8String("kCFRunLoopDefaultMode");

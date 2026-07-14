@@ -133,12 +133,24 @@ cocoa_window_open(V2S32 dim, String8 title)
     ogl_view = NSOpenGLView_initWithFrame(ns_window_rect, ogl_pixel_fmt);
     if(ogl_view == 0)
     { goto cocoa_window_open_failure; }
+
     NSOpenGLView_prepareOpenGL(ogl_view);
 
     ogl_ctxt = NSOpenGLView_openGLContext(ogl_view);
     if(ogl_ctxt == 0)
     { goto cocoa_window_open_failure; }
+
+    GLint swap_interval = 1;
+    NSOpenGLContext_setValues(ogl_ctxt, &swap_interval, NSOpenGLContextParameterSwapInterval);
     NSOpenGLContext_makeCurrentContext(ogl_ctxt);
+
+    void *ogl_handle = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_LAZY|RTLD_LOCAL);
+    if(ogl_handle == 0)
+    { fprintf(stderr, "%s\n", dlerror()); }
+#define X(N, R, A) N = dlsym(ogl_handle, Stringify(N)); Assert(N != 0);
+    OGL_FUNCTION_XLIST;
+#undef X
+    dlclose(ogl_handle);
   }
 
   layer = NSView_layer(ns_view);
@@ -242,6 +254,7 @@ proc void
 cocoa_events(void)
 {
   // TODO: make frame-rate wait configurable
+  // TODO: this makes it so we don't poll for events until after we submit the first frame, which makes startup latency higher than it needs to be
   while(cocoa_state->pending_frame_count)
   {
     NSEvent *e = 0;
@@ -277,6 +290,18 @@ cocoa_events(void)
 // render
 
 proc void
+cocoa_set_render_target_kind(Cocoa_Window *window, Cocoa_Backend backend)
+{
+  window->backend = backend;
+
+  NSWindow *ns_win = window->window;
+  NSView *view = window->ns_view;
+  if(backend == Cocoa_Backend_opengl)
+  { view = (NSView*)window->ogl_view; }
+  NSWindow_setContentView(ns_win, view);
+}
+
+proc void
 cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Window *window)
 {
   Cocoa_PixelBuffer *backbuffer = window->backbuffer;
@@ -289,10 +314,12 @@ cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Windo
 proc void
 cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window)
 {
-  // TODO: implement
-  Assert(0);
+  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt;
+  NSOpenGLContext_makeCurrentContext(ogl_ctxt);
+  glClearColor(1, 1, 0, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+
   Unused(target);
-  Unused(window);
 }
 
 proc void
@@ -324,9 +351,12 @@ cocoa_submit_frame_pixels(Cocoa_Window *window)
 proc void
 cocoa_submit_frame_ogl(Cocoa_Window *window)
 {
-  // TODO: implement
-  Assert(0);
-  Unused(window);
+  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt;
+  NSOpenGLContext_flushBuffer(ogl_ctxt);
+  glFlush();
+
+  window->pending_frame = 1;
+  ++cocoa_state->pending_frame_count;
 }
 
 global Gfx_RenderTargetKind gfx_render_target_kind_from_cocoa_backend[] = {
@@ -351,7 +381,8 @@ proc void
 gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind)
 {
   Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
-  cocoa_window->backend = cocoa_backend_from_gfx_render_target_kind[kind];
+  Cocoa_Backend cocoa_backend = cocoa_backend_from_gfx_render_target_kind[kind];
+  cocoa_set_render_target_kind(cocoa_window, cocoa_backend);
 }
 
 proc void

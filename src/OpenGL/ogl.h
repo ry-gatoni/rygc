@@ -4,6 +4,8 @@
 #  include "GL/gl.h"
 #elif OS_WINDOWS
 #  include "ogl_api_defs.h"
+#elif OS_MAC
+#  include "ogl_api_defs.h"
 #else
 #  error platform not implemented
 #endif

@@ -66,53 +66,53 @@ typedef signed long int		GLsizeiptr;
 // NOTE: functions
 // NOTE: x macro format: name, return, args
 #define OGL_FUNCTION_XLIST \
-  X(glCreateShader, GLuint, (GLenum shaderType))		\
+  X(glCreateShader, GLuint, (GLenum shaderType))\
   X(glShaderSource, void, (GLuint shader, GLsizei count, const GLchar*const*string, const GLint *length))\
-    X(glCompileShader, void, (GLuint shader)) \
-    X(glGetShaderiv, void, (GLuint shader, GLenum pname, GLint *params))\
-    X(glGetShaderInfoLog, void, (GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog)) \
-    X(glDeleteShader, void, (GLuint shader))				\
-    X(glCreateProgram, GLuint, (void))\
-    X(glLinkProgram, void, (GLuint program))\
+  X(glCompileShader, void, (GLuint shader))\
+  X(glGetShaderiv, void, (GLuint shader, GLenum pname, GLint *params))\
+  X(glGetShaderInfoLog, void, (GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
+  X(glDeleteShader, void, (GLuint shader))\
+  X(glCreateProgram, GLuint, (void))\
+  X(glLinkProgram, void, (GLuint program))\
   X(glGetProgramiv, void, (GLuint program, GLenum pname, GLint *params))\
   X(glGetProgramInfoLog, void, (GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
   X(glDeleteProgram, void, (GLuint program))\
   X(glGenTextures, void, (GLsizei n, GLuint *textures))\
-  X(glBindTexture, void, (GLenum target, GLuint texture))	\
+  X(glBindTexture, void, (GLenum target, GLuint texture))\
   X(glTexImage2D, void, (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *data))\
   X(glTexParameteri, void, (GLenum target, GLenum pname, GLint param))\
-    X(glTexSubImage2D, void, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *data))\
-    X(glEnable, void, (GLenum cap))\
-    X(glDisable, void, (GLenum cap))\
-    X(glBlendFunc, void, (GLenum sfactor, GLenum dfactor))\
-    X(glDepthFunc, void, (GLenum func))\
-    X(glPixelStorei, void, (GLenum pname, GLint param))\
-    X(glUseProgram, void, (GLuint program))\
+  X(glTexSubImage2D, void, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *data))\
+  X(glEnable, void, (GLenum cap))\
+  X(glDisable, void, (GLenum cap))\
+  X(glBlendFunc, void, (GLenum sfactor, GLenum dfactor))\
+  X(glDepthFunc, void, (GLenum func))\
+  X(glPixelStorei, void, (GLenum pname, GLint param))\
+  X(glUseProgram, void, (GLuint program))\
   X(glGenVertexArrays, void, (GLsizei n, GLuint *arrays))\
   X(glAttachShader, void, (GLuint program, GLuint shader))\
   X(glBindVertexArray, void, (GLuint array))\
   X(glGenBuffers, void, (GLsizei n, GLuint *buffers))\
-  X(glBindBuffer, void, (GLenum target, GLuint buffer))	\
+  X(glBindBuffer, void, (GLenum target, GLuint buffer))\
   X(glGenSamplers, void, (GLsizei n, GLuint *samplers))\
   X(glGetUniformLocation, GLint, (GLuint program, const GLchar *name))\
   X(glUniform1i, void, (GLint location, GLint v0))\
-  X(glUniformMatrix4fv, void, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)) \
+  X(glUniformMatrix4fv, void, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value))\
   X(glEnableVertexAttribArray, void, (GLuint index))\
   X(glVertexAttribPointer, void, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer))\
-    X(glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))\
-    X(glClearColor, void, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha))\
-    X(glClearDepth, void, (GLclampd depth))\
-    X(glClear, void, (GLbitfield mask))\
-    X(glBufferData, void, (GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage))\
+  X(glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))\
+  X(glClearColor, void, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha))\
+  X(glClearDepth, void, (GLclampd depth))\
+  X(glClear, void, (GLbitfield mask))\
+  X(glBufferData, void, (GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage))\
   X(glActiveTexture, void, (GLenum texture))\
   X(glDrawArrays, void, (GLenum mode, GLint first, GLsizei count))\
   X(glGetError, GLenum, (void))\
-    X(glVertex3f, void, (GLfloat x, GLfloat y, GLfloat z))\
-   X(glColor3f, void, (GLfloat red, GLfloat green, GLfloat blue))\
-    X(glTexCoord2f, void, (GLfloat s, GLfloat t))\
+  X(glVertex3f, void, (GLfloat x, GLfloat y, GLfloat z))\
+  X(glColor3f, void, (GLfloat red, GLfloat green, GLfloat blue))\
+  X(glTexCoord2f, void, (GLfloat s, GLfloat t))\
   X(glBegin, void, (GLenum mode))\
-    X(glEnd, void, (void))\
-
+  X(glEnd, void, (void))\
+  X(glFlush, void, (void))\
 
 // NOTE: function typedefs
 #define X(N, R, A) typedef R Glue(GL_, N)A;

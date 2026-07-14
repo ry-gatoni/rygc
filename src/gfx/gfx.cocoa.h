@@ -1,4 +1,5 @@
 #include "gfx.cocoa.api_defs.h"
+#include "OpenGL/ogl.h"
 
 typedef enum Cocoa_Backend
 {
@@ -94,6 +95,7 @@ proc void cocoa_events();
 // -----------------------------------------------------------------------------
 // render
 
+proc void cocoa_set_render_target_kind(Cocoa_Window *window, Cocoa_Backend backend);
 proc void cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Window *window);
 proc void cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window);
 

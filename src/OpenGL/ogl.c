@@ -13,6 +13,8 @@ ogl_init(void)
   result = ogl_win32_init();
 #elif OS_LINUX
   result = ogl_linux_init();
+#elif OS_MAC
+  result = ogl_mac_init();
 #endif
 
   if(result)
