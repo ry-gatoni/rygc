@@ -67,6 +67,109 @@ on_window_resize(id self, SEL cmd, NSWindow *sender, NSSize frame_size)
 }
 #endif
 
+typedef enum PixelCommandKind
+{
+  PixelCommandKind_clear,
+  PixelCommandKind_rect,
+} PixelCommandKind;
+
+typedef struct PixelCommand
+{
+  PixelCommandKind kind;
+  U32 color;
+  Rect2 rect;
+} PixelCommand;
+
+typedef struct PixelCommandBuffer
+{
+  U8 *commands;
+  U32 commands_size;
+  U32 commands_capacity;
+} PixelCommandBuffer;
+
+proc void
+pixel_command_buffer_init(Arena *arena, PixelCommandBuffer *commands, U32 capacity)
+{
+  commands->commands = arena_push_array(arena, U8, capacity);
+  commands->commands_size = 0;
+  commands->commands_capacity = capacity;
+}
+
+proc inline void*
+pixel_command_push_size(PixelCommandBuffer *commands, U32 size)
+{
+  Assert(commands->commands_size + size < commands->commands_capacity);
+  void *result = commands->commands + commands->commands_size;
+  commands->commands_size += size;
+  return result;
+}
+#define pixel_command_push(commands) pixel_command_push_size(commands, sizeof(PixelCommand))
+
+proc inline void
+pixel_command_push_clear(PixelCommandBuffer *commands, U32 color)
+{
+  PixelCommand *command = pixel_command_push(commands);
+  command->kind = PixelCommandKind_clear;
+  command->color = color;
+}
+
+proc inline void
+pixel_command_push_rect(PixelCommandBuffer *commands, Rect2 rect, U32 color)
+{
+  PixelCommand *command = pixel_command_push(commands);
+  command->kind = PixelCommandKind_rect;
+  command->rect = rect;
+  command->color = color;
+}
+
+proc void
+pixel_command_buffer_flush(PixelCommandBuffer *commands, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
+{
+  PixelCommand *first = (PixelCommand*)commands->commands;
+  PixelCommand *opl = (PixelCommand*)(commands->commands + commands->commands_size);
+  for(PixelCommand *command = first; command < opl; ++command)
+  {
+    switch(command->kind)
+    {
+      case PixelCommandKind_clear:
+      {
+	U32 color = command->color;
+	S32 frame_w = frame_dim.width;
+	S32 frame_h = frame_dim.height;
+	U8 *row = target->pixels;
+	for(S32 row_idx = 0; row_idx < frame_h; ++row_idx)
+	{
+	  U32 *pixel = (U32*)row;
+	  for(S32 col_idx = 0; col_idx < frame_w; ++col_idx)
+	  {
+	    *pixel++ = color;
+	  }
+	  row += target->stride;
+	}
+      }break;
+
+      case PixelCommandKind_rect:
+      {
+	S32 min_x = command->rect.min.x;
+	S32 min_y = command->rect.min.y;
+	S32 width = command->rect.max.x - min_x;
+	S32 height = command->rect.max.y - min_y;
+	U32 color = command->color;
+	U8 *row = target->pixels + min_y*target->stride + min_x*sizeof(U32);
+	for(S32 row_idx = 0; row_idx < height; ++row_idx)
+	{
+	  U32 *pixel = (U32*)row;
+	  for(S32 col_idx = 0; col_idx < width; ++col_idx)
+	  {
+	    *pixel++ = color;
+	  }
+	  row += target->stride;
+	}
+      }break;
+    }
+  }
+}
+
 typedef struct BoxState
 {
   V2 p;
@@ -75,25 +178,10 @@ typedef struct BoxState
 } BoxState;
 
 proc void
-update_and_draw(BoxState *box, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
+update_and_draw(BoxState *box, PixelCommandBuffer *commands, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
 {
-  U32 *pixels = (U32*)target->pixels;
-  U32 pixel_stride = target->stride;
-
   // clear background
-  {
-    S32 frame_w = frame_dim.width;
-    S32 frame_h = frame_dim.height;
-    U8 *dest = (U8*)pixels;
-    for(S32 row_idx = 0; row_idx < frame_h; ++row_idx)
-    {
-      U32 *row = (U32*)(dest + row_idx*pixel_stride);
-      for(S32 col_idx = 0; col_idx < frame_w; ++col_idx)
-      {
-	*row++ = 0xFF080C1C;
-      }
-    }
-  }
+  pixel_command_push_clear(commands, 0xFF080C1C);
 
   // update box
   if(0 > box->p.x + box->v.x || box->p.x + box->dim.x + box->v.x > frame_dim.width)
@@ -109,21 +197,10 @@ update_and_draw(BoxState *box, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
   box->p.y += box->v.y;
 
   // draw box
-  {
-    S32 box_x = (S32)box->p.x;
-    S32 box_y = (S32)box->p.y;
-    S32 box_w = (S32)box->dim.x;
-    S32 box_h = (S32)box->dim.y;
-    U8 *dest = (U8*)pixels + pixel_stride*box_y + box_x*sizeof(*pixels);
-    for(S32 row_idx = 0; row_idx < box_h; ++row_idx)
-    {
-      U32 *row = (U32*)(dest + pixel_stride*row_idx);
-      for(S32 col_idx = 0; col_idx < box_w; ++col_idx)
-      {
-	*row++ = 0xFFFF0000;
-      }
-    }
-  }
+  pixel_command_push_rect(commands, rect2_min_dim(box->p, box->dim), 0xFFFF0000);
+
+  // flush commands
+  pixel_command_buffer_flush(commands, target, frame_dim);
 }
 
 int
@@ -141,7 +218,10 @@ main(int argc, char **argv)
   { result = 1; goto end; }
 
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("cocoa test"));
-  gfx_set_render_target_kind(window, Gfx_RenderTargetKind_ogl);
+  //gfx_set_render_target_kind(window, Gfx_RenderTargetKind_ogl);
+
+  Arena *frame_arena = arena_alloc();
+  PixelCommandBuffer commands = {0};
 
   BoxState box = {0};
   box.p = v2(20, 40);
@@ -169,15 +249,17 @@ main(int argc, char **argv)
     }
 
     // NOTE: draw
-#if 1
+#if 0
     gfx_render_target_from_window(0, window);
     gfx_submit_frame(window);
 #else
+    pixel_command_buffer_init(frame_arena, &commands, KB(32));
     V2S32 window_dim = gfx_window_dim(window);
     Gfx_PixelRenderTarget target;
     gfx_render_target_from_window(&target, window);
-    update_and_draw(&box, &target, window_dim);
+    update_and_draw(&box, &commands, &target, window_dim);
     gfx_submit_frame(window);
+    arena_clear(frame_arena);
 #endif
   }
 
