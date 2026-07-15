@@ -57,6 +57,7 @@ audio_input_stream_refill(Audio_Stream *self, Audio_Stream *caller)
   self->samples_start = (R32*)read_span.start;
   self->samples_end = self->samples_start + samples_available;
   self->sample_cursor = self->samples_start;
+  // TODO: maybe output zeros if the input device hasn't started yet?
 
   return Audio_StreamStatus_ok;
 }
@@ -112,6 +113,10 @@ audio_init(void)
   }
   audio_state->output_stream = arena_push_struct(arena, Audio_OutputStream);
   audio_state->streams[audio_state->stream_count++] = &audio_state->output_stream->self;
+
+#define AUDIO_MAX_PROCESS_SAMPLES 2048
+  audio_state->zero_samples_start = arena_push_array(arena, R32, AUDIO_MAX_PROCESS_SAMPLES);
+  audio_state->zero_samples_end = audio_state->zero_samples_start + AUDIO_MAX_PROCESS_SAMPLES;
 
   B32 result;
 #if AUDIO_BACKEND == AUDIO_BACKEND_JACK
@@ -177,4 +182,12 @@ audio_stream_get_input(U32 channel_idx)
   Assert(channel_idx <= ArrayCount(audio_state->input_streams));
   Audio_Stream *result = &audio_state->input_streams[channel_idx].self;
   return result;
+}
+
+proc void
+audio_stream_write_zeros(Audio_Stream *stream)
+{
+  stream->samples_start = audio_state->zero_samples_start;
+  stream->samples_end = audio_state->zero_samples_end;
+  stream->sample_cursor = stream->samples_start;
 }

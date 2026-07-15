@@ -13,8 +13,9 @@ typedef struct Os_RingBuffer
 {
   void *mem;
   U64 size;
-  U64 read;
-  U64 write;
+
+  CacheAlignField U64 read;
+  CacheAlignField U64 write;
 } Os_RingBuffer;
 
 typedef struct Os_RingBufferSpan

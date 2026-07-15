@@ -59,11 +59,13 @@ typedef struct Audio_ProcessData
 typedef enum Audio_StreamStatus
 {
   Audio_StreamStatus_ok,
+  Audio_StreamStatus_zero_output,
   Audio_StreamStatus_error,
 } Audio_StreamStatus;
 
 typedef struct Audio_Stream Audio_Stream;
-typedef Audio_StreamStatus Audio_StreamRefillProc(Audio_Stream *self, Audio_Stream *caller);
+#define AUDIO_STREAM_REFILL_PROC(name) Audio_StreamStatus (name)(Audio_Stream *self, Audio_Stream *caller)
+typedef AUDIO_STREAM_REFILL_PROC(Audio_StreamRefillProc);
 struct Audio_Stream
 {
   R32 *samples_start;
@@ -105,6 +107,9 @@ typedef struct Audio_State
 #define AUDIO_INPUT_MAX_CHANNEL_COUNT 32
   Audio_InputStream input_streams[AUDIO_INPUT_MAX_CHANNEL_COUNT];
   Audio_OutputStream *output_stream;
+
+  R32 *zero_samples_start;
+  R32 *zero_samples_end;
 } Audio_State;
 
 global Audio_State *audio_state = 0;
@@ -153,6 +158,8 @@ proc void audio_stream_add(Audio_Stream *stream);
 
 proc void audio_stream_connect_output(Audio_Stream *stream, U32 channel_idx);
 proc Audio_Stream* audio_stream_get_input(U32 channel_idx);
+
+proc void audio_stream_write_zeros(Audio_Stream *stream);
 
 // -----------------------------------------------------------------------------
 // helpers

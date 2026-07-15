@@ -76,6 +76,7 @@
 #else
 #  warning WARNING: `AlignField()` macro not supported on this compiler
 #endif
+#define CacheAlignField AlignField(CpuCacheLineSize)
 
 // -----------------------------------------------------------------------------
 // allow aliasing

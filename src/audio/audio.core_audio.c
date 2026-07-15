@@ -412,7 +412,21 @@ core_audio_output_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_a
       self->sample_cursor = dest;
       Assert(self->refill == 0);
 
-      source->refill(source, self);
+      U32 frames_to_write = in_num_frames;
+      while(frames_to_write)
+      {
+	source->refill(source, self);
+	U32 frames_written = self->sample_cursor - self->samples_start;
+	//Assert(frames_written);
+	if(frames_written == 0)
+	{
+	  ZeroArray(dest, R32, in_num_frames);
+	  break;
+	}
+	Assert(frames_written <= frames_to_write);
+	frames_to_write -= frames_written;
+	self->samples_start = self->sample_cursor;
+      }
     }
     else
     {

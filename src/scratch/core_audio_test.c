@@ -379,6 +379,214 @@ allpass_filter_stream_init(AllpassFilterStream *stream, Audio_Stream *source, U6
   stream->order = delay_samples;
 }
 
+typedef struct KarplusStrongInputStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+  Audio_Stream *fb;
+
+  Os_RingBuffer out_samples;
+
+  R32 feedback;
+} KarplusStrongInputStream;
+
+typedef struct KarplusStrongOutputStream
+{
+  Audio_Stream self;
+  Audio_Stream *source;
+
+  Os_RingBuffer ff_samples;
+  Os_RingBuffer fb_samples;
+
+  U64 delay_samples;
+} KarplusStrongOutputStream;
+
+proc AUDIO_STREAM_REFILL_PROC(karplus_strong_input_stream_refill);
+proc AUDIO_STREAM_REFILL_PROC(karplus_strong_output_stream_refill);
+
+proc void
+karplus_strong_stream_init(KarplusStrongInputStream *in_stream, KarplusStrongOutputStream *out_stream,
+			   Audio_Stream *source, U64 delay_samples, R32 feedback)
+{
+  in_stream->self.refill = karplus_strong_input_stream_refill;
+  in_stream->source = source;
+  in_stream->fb = &out_stream->self;
+  os_ring_buffer_init(&in_stream->out_samples, 2048*sizeof(R32));
+  in_stream->feedback = feedback;
+
+  out_stream->self.refill = karplus_strong_output_stream_refill;
+  out_stream->source = &in_stream->self;
+  os_ring_buffer_init(&out_stream->ff_samples, 2048*sizeof(R32));
+  os_ring_buffer_init(&out_stream->fb_samples, 2*delay_samples*sizeof(R32));
+  os_ring_buffer_write_end(&out_stream->ff_samples, 1*sizeof(R32));
+  os_ring_buffer_write_end(&out_stream->fb_samples, delay_samples*sizeof(R32));
+  out_stream->delay_samples = delay_samples;
+}
+
+proc Audio_StreamStatus
+karplus_strong_input_stream_refill(Audio_Stream *self, Audio_Stream *caller)
+{
+  KarplusStrongInputStream *karplus_strong = (KarplusStrongInputStream*)self;
+
+  Audio_Stream *source = karplus_strong->source;
+  Audio_Stream *fb = karplus_strong->fb;
+  Os_RingBuffer *out_samples = &karplus_strong->out_samples;
+  R32 feedback = karplus_strong->feedback;
+
+  Audio_StreamStatus result = Audio_StreamStatus_ok;
+
+  Assert(caller);
+  Assert(caller == fb);
+
+  // NOTE: pull from sources
+  Audio_StreamStatus source_status = source->refill(source, self);
+  U64 source_samples_to_read = source->samples_end - source->samples_start;
+  Unused(source_status);
+  // TODO: maybe output zeros if we get zero samples from the source (eg if the input device hasn't started yet)?
+
+  Audio_StreamStatus fb_status = fb->refill(fb, self);
+  Assert(fb_status == Audio_StreamStatus_ok || fb_status == Audio_StreamStatus_zero_output);
+  U64 fb_samples_to_read = fb->samples_end - fb->samples_start;
+  U64 samples_to_read = Min(source_samples_to_read, fb_samples_to_read);
+
+  // NOTE: mix source with feedback, fill buffer
+  {
+    R32 *src = source->sample_cursor;
+    R32 *fb_src = fb->sample_cursor;
+
+    Os_RingBufferSpan write_span = os_ring_buffer_write_span(out_samples);
+    U64 samples_available = (write_span.end - write_span.start)/sizeof(R32);
+    Assert(samples_available >= samples_to_read);
+    R32 *dest = (R32*)write_span.start;
+    for(U64 sample_idx = 0; sample_idx < samples_to_read; ++sample_idx)
+    {
+      dest[sample_idx] = src[sample_idx] + feedback*fb_src[sample_idx];
+    }
+    os_ring_buffer_write_end(out_samples, samples_to_read*sizeof(R32));
+  }
+
+  // NOTE: expose output
+  {
+    U64 samples_read = self->sample_cursor - self->samples_start;
+    os_ring_buffer_read_end(out_samples, samples_read*sizeof(R32));
+
+    Os_RingBufferSpan read_span = os_ring_buffer_read_span(out_samples);
+    U64 samples_available = (read_span.end - read_span.start)/sizeof(R32);
+    self->samples_start = (R32*)read_span.start;
+    self->samples_end = self->samples_start + samples_available;
+    self->sample_cursor = self->samples_start;
+  }
+
+  source->sample_cursor += samples_to_read;
+  if(fb_status == Audio_StreamStatus_ok)
+  { fb->sample_cursor += samples_to_read; }
+
+  return result;
+}
+
+proc Audio_StreamStatus
+karplus_strong_output_stream_refill(Audio_Stream *self, Audio_Stream *caller)
+{
+  KarplusStrongOutputStream *karplus_strong = (KarplusStrongOutputStream*)self;
+
+  Audio_Stream *source = karplus_strong->source;
+  Os_RingBuffer *ff_samples = &karplus_strong->ff_samples;
+  Os_RingBuffer *fb_samples = &karplus_strong->fb_samples;
+  U64 delay_samples = karplus_strong->delay_samples;
+
+  Audio_StreamStatus result = Audio_StreamStatus_ok;
+
+  Assert(caller);
+  // TODO: maybe avoid a conditional branch here by making each branch its own
+  // function, and switching which one this stream's refill points to before and
+  // after calling refill on the source (ideally the compiler inlines each
+  // branch instead of actually performing the call; can it figure out this
+  // condition is a constant expression in each call?)
+  if(caller == source)
+  {
+    // NOTE: when the caller is the source of this stream, we give it samples
+    // from the feedback buffer, delayed by the delay length
+
+    U64 samples_available = os_ring_buffer_used(fb_samples)/sizeof(R32);
+    if(samples_available <= delay_samples)
+    {
+      audio_stream_write_zeros(self);
+      printf("karplus output writing zeros\n");
+      result = Audio_StreamStatus_zero_output;
+    }
+    else
+    {
+      U64 samples_read = self->sample_cursor - self->samples_start;
+      os_ring_buffer_read_end(fb_samples, samples_read*sizeof(R32));
+
+      Os_RingBufferSpan read_span = os_ring_buffer_read_span(fb_samples);
+      samples_available = (read_span.end - read_span.start)/sizeof(R32);
+      self->samples_start = (R32*)read_span.start;
+      self->samples_end = self->samples_start + samples_available;
+      self->sample_cursor = self->samples_start;
+    }
+  }
+  else
+  {
+    Assert(caller->refill == 0); // caller is output
+    // NOTE: otherwise, the caller is a system output stream. we process the
+    // input through the delay line and write the mixed output to the feedback
+    // delay line and output stream.
+
+    // NOTE: pull from source
+    Audio_StreamStatus source_status = source->refill(source, self);
+    Assert(source_status == Audio_StreamStatus_ok);
+    U64 source_samples_available = source->samples_end - source->samples_start;
+
+    // NOTE: fill input delay line
+    {
+      R32 *src = source->sample_cursor;
+      U64 samples_to_read = source_samples_available;
+
+      Os_RingBufferSpan write_span = os_ring_buffer_write_span(ff_samples);
+      U64 write_samples_available = (write_span.end - write_span.start)/sizeof(R32);
+      Assert(write_samples_available >= samples_to_read);
+      R32 *dest = (R32*)write_span.start;
+
+      CopyArray(dest, src, R32, samples_to_read);
+      os_ring_buffer_write_end(ff_samples, samples_to_read*sizeof(R32));
+    }
+
+    // NOTE: fill_output_delay_line, write to output
+    {
+      R32 *src = source->sample_cursor;
+
+      Os_RingBufferSpan read_span = os_ring_buffer_read_span(ff_samples);
+      U64 read_samples_available = (read_span.end - read_span.start)/sizeof(R32);
+      Assert(read_samples_available >= source_samples_available);
+      R32 *src_del = (R32*)read_span.start;
+
+      Os_RingBufferSpan write_span = os_ring_buffer_write_span(fb_samples);
+      U64 write_samples_available = (write_span.end - write_span.start)/sizeof(R32);
+      Assert(write_samples_available >= source_samples_available);
+      R32 *dest_del = (R32*)write_span.start;
+
+      U64 dest_samples_available = caller->samples_end - caller->sample_cursor;
+      U64 samples_to_read = Min(source_samples_available, dest_samples_available);
+      R32 *dest = caller->sample_cursor;
+      for(U64 sample_idx = 0; sample_idx < samples_to_read; ++sample_idx)
+      {
+	R32 out_sample = 0.5f*(src[sample_idx] + src_del[sample_idx]);
+	dest_del[sample_idx] = out_sample;
+	dest[sample_idx] = out_sample;
+      }
+
+      os_ring_buffer_read_end(ff_samples, samples_to_read*sizeof(R32));
+      os_ring_buffer_write_end(fb_samples, samples_to_read*sizeof(R32));
+
+      source->sample_cursor += samples_to_read;
+      caller->sample_cursor += samples_to_read;
+    }
+  }
+
+  return result;
+}
+
 void
 audio_process(Audio_ProcessData *data)
 {
@@ -413,7 +621,8 @@ main(int argc, char **argv)
   String8 default_output_name = audio_device_name(audio_default_output_device());
   printf("output device: %.*s\n", (int)default_output_name.count, default_output_name.string);
 
-  U64 delay_samples = 960;
+  U64 delay_samples = 110;
+  R32 feedback = 0.9f;
 
   DelayStream delay_l = {0};
   DelayStream delay_r = {0};
@@ -430,14 +639,25 @@ main(int argc, char **argv)
   allpass_filter_stream_init(&allpass_filter_l, audio_stream_get_input(0), delay_samples);
   allpass_filter_stream_init(&allpass_filter_r, audio_stream_get_input(1), delay_samples);
 
+  KarplusStrongInputStream ksi_l = {0};
+  KarplusStrongInputStream ksi_r = {0};
+  KarplusStrongOutputStream kso_l = {0};
+  KarplusStrongOutputStream kso_r = {0};
+  karplus_strong_stream_init(&ksi_l, &kso_l, audio_stream_get_input(0), delay_samples, feedback);
+  karplus_strong_stream_init(&ksi_r, &kso_r, audio_stream_get_input(1), delay_samples, feedback);
+
+  audio_stream_connect_output(&kso_l.self, 0);
+  audio_stream_connect_output(&kso_r.self, 1);
+
   /* audio_stream_connect_output(&delay_l.self, 0); */
   /* audio_stream_connect_output(&delay_r.self, 1); */
 
-  audio_stream_connect_output(&comb_filter_l.self, 0);
-  audio_stream_connect_output(&comb_filter_r.self, 1);
+  /* audio_stream_connect_output(&comb_filter_l.self, 0); */
+  /* audio_stream_connect_output(&comb_filter_r.self, 1); */
 
   /* audio_stream_connect_output(&allpass_filter_l.self, 0); */
   /* audio_stream_connect_output(&allpass_filter_r.self, 1); */
+
 
   audio_start();
   while(1) {}

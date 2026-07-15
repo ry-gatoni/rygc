@@ -15,6 +15,12 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// memory barriers
+
+#define ReadBarrier()  _ReadBarrierImpl()
+#define WriteBarrier() _WriteBarrierImpl()
+
+// -----------------------------------------------------------------------------
 // spin-wait
 
 #if CPU_X64 || CPU_X86

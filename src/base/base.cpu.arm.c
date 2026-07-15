@@ -1,3 +1,6 @@
+// -----------------------------------------------------------------------------
+// fixed-frequency counters
+
 proc U64
 cpu_counter_fixed(void)
 {
