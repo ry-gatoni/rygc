@@ -1,3 +1,5 @@
+#ifndef OGL_INCLUDED
+
 #if OS_LINUX
 // TODO: we should probably run-time load opengl on all platforms
 #  define GL_GLEXT_PROTOTYPES
@@ -5,7 +7,7 @@
 #elif OS_WINDOWS
 #  include "ogl_api_defs.h"
 #elif OS_MAC
-#  include "ogl_api_defs.h"
+#  include "ogl.mac.h"
 #else
 #  error platform not implemented
 #endif
@@ -40,4 +42,7 @@ proc GLuint ogl_create_framebuffer(S32 width, S32 height);
 #  include "OpenGL/windows/ogl_win32.h"
 #elif OS_LINUX
 #  include "ogl.linux.h"
+#endif
+
+#define OGL_INCLUDED
 #endif

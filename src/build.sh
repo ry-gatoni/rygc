@@ -3,7 +3,7 @@
 BUILD_DEBUG=1
 
 ## TODO: it would be nice to enable -Wconversion, but it produces far too many warnings to be useful
-CFLAGS="-Wall -Wextra -Wshadow -Wno-unused-function -Wno-initializer-overrides -Wno-unused-local-typedef -Wno-missing-braces"
+CFLAGS="-Wall -Wextra -Wshadow -Wno-unused-function -Wno-initializer-overrides -Wno-unused-local-typedef -Wno-missing-braces -ferror-limit=0"
 if [[ $BUILD_DEBUG == 1 ]]; then
     CFLAGS+=" -g -fsanitize=address"
 fi
@@ -47,9 +47,9 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/vst3_test_host.c -o vst3_test_host
 # clang $CFLAGS $SRC/scratch/poly_solve.c -o poly_solve # && ./poly_solve
 # clang $CFLAGS $SRC/scratch/xcb_test.c -lxcb -lxcb-shm -lxcb-present -lEGL -lGL -o xcb_test
-# clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -framework QuartzCore -o cocoa_test
+clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -framework QuartzCore -o cocoa_test
 # clang $CFLAGS $SRC/scratch/residue_filters.c -o residue_filters
-clang $CFLAGS $SRC/scratch/core_audio_test.c -lobjc -framework CoreFoundation -framework CoreAudio -framework AudioToolbox -o core_audio_test
+# clang $CFLAGS $SRC/scratch/core_audio_test.c -lobjc -framework CoreFoundation -framework CoreAudio -framework AudioToolbox -o core_audio_test
 
 popd > /dev/null # ./build -> ./src
 

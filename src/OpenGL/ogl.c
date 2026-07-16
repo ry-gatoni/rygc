@@ -2,6 +2,8 @@
 #  include "OpenGl/windows/ogl_win32.c"
 #elif OS_LINUX
 #  include "ogl.linux.c"
+#elif OS_MAC
+#  include "ogl.mac.c"
 #endif
 
 proc B32

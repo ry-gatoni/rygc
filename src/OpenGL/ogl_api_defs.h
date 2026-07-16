@@ -19,8 +19,10 @@ typedef char			GLchar;
 typedef float			GLclampf;
 typedef double			GLclampd;
 #if defined(_WIN64)
+typedef signed long long int    GLintptr;
 typedef signed long long int	GLsizeiptr;
 #else
+typedef signed long int         GLintptr;
 typedef signed long int		GLsizeiptr;
 #endif
 
@@ -55,6 +57,16 @@ typedef signed long int		GLsizeiptr;
 #define GL_STREAM_DRAW                    0x88E0
 #define GL_TEXTURE0                       0x84C0
 #define GL_TRIANGLES                      0x0004
+#define GL_TRIANGLE_STRIP                 0x0005
+#define GL_DEBUG_OUTPUT                   0x92E0
+#define GL_DEPTH_TEST                     0x0B71
+#define GL_REPEAT                         0x2901
+#define GL_DEPTH_STENCIL                  0x84F9
+#define GL_DEPTH24_STENCIL8               0x88F0
+#define GL_UNSIGNED_INT_24_8              0x84FA
+#define GL_FRAMEBUFFER                    0x8D40
+#define GL_COLOR_ATTACHMENT0              0x8CE0
+#define GL_DEPTH_STENCIL_ATTACHMENT       0x821A
 #define GL_FALSE                          0
 #define GL_TRUE                           1
 #define GL_NO_ERROR                       0
@@ -113,6 +125,14 @@ typedef signed long int		GLsizeiptr;
   X(glBegin, void, (GLenum mode))\
   X(glEnd, void, (void))\
   X(glFlush, void, (void))\
+  X(glDebugMessageCallback, void, (void (*callback)(GLenum sourc, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param), const void *user_param))\
+  X(glGenFramebuffers, void, (GLsizei n, GLuint *framebuffers))\
+  X(glBindFramebuffer, void, (GLenum target, GLuint framebuffer))\
+  X(glFramebufferTexture2D, void, (GLenum target, GLenum attachment, GLenum tex_target, GLuint texture, GLint level)) \
+  X(glReadPixels, void, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels))\
+  X(glBufferSubData, void, (GLenum target, GLintptr offset, GLsizeiptr size, const void *data))\
+  X(glVertexAttribDivisor, void, (GLuint index, GLuint divisor))\
+  X(glDrawArraysInstanced, void, (GLenum mode, GLint first, GLsizei count, GLsizei instance_count))\
 
 // NOTE: function typedefs
 #define X(N, R, A) typedef R Glue(GL_, N)A;
