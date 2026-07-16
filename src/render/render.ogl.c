@@ -241,7 +241,7 @@ render_ogl_flush_commands(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // NOTE: render all batches
-    ProfileScope(render_batches)
+    //ProfileScope(render_batches)
     {
       Mat4 transform = mat4_id();
       for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind)
@@ -252,7 +252,7 @@ render_ogl_flush_commands(void)
 
 	for(R_Batch *batch = list->first_batch; batch; batch = batch->next)
 	{
-	  ProfileScope(render_batch)
+	  //ProfileScope(render_batch)
 	  {
 	    U64 size = batch->quad_count*sizeof(R_Quad);
 	    glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);

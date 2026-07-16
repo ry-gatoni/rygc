@@ -30,7 +30,8 @@ struct Cocoa_Window
   NSView *ns_view;
 
   NSOpenGLView *ogl_view;
-  NSOpenGLContext *ogl_ctxt;
+  //NSOpenGLContext *ogl_ctxt;
+  Ogl_MacContext ogl_ctxt;
 
   CALayer *layer;
   CADisplayLink *display_link;
@@ -119,3 +120,5 @@ proc inline void cocoa__set_window_for_display_link(CADisplayLink *link, Cocoa_W
 
 proc inline Cocoa_PixelBuffer* cocoa__buffer_alloc(void);
 proc inline void cocoa__buffer_release(Cocoa_PixelBuffer *buf);
+
+proc inline Gfx_Handle cocoa__gfx_handle_from_ogl_context(Ogl_MacContext *ogl_ctxt);

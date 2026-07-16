@@ -177,13 +177,16 @@ typedef struct Gfx_WindowEventIterator
 /*   U64 count; */
 /* } Gfx_EventList; */
 
-typedef enum Gfx_RenderTargetKind
+typedef enum Gfx_Backend
 {
-  Gfx_RenderTargetKind_pixels,
-  Gfx_RenderTargetKind_ogl,
+  Gfx_Backend_software,
+  Gfx_Backend_opengl,
+  Gfx_Backend_metal,
+  Gfx_Backend_d3d11,
+  Gfx_Backend_vulkan,
 
-  Gfx_RenderTargetKind_Count,
-} Gfx_RenderTargetKind;
+  Gfx_Backend_Count,
+} Gfx_Backend;
 
 typedef struct Gfx_State
 {
@@ -229,10 +232,30 @@ proc void gfx_window_event_iterator_next(Gfx_WindowEventIterator *it);
 // rendering
 // TODO: move to render module
 
+typedef enum Gfx_OglCapabilityFlags
+{
+  Gfx_OglCapabilityFlag_depth_buffer = (1 << 0),
+  Gfx_OglCapabilityFlag_stencil_buffer = (1 << 1),
+} Gfx_OglCapabilityFlags;
+
+typedef enum Gfx_OglColorSpace
+{
+  Gfx_OglColorSpace_linear,
+  Gfx_OglColorSpace_srgb,
+} Gfx_OglColorSpace;
+
 typedef struct Gfx_OglRenderTarget
 {
-  U32 fbo;//GLUint fbo;
-  V2S32 dim;
+  Gfx_Handle context; // platform-specific
+
+  V2S32 visible_dim;
+  V2S32 framebuffer_dim;
+
+  U32 fbo;
+
+  U32 capabilities;
+  Gfx_OglColorSpace color_space;
+  U32 sample_count;
 } Gfx_OglRenderTarget;
 
 typedef struct Gfx_PixelRenderTarget
@@ -243,19 +266,19 @@ typedef struct Gfx_PixelRenderTarget
 } Gfx_PixelRenderTarget;
 
 // TODO: select target
-proc Gfx_RenderTargetKind gfx_render_target_kind(Gfx_Handle window);
-proc void gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind);
+proc Gfx_Backend gfx_backend(Gfx_Handle window);
+proc void gfx_set_backend(Gfx_Handle window, Gfx_Backend backend);
 
 proc void gfx_render_target_from_window(void *target, Gfx_Handle window);
 proc void gfx_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Gfx_Handle window);
 proc void gfx_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Gfx_Handle window);
 
-proc void gfx_submit_frame(Gfx_Handle window);
-proc void gfx_submit_frame_pixels(Gfx_Handle window);
-proc void gfx_submit_frame_ogl(Gfx_Handle window);
+proc void gfx_window_submit_frame(Gfx_Handle window);
+proc void gfx_window_submit_frame_pixels(Gfx_Handle window);
+proc void gfx_window_submit_frame_ogl(Gfx_Handle window);
 
-proc void gfx_window_begin_frame(Os_Handle window);
-proc void gfx_window_end_frame(Os_Handle window);
+/* proc void gfx_window_begin_frame(Os_Handle window); */
+/* proc void gfx_window_end_frame(Os_Handle window); */
 
 // -----------------------------------------------------------------------------
 // helpers

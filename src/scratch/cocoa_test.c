@@ -1,10 +1,10 @@
 #include "base/base.h"
 #include "gfx/gfx.h"
-//#include "gfx/gfx.cocoa.h"
+#include "render/render.h"
 
 #include "base/base.c"
 #include "gfx/gfx.c"
-//#include "gfx/gfx.cocoa.c"
+#include "render/render.c"
 
 // -----------------------------------------------------------------------------
 // main
@@ -258,7 +258,7 @@ main(int argc, char **argv)
     Gfx_PixelRenderTarget target;
     gfx_render_target_from_window(&target, window);
     update_and_draw(&box, &commands, &target, window_dim);
-    gfx_submit_frame(window);
+    gfx_window_submit_frame(window);
     arena_clear(frame_arena);
 #endif
   }

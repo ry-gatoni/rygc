@@ -144,13 +144,13 @@ cocoa_window_open(V2S32 dim, String8 title)
     NSOpenGLContext_setValues(ogl_ctxt, &swap_interval, NSOpenGLContextParameterSwapInterval);
     NSOpenGLContext_makeCurrentContext(ogl_ctxt);
 
-    void *ogl_handle = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_LAZY|RTLD_LOCAL);
-    if(ogl_handle == 0)
-    { fprintf(stderr, "%s\n", dlerror()); }
-#define X(N, R, A) N = dlsym(ogl_handle, Stringify(N)); Assert(N != 0);
-    OGL_FUNCTION_XLIST;
-#undef X
-    dlclose(ogl_handle);
+    /* void *ogl_handle = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_LAZY|RTLD_LOCAL); */
+/*     if(ogl_handle == 0) */
+/*     { fprintf(stderr, "%s\n", dlerror()); } */
+/* #define X(N, R, A) N = dlsym(ogl_handle, Stringify(N)); Assert(N != 0); */
+/*     OGL_FUNCTION_XLIST; */
+/* #undef X */
+/*     dlclose(ogl_handle); */
   }
 
   layer = NSView_layer(ns_view);
@@ -176,7 +176,7 @@ cocoa_window_open(V2S32 dim, String8 title)
   window->window = ns_window;
   window->ns_view = ns_view;
   window->ogl_view = ogl_view;
-  window->ogl_ctxt = ogl_ctxt;
+  window->ogl_ctxt.ns_ctxt = ogl_ctxt;
   window->layer = layer;
   cocoa__set_window_for_display_link(display_link, window);
   window->display_link = display_link;
@@ -314,12 +314,13 @@ cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Windo
 proc void
 cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window)
 {
-  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt;
-  NSOpenGLContext_makeCurrentContext(ogl_ctxt);
-  glClearColor(1, 1, 0, 1);
-  glClear(GL_COLOR_BUFFER_BIT);
+  Gfx_Handle ogl_ctxt = cocoa__gfx_handle_from_ogl_context(&window->ogl_ctxt);
+  target->context = ogl_ctxt;
 
-  Unused(target);
+  /* NSOpenGLContext *ogl_ctxt = window->ogl_ctxt; */
+  /* NSOpenGLContext_makeCurrentContext(ogl_ctxt); */
+  /* glClearColor(1, 1, 0, 1); */
+  /* glClear(GL_COLOR_BUFFER_BIT); */
 }
 
 proc void
@@ -351,7 +352,7 @@ cocoa_submit_frame_pixels(Cocoa_Window *window)
 proc void
 cocoa_submit_frame_ogl(Cocoa_Window *window)
 {
-  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt;
+  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt.ns_ctxt;
   NSOpenGLContext_flushBuffer(ogl_ctxt);
   glFlush();
 
@@ -359,29 +360,29 @@ cocoa_submit_frame_ogl(Cocoa_Window *window)
   ++cocoa_state->pending_frame_count;
 }
 
-global Gfx_RenderTargetKind gfx_render_target_kind_from_cocoa_backend[] = {
-  [Cocoa_Backend_pixel_buffer] = Gfx_RenderTargetKind_pixels,
-  [Cocoa_Backend_opengl] = Gfx_RenderTargetKind_ogl,
+global Gfx_Backend gfx_backend_from_cocoa_backend[] = {
+  [Cocoa_Backend_pixel_buffer] = Gfx_Backend_software,
+  [Cocoa_Backend_opengl] = Gfx_Backend_opengl,
 };
 
-global Cocoa_Backend cocoa_backend_from_gfx_render_target_kind[] = {
-  [Gfx_RenderTargetKind_pixels] = Cocoa_Backend_pixel_buffer,
-  [Gfx_RenderTargetKind_ogl] = Cocoa_Backend_opengl,
+global Cocoa_Backend cocoa_backend_from_gfx_backend[] = {
+  [Gfx_Backend_software] = Cocoa_Backend_pixel_buffer,
+  [Gfx_Backend_opengl] = Cocoa_Backend_opengl,
 };
 
-proc Gfx_RenderTargetKind
-gfx_render_target_kind(Gfx_Handle window)
+proc Gfx_Backend
+gfx_backend(Gfx_Handle window)
 {
   Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
-  Gfx_RenderTargetKind result = gfx_render_target_kind_from_cocoa_backend[cocoa_window->backend];
+  Gfx_Backend result = gfx_backend_from_cocoa_backend[cocoa_window->backend];
   return result;
 }
 
 proc void
-gfx_set_render_target_kind(Gfx_Handle window, Gfx_RenderTargetKind kind)
+gfx_set_backend(Gfx_Handle window, Gfx_Backend backend)
 {
   Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
-  Cocoa_Backend cocoa_backend = cocoa_backend_from_gfx_render_target_kind[kind];
+  Cocoa_Backend cocoa_backend = cocoa_backend_from_gfx_backend[backend];
   cocoa_set_render_target_kind(cocoa_window, cocoa_backend);
 }
 
@@ -400,14 +401,14 @@ gfx_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Gfx_Handle window
 }
 
 proc void
-gfx_submit_frame_pixels(Gfx_Handle window)
+gfx_window_submit_frame_pixels(Gfx_Handle window)
 {
   Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
   cocoa_submit_frame_pixels(cocoa_window);
 }
 
 proc void
-gfx_submit_frame_ogl(Gfx_Handle window)
+gfx_window_submit_frame_ogl(Gfx_Handle window)
 {
   Cocoa_Window *cocoa_window = cocoa__window_from_gfx_handle(window);
   cocoa_submit_frame_ogl(cocoa_window);
@@ -520,4 +521,12 @@ proc inline void
 cocoa__buffer_release(Cocoa_PixelBuffer *buf)
 {
   SLLStackPush(cocoa_state->pbuf_freelist, buf);
+}
+
+proc inline Gfx_Handle
+cocoa__gfx_handle_from_ogl_context(Ogl_MacContext *ogl_ctxt)
+{
+  Gfx_Handle result = {0};
+  result.handle = ogl_ctxt;
+  return result;
 }

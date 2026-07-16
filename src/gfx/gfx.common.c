@@ -142,16 +142,16 @@ gfx_window_event_iterator_next(Gfx_WindowEventIterator *it)
 proc void
 gfx_render_target_from_window(void *target, Gfx_Handle window)
 {
-  Gfx_RenderTargetKind kind = gfx_render_target_kind(window);
-  switch(kind)
+  Gfx_Backend backend = gfx_backend(window);
+  switch(backend)
   {
-    case Gfx_RenderTargetKind_pixels:
+    case Gfx_Backend_software:
     {
       Gfx_PixelRenderTarget *pixel_target = target;
       gfx_pixel_render_target_from_window(pixel_target, window);
     }break;
 
-    case Gfx_RenderTargetKind_ogl:
+    case Gfx_Backend_opengl:
     {
       Gfx_OglRenderTarget *ogl_target = target;
       gfx_ogl_render_target_from_window(ogl_target, window);
@@ -162,19 +162,19 @@ gfx_render_target_from_window(void *target, Gfx_Handle window)
 }
 
 proc void
-gfx_submit_frame(Gfx_Handle window)
+gfx_window_submit_frame(Gfx_Handle window)
 {
-  Gfx_RenderTargetKind kind = gfx_render_target_kind(window);
-  switch(kind)
+  Gfx_Backend backend = gfx_backend(window);
+  switch(backend)
   {
-    case Gfx_RenderTargetKind_pixels:
+    case Gfx_Backend_software:
     {
-      gfx_submit_frame_pixels(window);
+      gfx_window_submit_frame_pixels(window);
     }break;
 
-    case Gfx_RenderTargetKind_ogl:
+    case Gfx_Backend_opengl:
     {
-      gfx_submit_frame_ogl(window);
+      gfx_window_submit_frame_ogl(window);
     }break;
 
     default: { Assert(0); }break;

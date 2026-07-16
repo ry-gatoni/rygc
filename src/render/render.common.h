@@ -1,18 +1,29 @@
-/** TODO:
- * - sort out the various coordinate systems/projections (world, screen,
- *   perspective, orthographic), how the transforms are created and how usage
- *   code specifies which (combination of) transform(s) to use for a particular
- *   push call.
- * - store inverses of all transforms so we can unproject when doing text
- *   rendering in a transformed coordinate system
- * - clean up font integration: allocation, usage code, how we identify textures
- *   when rendering from commands.
- */
+// TODO:
+// - work out intersections with graphics and opengl layers
+//   - who selects backend, window or render?
+// - sort out the various coordinate systems/projections (world, screen,
+//   perspective, orthographic), how the transforms are created and how usage
+//   code specifies which (combination of) transform(s) to use for a particular
+//   push call.
+// - store inverses of all transforms so we can unproject when doing text
+//   rendering in a transformed coordinate system
+// - clean up font integration: allocation, usage code, how we identify textures
+//   when rendering from commands.
 
 typedef struct R_Handle
 {
   void *handle;
 } R_Handle;
+
+typedef enum R_Backend
+{
+  R_Backend_software,
+  R_Backend_opengl,
+  R_Backend_metal,
+  R_Backend_d3d11,
+  R_Backend_vulkan,
+  R_Backend_Count,
+} R_Backend;
 
 typedef enum R_PixelFormat
 {
@@ -86,13 +97,16 @@ typedef struct R_Commands
 {
   Arena *arena;
 
-  Os_Handle window;
+  Gfx_Handle window;
 
   V2S32 viewport_dim;
 
   V4 clear_color;
 
   R_Texture white_texture;
+
+  R_Backend backend;
+  void *render_targets[R_Backend_Count];
 
   R_TransformKind active_transform;
   union {
@@ -144,7 +158,7 @@ proc void render_flush_commands(void);
 // -----------------------------------------------------------------------------
 // windowing
 
-proc void render_equip_window(Os_Handle window);
+proc void render_equip_window(Gfx_Handle window);
 
 proc void render_begin_frame(void);
 proc void render_end_frame(void);

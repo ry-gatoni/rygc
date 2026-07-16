@@ -52,28 +52,36 @@ render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
 // -----------------------------------------------------------------------------
 // windowing
 
+global Gfx_Backend gfx_backend_from_r_backend[R_Backend_Count] = {
+  [R_Backend_software] = Gfx_Backend_software,
+  [R_Backend_opengl] = Gfx_Backend_opengl,
+};
+
 proc void
-render_equip_window(Os_Handle window)
+render_equip_window(Gfx_Handle window)
 {
   render_commands->window = window;
+  gfx_set_backend(window, gfx_backend_from_r_backend[render_commands->backend]);
 }
 
 proc void
 render_begin_frame(void)
 {
   R_Commands *commands = render_commands;
-  gfx_window_begin_frame(commands->window);
+  gfx_render_target_from_window(render_commands->render_targets[render_commands->backend], render_commands->window);
+  //gfx_window_begin_frame(commands->window);
 
-  commands->window_dim = gfx_window_get_dim(commands->window);
+  commands->viewport_dim = gfx_window_dim(commands->window);
   // TODO: different transforms for different rendering backends??
-  commands->transform_device_from_screen = mat4_screen_transform_ndc(commands->window_dim);
+  commands->transform_device_from_screen = mat4_screen_transform_ndc(commands->viewport_dim);
 }
 
 proc void
 render_end_frame(void)
 {
   render_flush_commands();
-  gfx_window_end_frame();
+  gfx_window_submit_frame(render_commands->window);
+  //gfx_window_end_frame();
 }
 
 #endif
