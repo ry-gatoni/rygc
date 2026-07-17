@@ -12,6 +12,16 @@
 #  error platform not implemented
 #endif
 
+global GLint ogl_context_major_version = 0;
+global GLint ogl_context_minor_version = 0;
+
+proc inline B32
+ogl_context_version_at_least(GLint min_major, GLint min_minor)
+{
+  B32 result = (ogl_context_major_version >= min_major) && (ogl_context_minor_version >= min_minor);
+  return result;
+}
+
 typedef struct Ogl_Shader
 {
   GLuint handle;
@@ -30,11 +40,11 @@ proc void ogl_update_texture(GLuint tex, V2S32 pos, V2S32 dim, GLint pixel_fmt, 
 
 proc void ogl_read_framebuffer_pixels(GLuint fbo, V2S32 pos, V2S32 dim, void *pixels);
 
-#define GLTextureDefaultParams() \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); \
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
+#define GLTextureDefaultParams()\
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);\
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);\
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);\
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);\
 
 proc GLuint ogl_create_framebuffer(S32 width, S32 height);
 

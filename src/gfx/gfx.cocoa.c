@@ -99,8 +99,8 @@ cocoa_window_open(V2S32 dim, String8 title)
   NSWindow *ns_window = 0;
   NSString *ns_title = 0;
   NSView *ns_view = 0;
-  NSOpenGLView *ogl_view = 0;
-  NSOpenGLContext *ogl_ctxt = 0;
+  //NSOpenGLView *ogl_view = 0;
+  //NSOpenGLContext *ogl_ctxt = 0;
   CALayer *layer = 0;
   Cocoa_Window *window = 0;
 
@@ -129,28 +129,28 @@ cocoa_window_open(V2S32 dim, String8 title)
 
   // NOTE: opengl initialization
   {
-    NSOpenGLPixelFormat *ogl_pixel_fmt = NSOpenGLView_defaultPixelFormat();
-    ogl_view = NSOpenGLView_initWithFrame(ns_window_rect, ogl_pixel_fmt);
-    if(ogl_view == 0)
-    { goto cocoa_window_open_failure; }
+    if(mac_ogl_ctxt.ns_ctxt == 0)
+    {
+      if(!ogl_init())
+      { goto cocoa_window_open_failure; }
+    }
 
-    NSOpenGLView_prepareOpenGL(ogl_view);
+    NSOpenGLContext *ogl_ctxt = mac_ogl_ctxt.ns_ctxt;
+    NSOpenGLContext_setView(ogl_ctxt, ns_view);
+    NSOpenGLContext_update(ogl_ctxt);
 
-    ogl_ctxt = NSOpenGLView_openGLContext(ogl_view);
-    if(ogl_ctxt == 0)
-    { goto cocoa_window_open_failure; }
+    /* NSOpenGLPixelFormat *ogl_pixel_fmt = NSOpenGLView_defaultPixelFormat(); */
+    /* ogl_view = NSOpenGLView_initWithFrame(ns_window_rect, ogl_pixel_fmt); */
+    /* if(ogl_view == 0) */
+    /* { goto cocoa_window_open_failure; } */
 
-    GLint swap_interval = 1;
-    NSOpenGLContext_setValues(ogl_ctxt, &swap_interval, NSOpenGLContextParameterSwapInterval);
-    NSOpenGLContext_makeCurrentContext(ogl_ctxt);
+    /* NSOpenGLView_prepareOpenGL(ogl_view); */
 
-    /* void *ogl_handle = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_LAZY|RTLD_LOCAL); */
-/*     if(ogl_handle == 0) */
-/*     { fprintf(stderr, "%s\n", dlerror()); } */
-/* #define X(N, R, A) N = dlsym(ogl_handle, Stringify(N)); Assert(N != 0); */
-/*     OGL_FUNCTION_XLIST; */
-/* #undef X */
-/*     dlclose(ogl_handle); */
+    /* ogl_ctxt = NSOpenGLView_openGLContext(ogl_view); */
+    /* if(ogl_ctxt == 0) */
+    /* { goto cocoa_window_open_failure; } */
+
+    /* NSOpenGLContext_makeCurrentContext(ogl_ctxt); */
   }
 
   layer = NSView_layer(ns_view);
@@ -175,8 +175,8 @@ cocoa_window_open(V2S32 dim, String8 title)
   cocoa__set_window_for_ns_window(ns_window, window);
   window->window = ns_window;
   window->ns_view = ns_view;
-  window->ogl_view = ogl_view;
-  window->ogl_ctxt.ns_ctxt = ogl_ctxt;
+  //window->ogl_view = ogl_view;
+  //window->ogl_ctxt.ns_ctxt = ogl_ctxt;
   window->layer = layer;
   cocoa__set_window_for_display_link(display_link, window);
   window->display_link = display_link;
@@ -296,8 +296,8 @@ cocoa_set_render_target_kind(Cocoa_Window *window, Cocoa_Backend backend)
 
   NSWindow *ns_win = window->window;
   NSView *view = window->ns_view;
-  if(backend == Cocoa_Backend_opengl)
-  { view = (NSView*)window->ogl_view; }
+  /* if(backend == Cocoa_Backend_opengl) */
+  /* { view = (NSView*)window->ogl_view; } */
   NSWindow_setContentView(ns_win, view);
 }
 
@@ -314,7 +314,8 @@ cocoa_pixel_render_target_from_window(Gfx_PixelRenderTarget *target, Cocoa_Windo
 proc void
 cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *window)
 {
-  Gfx_Handle ogl_ctxt = cocoa__gfx_handle_from_ogl_context(&window->ogl_ctxt);
+  Unused(window);
+  Gfx_Handle ogl_ctxt = cocoa__gfx_handle_from_ogl_context(&mac_ogl_ctxt);
   target->context = ogl_ctxt;
 
   /* NSOpenGLContext *ogl_ctxt = window->ogl_ctxt; */
@@ -352,9 +353,10 @@ cocoa_submit_frame_pixels(Cocoa_Window *window)
 proc void
 cocoa_submit_frame_ogl(Cocoa_Window *window)
 {
-  NSOpenGLContext *ogl_ctxt = window->ogl_ctxt.ns_ctxt;
+  NSOpenGLContext *ogl_ctxt = mac_ogl_ctxt.ns_ctxt;
   NSOpenGLContext_flushBuffer(ogl_ctxt);
   glFlush();
+  NSOpenGLContext_update(ogl_ctxt);
 
   window->pending_frame = 1;
   ++cocoa_state->pending_frame_count;

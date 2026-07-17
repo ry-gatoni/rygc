@@ -137,6 +137,8 @@ global R_Commands *render_commands = 0;
 proc B32 render_init(void);
 proc R_Handle render_backend_init(Arena *arena);
 
+proc void render_set_backend(R_Backend backend);
+
 #if defined(FONT_LAYER)
 // -----------------------------------------------------------------------------
 // font

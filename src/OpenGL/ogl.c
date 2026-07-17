@@ -21,8 +21,11 @@ ogl_init(void)
 
   if(result)
   {
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(ogl_debug_message_callback, 0);
+    if(ogl_context_version_at_least(4, 3))
+    {
+      glEnable(GL_DEBUG_OUTPUT);
+      glDebugMessageCallback(ogl_debug_message_callback, 0);
+    }
 
     glEnable(GL_BLEND);
 

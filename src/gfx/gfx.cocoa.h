@@ -29,9 +29,8 @@ struct Cocoa_Window
 
   NSView *ns_view;
 
-  NSOpenGLView *ogl_view;
-  //NSOpenGLContext *ogl_ctxt;
-  Ogl_MacContext ogl_ctxt;
+  /* NSOpenGLView *ogl_view; */
+  /* Ogl_MacContext ogl_ctxt; */
 
   CALayer *layer;
   CADisplayLink *display_link;

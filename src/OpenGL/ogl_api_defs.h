@@ -67,6 +67,8 @@ typedef signed long int		GLsizeiptr;
 #define GL_FRAMEBUFFER                    0x8D40
 #define GL_COLOR_ATTACHMENT0              0x8CE0
 #define GL_DEPTH_STENCIL_ATTACHMENT       0x821A
+#define GL_MAJOR_VERSION                  0x821B
+#define GL_MINOR_VERSION                  0x821C
 #define GL_FALSE                          0
 #define GL_TRUE                           1
 #define GL_NO_ERROR                       0
@@ -75,71 +77,129 @@ typedef signed long int		GLsizeiptr;
 #define GL_INVALID_OPERATION              0x0502
 #define GL_OUT_OF_MEMORY                  0x0505
 
+
 // NOTE: functions
 // NOTE: x macro format: name, return, args
-#define OGL_FUNCTION_XLIST \
-  X(glCreateShader, GLuint, (GLenum shaderType))\
-  X(glShaderSource, void, (GLuint shader, GLsizei count, const GLchar*const*string, const GLint *length))\
-  X(glCompileShader, void, (GLuint shader))\
-  X(glGetShaderiv, void, (GLuint shader, GLenum pname, GLint *params))\
-  X(glGetShaderInfoLog, void, (GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
-  X(glDeleteShader, void, (GLuint shader))\
-  X(glCreateProgram, GLuint, (void))\
-  X(glLinkProgram, void, (GLuint program))\
-  X(glGetProgramiv, void, (GLuint program, GLenum pname, GLint *params))\
-  X(glGetProgramInfoLog, void, (GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
-  X(glDeleteProgram, void, (GLuint program))\
-  X(glGenTextures, void, (GLsizei n, GLuint *textures))\
-  X(glBindTexture, void, (GLenum target, GLuint texture))\
-  X(glTexImage2D, void, (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *data))\
-  X(glTexParameteri, void, (GLenum target, GLenum pname, GLint param))\
-  X(glTexSubImage2D, void, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *data))\
-  X(glEnable, void, (GLenum cap))\
-  X(glDisable, void, (GLenum cap))\
-  X(glBlendFunc, void, (GLenum sfactor, GLenum dfactor))\
-  X(glDepthFunc, void, (GLenum func))\
-  X(glPixelStorei, void, (GLenum pname, GLint param))\
-  X(glUseProgram, void, (GLuint program))\
-  X(glGenVertexArrays, void, (GLsizei n, GLuint *arrays))\
-  X(glAttachShader, void, (GLuint program, GLuint shader))\
-  X(glBindVertexArray, void, (GLuint array))\
-  X(glGenBuffers, void, (GLsizei n, GLuint *buffers))\
-  X(glBindBuffer, void, (GLenum target, GLuint buffer))\
-  X(glGenSamplers, void, (GLsizei n, GLuint *samplers))\
-  X(glGetUniformLocation, GLint, (GLuint program, const GLchar *name))\
-  X(glUniform1i, void, (GLint location, GLint v0))\
-  X(glUniformMatrix4fv, void, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value))\
-  X(glEnableVertexAttribArray, void, (GLuint index))\
-  X(glVertexAttribPointer, void, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer))\
-  X(glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))\
-  X(glClearColor, void, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha))\
-  X(glClearDepth, void, (GLclampd depth))\
-  X(glClear, void, (GLbitfield mask))\
-  X(glBufferData, void, (GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage))\
-  X(glActiveTexture, void, (GLenum texture))\
-  X(glDrawArrays, void, (GLenum mode, GLint first, GLsizei count))\
-  X(glGetError, GLenum, (void))\
+#define OGL_FUNCTION_XLIST__1_0__LEGACY\
   X(glVertex3f, void, (GLfloat x, GLfloat y, GLfloat z))\
   X(glColor3f, void, (GLfloat red, GLfloat green, GLfloat blue))\
   X(glTexCoord2f, void, (GLfloat s, GLfloat t))\
   X(glBegin, void, (GLenum mode))\
   X(glEnd, void, (void))\
+
+#define OGL_FUNCTION_XLIST__1_0\
+  X(glTexParameteri, void, (GLenum target, GLenum pname, GLint param))\
+  X(glTexImage2D, void, (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *data))\
+  X(glClear, void, (GLbitfield mask))\
+  X(glClearColor, void, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha))\
+  X(glClearDepth, void, (GLclampd depth))\
+  X(glDisable, void, (GLenum cap))\
+  X(glEnable, void, (GLenum cap))\
   X(glFlush, void, (void))\
-  X(glDebugMessageCallback, void, (void (*callback)(GLenum sourc, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param), const void *user_param))\
-  X(glGenFramebuffers, void, (GLsizei n, GLuint *framebuffers))\
-  X(glBindFramebuffer, void, (GLenum target, GLuint framebuffer))\
-  X(glFramebufferTexture2D, void, (GLenum target, GLenum attachment, GLenum tex_target, GLuint texture, GLint level)) \
+  X(glBlendFunc, void, (GLenum sfactor, GLenum dfactor))\
+  X(glDepthFunc, void, (GLenum func))\
+  X(glPixelStorei, void, (GLenum pname, GLint param))\
   X(glReadPixels, void, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels))\
+  X(glGetError, GLenum, (void))\
+  X(glGetIntegerv, void, (GLenum pname, GLint *data))\
+  X(glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))\
+
+#define OGL_FUNCTION_XLIST__1_1\
+  X(glDrawArrays, void, (GLenum mode, GLint first, GLsizei count))\
+  X(glTexSubImage2D, void, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *data))\
+  X(glBindTexture, void, (GLenum target, GLuint texture))\
+  X(glGenTextures, void, (GLsizei n, GLuint *textures))\
+
+#define OGL_FUNCTION_XLIST__1_2
+
+#define OGL_FUNCTION_XLIST__1_3\
+  X(glActiveTexture, void, (GLenum texture))\
+
+#define OGL_FUNCTION_XLIST__1_4
+
+#define OGL_FUNCTION_XLIST__1_5\
+  X(glBindBuffer, void, (GLenum target, GLuint buffer))\
+  X(glGenBuffers, void, (GLsizei n, GLuint *buffers))\
+  X(glBufferData, void, (GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage))\
   X(glBufferSubData, void, (GLenum target, GLintptr offset, GLsizeiptr size, const void *data))\
-  X(glVertexAttribDivisor, void, (GLuint index, GLuint divisor))\
+
+#define OGL_FUNCTION_XLIST__2_0\
+  X(glAttachShader, void, (GLuint program, GLuint shader))\
+  X(glCompileShader, void, (GLuint shader))\
+  X(glCreateProgram, GLuint, (void))\
+  X(glCreateShader, GLuint, (GLenum shaderType))\
+  X(glDeleteProgram, void, (GLuint program))\
+  X(glDeleteShader, void, (GLuint shader))\
+  X(glEnableVertexAttribArray, void, (GLuint index))\
+  X(glGetProgramiv, void, (GLuint program, GLenum pname, GLint *params))\
+  X(glGetProgramInfoLog, void, (GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
+  X(glGetShaderiv, void, (GLuint shader, GLenum pname, GLint *params))\
+  X(glGetShaderInfoLog, void, (GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog))\
+  X(glGetUniformLocation, GLint, (GLuint program, const GLchar *name))\
+  X(glLinkProgram, void, (GLuint program))\
+  X(glShaderSource, void, (GLuint shader, GLsizei count, const GLchar*const*string, const GLint *length))\
+  X(glUseProgram, void, (GLuint program))\
+  X(glUniform1i, void, (GLint location, GLint v0))\
+  X(glUniformMatrix4fv, void, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value))\
+  X(glVertexAttribPointer, void, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer))\
+
+#define OGL_FUNCTION_XLIST__2_1
+
+#define OGL_FUNCTION_XLIST__3_0\
+  X(glBindFramebuffer, void, (GLenum target, GLuint framebuffer))\
+  X(glGenFramebuffers, void, (GLsizei n, GLuint *framebuffers))\
+  X(glFramebufferTexture2D, void, (GLenum target, GLenum attachment, GLenum tex_target, GLuint texture, GLint level))\
+  X(glBindVertexArray, void, (GLuint array))\
+  X(glGenVertexArrays, void, (GLsizei n, GLuint *arrays))\
+
+#define OGL_FUNCTION_XLIST__3_1\
   X(glDrawArraysInstanced, void, (GLenum mode, GLint first, GLsizei count, GLsizei instance_count))\
+
+#define OGL_FUNCTION_XLIST__3_2
+
+#define OGL_FUNCTION_XLIST__3_3\
+  X(glGenSamplers, void, (GLsizei n, GLuint *samplers))\
+  X(glVertexAttribDivisor, void, (GLuint index, GLuint divisor))\
+
+#define OGL_FUNCTION_XLIST__4_0
+#define OGL_FUNCTION_XLIST__4_1
+#define OGL_FUNCTION_XLIST__4_2
+
+#define OGL_FUNCTION_XLIST__4_3\
+  X(glDebugMessageCallback, void, (void (*callback)(GLenum sourc, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param), const void *user_param))\
+
+#define OGL_FUNCTION_XLIST__4_4
+#define OGL_FUNCTION_XLIST__4_5
+#define OGL_FUNCTION_XLIST__4_6
+
+#define OGL_FUNCTION_XLIST\
+  OGL_FUNCTION_XLIST__1_0__LEGACY\
+  OGL_FUNCTION_XLIST__1_0\
+  OGL_FUNCTION_XLIST__1_1\
+  OGL_FUNCTION_XLIST__1_2\
+  OGL_FUNCTION_XLIST__1_3\
+  OGL_FUNCTION_XLIST__1_4\
+  OGL_FUNCTION_XLIST__1_5\
+  OGL_FUNCTION_XLIST__2_0\
+  OGL_FUNCTION_XLIST__2_1\
+  OGL_FUNCTION_XLIST__3_0\
+  OGL_FUNCTION_XLIST__3_1\
+  OGL_FUNCTION_XLIST__3_2\
+  OGL_FUNCTION_XLIST__3_3\
+  OGL_FUNCTION_XLIST__4_0\
+  OGL_FUNCTION_XLIST__4_1\
+  OGL_FUNCTION_XLIST__4_2\
+  OGL_FUNCTION_XLIST__4_3\
+  OGL_FUNCTION_XLIST__4_4\
+  OGL_FUNCTION_XLIST__4_5\
+  OGL_FUNCTION_XLIST__4_6\
 
 // NOTE: function typedefs
 #define X(N, R, A) typedef R Glue(GL_, N)A;
-OGL_FUNCTION_XLIST
+OGL_FUNCTION_XLIST;
 #undef X
 
 // NOTE: global function pointers
 #define X(N, R, A) global Glue(GL_, N) *N = 0;
-OGL_FUNCTION_XLIST
+OGL_FUNCTION_XLIST;
 #undef X

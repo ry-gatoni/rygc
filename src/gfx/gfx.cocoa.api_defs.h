@@ -78,9 +78,14 @@
   X(NSOpenGLView, initWithFrame, "initWithFrame:pixelFormat:")\
   X(NSOpenGLView, prepareOpenGL, "prepareOpenGL")\
   X(NSOpenGLView, openGLContext, "openGLContext")\
+  X(NSOpenGLContext, initWithFormat, "initWithFormat:shareContext:")\
   X(NSOpenGLContext, makeCurrentContext, "makeCurrentContext")\
+  X(NSOpenGLContext, view, "view")\
+  X(NSOpenGLContext, setView, "setView:")\
+  X(NSOpenGLContext, update, "update")\
   X(NSOpenGLContext, flushBuffer, "flushBuffer")\
   X(NSOpenGLContext, setValues, "setValues:forParameter:")\
+  X(NSOpenGLPixelFormat, initWithAttributes, "initWithAttributes:")\
   X(CALayer, contents, "contents")\
   X(CALayer, setContents, "setContents:")\
   X(CALayer, contentsRect, "contentsRect")\
@@ -633,6 +638,23 @@ Cocoa_Enum(NSStringEncoding, NSUInteger)
 Cocoa_Enum(NSOpenGLContextParameter, NSInteger)
 {
   NSOpenGLContextParameterSwapInterval = 222,
+};
+
+Cocoa_Enum(NSOpenGLPixelFormatAttribute, U32)
+{
+  NSOpenGLPFADoubleBuffer = 5,
+  NSOpenGLPFAColorSize = 8,
+  NSOpenGLPFADepthSize = 12,
+  NSOpenGLPFAMultisample = 59,
+  NSOpenGLPFAOpenGLProfile = 99,
+};
+
+// NSOpenGLPFAOpenGLProfile values
+enum
+{
+  NSOpenGLProfileVersionLegacy  = 0x1000,
+  NSOpenGLProfileVersion3_2Core = 0x3200,
+  NSOpenGLProfileVersion4_1Core = 0x4100,
 };
 
 //
@@ -1217,11 +1239,44 @@ NSOpenGLView_openGLContext(NSOpenGLView *view)
 }
 
 // NSOpenGLContext
+proc inline NSOpenGLContext*
+NSOpenGLContext_initWithFormat(NSOpenGLPixelFormat *format, NSOpenGLContext *share)
+{
+  Class nsclass = ObjcClassName(NSOpenGLContext);
+  id nsid = NSAlloc(nsclass);
+  SEL nssel = ObjcSelName(NSOpenGLContext, initWithFormat);
+  return ((id (*)(id, SEL, id, id))objc_msgSend)(nsid, nssel, format, share);
+}
+
 proc inline void
 NSOpenGLContext_makeCurrentContext(NSOpenGLContext *ctxt)
 {
   id nsid = ctxt;
   SEL nssel = ObjcSelName(NSOpenGLContext, makeCurrentContext);
+  return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline NSView*
+NSOpenGLContext_view(NSOpenGLContext *ctxt)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, view);
+  return ((id (*)(id, SEL))objc_msgSend)(nsid, nssel);
+}
+
+proc inline void
+NSOpenGLContext_setView(NSOpenGLContext *ctxt, NSView *view)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, setView);
+  return ((void (*)(id, SEL, id))objc_msgSend)(nsid, nssel, view);
+}
+
+proc inline void
+NSOpenGLContext_update(NSOpenGLContext *ctxt)
+{
+  id nsid = ctxt;
+  SEL nssel = ObjcSelName(NSOpenGLContext, update);
   return ((void (*)(id, SEL))objc_msgSend)(nsid, nssel);
 }
 
@@ -1239,6 +1294,16 @@ NSOpenGLContext_setValues(NSOpenGLContext *ctxt, const int *vals, NSOpenGLContex
   id nsid = ctxt;
   SEL nssel = ObjcSelName(NSOpenGLContext, setValues);
   return ((void (*)(id, SEL, const int*, NSInteger))objc_msgSend)(nsid, nssel, vals, param);
+}
+
+// NSOpenGLPixelFormat
+proc inline NSOpenGLPixelFormat*
+NSOpenGLPixelFormat_initWithAttributes(const NSOpenGLPixelFormatAttribute *attribs)
+{
+  Class nsclass = ObjcClassName(NSOpenGLPixelFormat);
+  id nsid = NSAlloc(nsclass);
+  SEL nssel = ObjcSelName(NSOpenGLPixelFormat, initWithAttributes);
+  return ((id (*)(id, SEL, const U32*))objc_msgSend)(nsid, nssel, attribs);
 }
 
 //

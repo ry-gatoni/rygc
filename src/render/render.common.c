@@ -1,21 +1,26 @@
 proc B32
 render_init(void)
 {
+  B32 result = 1;
   Arena *arena = arena_alloc();
-  R_Commands *commands = arena_push_struct_z(arena, R_Commands);
-  commands->arena = arena;
+  render_commands = arena_push_struct_z(arena, R_Commands);
+  render_commands->arena = arena;
 
-  commands->renderer = render_backend_init(arena);
+  render_commands->clear_color = color_v4_from_rgba(0x40, 0x40, 0x40, 0xFF);
 
-  commands->clear_color = color_v4_from_rgba(0x40, 0x40, 0x40, 0xFF);
+  render_commands->renderer = render_backend_init(arena);
 
   // NOTE: generate white texture
   U32 white[] = { 0xFFFFFFFF };
-  commands->white_texture = render_create_texture(1, 1, white);
+  render_commands->white_texture = render_create_texture(1, 1, white);
 
-  render_commands = commands;
-  B32 result = render_commands != 0;
   return(result);
+}
+
+proc void
+render_set_backend(R_Backend backend)
+{
+  render_commands->backend = backend;
 }
 
 #if defined(FONT_LAYER)

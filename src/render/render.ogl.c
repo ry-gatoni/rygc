@@ -126,6 +126,8 @@ render_ogl_backend_init(Arena *arena)
   R_Handle result = {0};
   if(!ogl_init()) return(result);
 
+  render_commands->render_targets[R_Backend_opengl] = arena_push_struct(arena, Gfx_OglRenderTarget);
+
   ogl_renderer = arena_push_struct(arena, Ogl_Renderer);
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

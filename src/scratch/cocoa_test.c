@@ -178,10 +178,15 @@ typedef struct BoxState
 } BoxState;
 
 proc void
-update_and_draw(BoxState *box, PixelCommandBuffer *commands, Gfx_PixelRenderTarget *target, V2S32 frame_dim)
+update_and_draw(BoxState *box, /* PixelCommandBuffer *commands, Gfx_PixelRenderTarget *target,  */V2S32 frame_dim)
 {
   // clear background
-  pixel_command_push_clear(commands, 0xFF080C1C);
+  //pixel_command_push_clear(commands, 0xFF080C1C);
+  {
+    Rect2 frame_rect = rect2_min_dim(v2(0, 0), v2_from_v2s32(frame_dim));
+    V4 background_color = color_v4_from_rgba(0x08, 0x0C, 0x1C, 0xFF);
+    render_rect(frame_rect, 0, 0.9, background_color);
+  }
 
   // update box
   if(0 > box->p.x + box->v.x || box->p.x + box->dim.x + box->v.x > frame_dim.width)
@@ -197,10 +202,15 @@ update_and_draw(BoxState *box, PixelCommandBuffer *commands, Gfx_PixelRenderTarg
   box->p.y += box->v.y;
 
   // draw box
-  pixel_command_push_rect(commands, rect2_min_dim(box->p, box->dim), 0xFFFF0000);
+  //pixel_command_push_rect(commands, rect2_min_dim(box->p, box->dim), 0xFFFF0000);
+  {
+    Rect2 box_rect = rect2_min_dim(box->p, box->dim);
+    V4 box_color = color_v4_from_rgba(0xFF, 0, 0, 0xFF);
+    render_rect(box_rect, 0, 0, box_color);
+  }
 
   // flush commands
-  pixel_command_buffer_flush(commands, target, frame_dim);
+  //pixel_command_buffer_flush(commands, target, frame_dim);
 }
 
 int
@@ -217,8 +227,14 @@ main(int argc, char **argv)
   if(!gfx_init())
   { result = 1; goto end; }
 
+  if(!render_init())
+  { result = 1; goto end; }
+
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("cocoa test"));
-  //gfx_set_render_target_kind(window, Gfx_RenderTargetKind_ogl);
+  //gfx_set_backend(window, Gfx_Backend_opengl);
+
+  render_set_backend(R_Backend_opengl);
+  render_equip_window(window);
 
   Arena *frame_arena = arena_alloc();
   PixelCommandBuffer commands = {0};
@@ -249,9 +265,13 @@ main(int argc, char **argv)
     }
 
     // NOTE: draw
-#if 0
-    gfx_render_target_from_window(0, window);
-    gfx_submit_frame(window);
+#if 1
+    V2S32 window_dim = gfx_window_dim(window);
+    //gfx_render_target_from_window(0, window);
+    render_begin_frame();
+    update_and_draw(&box, window_dim);
+    render_end_frame();
+    //gfx_submit_frame(window);
 #else
     pixel_command_buffer_init(frame_arena, &commands, KB(32));
     V2S32 window_dim = gfx_window_dim(window);
