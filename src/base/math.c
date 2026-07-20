@@ -93,6 +93,13 @@ rygc_sin(R32 num)
 }
 
 proc R32
+rygc_tan(R32 num)
+{
+  R32 result = tanf(num);
+  return result;
+}
+
+proc R32
 rygc_atan2(R32 x, R32 y)
 {
   return(atan2f(y, x));
@@ -130,6 +137,13 @@ v4(R32 x, R32 y, R32 z, R32 w)
 {
   V4 result = {.x = x, .y = y, .z = z, .w = w};
   return(result);
+}
+
+proc V4
+v4_from_v2_xy(V2 xy, R32 z, R32 w)
+{
+  V4 result = v4(xy.x, xy.y, z, w);
+  return result;
 }
 
 proc V4
@@ -785,7 +799,8 @@ mat4_screen_transform_ndc(V2S32 dim)
   Mat4 result = mat4(v4(a, 0,  0, -1),
                      v4(0, b,  0, -1),
                      v4(0, 0,  1,  0),
-                     v4(0, 0, -1,  0));
+                     //v4(0, 0, -1,  0));
+		     v4(0, 0, 0, 1));
   return(result);
 }
 
@@ -830,6 +845,62 @@ mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp)
 		     v4(cx.z, cy.z, cz.z, cp.z),
 		     v4(   0,    0,    0,    1));
   return(result);
+}
+
+proc Mat4
+mat4_ortho(V2 dim, R32 near, R32 far)
+{
+  R32 a = 2.f/dim.x;
+  R32 b = 2.f/dim.y;
+  R32 c = 2.f/(near - far);
+  R32 d = (near + far)/(near - far);
+  Mat4 result = mat4(v4(a,  0,  0, -1),
+		     v4(0,  b,  0, -1),
+		     v4(0,  0,  c,  d),
+		     v4(0,  0,  0,  1));
+  return result;
+}
+
+proc Mat4
+mat4_ortho_inv(V2 dim, R32 near, R32 far)
+{
+  R32 a = 2.f/dim.x;
+  R32 b = 2.f/dim.y;
+  R32 c = 2.f/(near - far);
+  R32 d = (near + far)/(near - far);
+  Mat4 result = mat4(v4(1.f/a,     0,     0, 1.f/a),
+		     v4(    0, 1.f/b,     0, 1.f/b),
+		     v4(    0,     0, 1.f/c,  -d/c),
+		     v4(    0,     0,     0,    1));
+  return result;
+}
+
+proc Mat4
+mat4_perspective(R32 fov, R32 aspect_ratio, R32 near, R32 far)
+{
+  R32 a = 1.f/(aspect_ratio*rygc_tan(0.5f*fov));
+  R32 b = 1.f/(rygc_tan(0.5f*fov));
+  R32 c = (near + far)/(near - far);
+  R32 d = 2.f*(far * near)/(near - far);
+  Mat4 result = mat4(v4(a,  0,  0,  0),
+		     v4(0,  b,  0,  0),
+		     v4(0,  0,  c,  d),
+		     v4(0,  0, -1,  0));
+  return result;
+}
+
+proc Mat4
+mat4_perspective_inv(R32 fov, R32 aspect_ratio, R32 near, R32 far)
+{
+  R32 a = 1.f/(aspect_ratio*rygc_tan(0.5f*fov));
+  R32 b = 1.f/(rygc_tan(0.5f*fov));
+  R32 c = (near + far)/(near - far);
+  R32 d = 2.f*(far * near)/(near - far);
+  Mat4 result = mat4(v4(1.f/a,     0,     0,     0),
+		     v4(    0, 1.f/b,     0,     0),
+		     v4(    0,     0,     0,    -1),
+		     v4(    0,     0, 1.f/d,   c/d));
+  return result;
 }
 
 proc Mat3

@@ -178,7 +178,7 @@ render_ogl_backend_init(Arena *arena)
   ogl_renderer->sampler_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "atlas");
   glUniform1i(ogl_renderer->sampler_loc, 0);
 
-  ogl_renderer->transform_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "transform");
+  ogl_renderer->transforms_loc = glGetUniformLocation(ogl_renderer->shader_prog.handle, "transforms");
 
   arena_release_scratch(scratch);
 
@@ -235,6 +235,18 @@ render_ogl_flush_commands(void)
     glVertexAttribPointer(5, 1, GL_FLOAT, 0, sizeof(R_Quad),
                           PtrFromInt(pattern_size + OffsetOf(R_Quad, level)));
 
+    // NOTE: proj_transform_idx
+    glEnableVertexAttribArray(6);
+    glVertexAttribDivisor(6, 1);
+    glVertexAttribPointer(6, 1, GL_UNSIGNED_SHORT, 0, sizeof(R_Quad),
+                          PtrFromInt(pattern_size + OffsetOf(R_Quad, proj_transform_idx)));
+
+    // NOTE: view_transform_idx
+    glEnableVertexAttribArray(7);
+    glVertexAttribDivisor(7, 1);
+    glVertexAttribPointer(7, 1, GL_UNSIGNED_SHORT, 0, sizeof(R_Quad),
+                          PtrFromInt(pattern_size + OffsetOf(R_Quad, view_transform_idx)));
+
     glViewport(0, 0, commands->viewport_dim.width, commands->viewport_dim.height);
 
     V4 clear_color = commands->clear_color;
@@ -245,42 +257,52 @@ render_ogl_flush_commands(void)
     // NOTE: render all batches
     //ProfileScope(render_batches)
     {
-      Mat4 transform = mat4_id();
-      for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind)
+      GLenum glerr;
+      glUniformMatrix4fv(ogl_renderer->transforms_loc, /* R_MAX_TRANSFORM_COUNT */commands->used_transform_idx, 1,
+			 (GLfloat*)&commands->transforms.forward[0]);
+      if((glerr = glGetError()))
       {
-	R_BatchList *list = commands->batch_lists + kind;
-	transform = mat4_mul(transform, commands->transforms[kind]);
-	glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 1, (GLfloat*)transform.v);
+	Assert(0);
+      }
 
-	for(R_Batch *batch = list->first_batch; batch; batch = batch->next)
+      /* Mat4 transform = mat4_id(); */
+      /* for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind) */
+      /* { */
+      //R_BatchList *list = commands->batch_lists + kind;
+      R_BatchList *list = &commands->batch_list;
+      /* transform = mat4_mul(transform, commands->transforms[kind]); */
+      /* glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 1, (GLfloat*)transform.v); */
+
+      for(R_Batch *batch = list->first_batch; batch; batch = batch->next)
+      {
+	//ProfileScope(render_batch)
 	{
-	  //ProfileScope(render_batch)
-	  {
-	    U64 size = batch->quad_count*sizeof(R_Quad);
-	    glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);
+	  U64 size = batch->quad_count*sizeof(R_Quad);
+	  glBufferSubData(GL_ARRAY_BUFFER, pattern_size, size, batch->quads);
 
-	    glActiveTexture(GL_TEXTURE0);
-	    glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
+	  glActiveTexture(GL_TEXTURE0);
+	  glBindTexture(GL_TEXTURE_2D, (U32)IntFromPtr(batch->texture->handle.handle));
 
-	    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
-	  }
+	  glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
 	}
       }
+      //}
     }
 
     // NOTE: move all batches onto the freelist
-    for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind)
+    /* for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind) */
+    /* { */
+    //R_BatchList *list = commands->batch_lists + kind;
+    R_BatchList *list = &commands->batch_list;
+    if(list->first_batch)
     {
-      R_BatchList *list = commands->batch_lists + kind;
-      if(list->first_batch)
-      {
-	list->last_batch->next = commands->batch_freelist;
-	commands->batch_freelist = list->first_batch;
-	list->first_batch = 0;
-	list->last_batch = 0;
-	list->batch_count = 0;
-      }
+      list->last_batch->next = commands->batch_freelist;
+      commands->batch_freelist = list->first_batch;
+      list->first_batch = 0;
+      list->last_batch = 0;
+      list->batch_count = 0;
     }
+      //}
 
     //gfx_window_end_frame(commands->window);
   }

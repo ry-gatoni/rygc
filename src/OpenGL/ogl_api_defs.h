@@ -41,6 +41,7 @@ typedef signed long int		GLsizeiptr;
 #define GL_CLAMP_TO_EDGE                  0x812F
 #define GL_LINEAR                         0x2601
 #define GL_UNSIGNED_BYTE                  0x1401
+#define GL_UNSIGNED_SHORT                 0x1403
 #define GL_FLOAT                          0x1406
 #define GL_BLEND                          0x0BE2
 #define GL_SRC_ALPHA                      0x0302

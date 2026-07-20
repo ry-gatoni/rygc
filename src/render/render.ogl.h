@@ -8,7 +8,7 @@ typedef struct Ogl_Renderer
   GLuint vbo;
   GLuint sampler;
   GLint sampler_loc;
-  GLint transform_loc;
+  GLint transforms_loc;
 
   Ogl_Shader vert_shader;
   Ogl_Shader frag_shader;
@@ -32,8 +32,10 @@ global char vert_shader_src[] =
   "layout (location = 3) in vec4 color;\n"
   "layout (location = 4) in float angle;\n"
   "layout (location = 5) in float level;\n"
+  "layout (location = 6) in uint proj_idx;\n"
+  "layout (location = 7) in uint view_idx;\n"
 
-  "uniform mat4 transform;\n"
+  "uniform mat4 transforms[" Stringify(R_MAX_TRANSFORM_COUNT) "];\n"
 
   "out vec2 f_uv;\n"
   "out vec4 f_color;\n"
@@ -53,8 +55,10 @@ global char vert_shader_src[] =
   "  float sina = sin(angle);\n"
   "  vec2 rot_pattern = vec2(cosa*scaled_pattern.x - sina*scaled_pattern.y, sina*scaled_pattern.x + cosa*scaled_pattern.y);\n"
 
+  "  mat4 transform = transforms[proj_idx] * transforms[view_idx];\n"
+
   "  vec2 pos = quad_center + rot_pattern;\n"
-  /* "  gl_Position = transform * vec4(pos, level, 1.0);\n" */
+  //"  gl_Position = transform * vec4(pos, level, 1.0);\n"
   "  vec4 transformed = transform * vec4(pos, 0, 1.0);\n"
   "  gl_Position = vec4(transformed.xy, level*transformed.w, transformed.w);\n"
 

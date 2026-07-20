@@ -14,6 +14,7 @@ proc R32 rygc_abs(R32 num);
 proc R32 rygc_sqrt(R32 num);
 proc R32 rygc_cos(R32 num);
 proc R32 rygc_sin(R32 num);
+proc R32 rygc_tan(R32 num);
 proc R32 rygc_atan2(R32 x, R32 y);
 proc R32 lerp(R32 val0, R32 val1, R32 t);
 
@@ -36,6 +37,8 @@ typedef union V2S32
 typedef union V3
 {
   struct {R32 x, y, z;};
+  struct {V2 xy; R32 _z;};
+  struct {R32 _x; V2 yz;};
   struct {R32 r, g, b;};
   R32 v[3];
 } V3;
@@ -43,6 +46,11 @@ typedef union V3
 typedef union V4
 {
   struct {R32 x, y, z, w;};
+  struct {V2 xy; R32 _z, _w;};
+  struct {R32 _x; V2 yz; R32 __w;};
+  struct {R32 __x, _y; V2 zw;};
+  struct {V3 xyz; R32 ___w;};
+  struct {R32 ___x; V3 yzw;};
   struct {R32 r, g, b, a;};
   R32 v[4];
 } V4;
@@ -54,6 +62,7 @@ proc V2 v2(R32 x, R32 y);
 proc V3 v3(R32 x, R32 y, R32 z);
 proc V4 v4(R32 x, R32 y, R32 z, R32 w);
 
+proc V4 v4_from_v2_xy(V2 xy, R32 z, R32 w);
 proc V4 v4_from_v3_xyz(V3 xyz, R32 w);
 
 proc V2 v2_polar(R32 mag, R32 angle);
@@ -260,10 +269,18 @@ proc Mat4 mat4_id(void);
 
 proc Mat4 mat4_yflip(void);
 proc Mat4 mat4_screen_transform_ndc(V2S32 dim);
+
 proc Mat4 mat4_screen_from_world(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
 proc Mat4 mat4_world_from_screen(V2 world_origin_in_screen_space, R32 pixels_from_world_units);
+
 proc Mat4 mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp);
 proc Mat4 mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp);
+
+proc Mat4 mat4_ortho(V2 dim, R32 near, R32 far);
+proc Mat4 mat4_ortho_inv(V2 dim, R32 near, R32 far);
+
+proc Mat4 mat4_perspective(R32 fov, R32 aspect_ratio, R32 near, R32 far);
+proc Mat4 mat4_perspective_inv(R32 fov, R32 aspect_ratio, R32 near, R32 far);
 
 // -----------------------------------------------------------------------------
 // multiply
