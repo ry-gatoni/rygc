@@ -2,7 +2,7 @@
 // types
 
 typedef S32 OSStatus;
-typedef bool Boolean;
+typedef unsigned char Boolean;
 
 typedef U32 FourCharCode;
 typedef FourCharCode OSType;
@@ -19,7 +19,7 @@ typedef struct CFRange
   CFIndex length;
 } CFRange;
 
-typedef struct __CFString *CFStringRef;
+typedef const struct __CFString *CFStringRef;
 
 // CoreAudio
 

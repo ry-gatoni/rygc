@@ -75,20 +75,42 @@ audio_passthru_stream_refill(Audio_Stream *self, Audio_Stream *caller)
   Audio_PassthruStream *passthru = (Audio_PassthruStream*)self;
 
   Audio_Stream *source = passthru->source;
+
+  Audio_StreamStatus result = Audio_StreamStatus_ok;
+
+  // NOTE: refill
   source->sample_cursor = source->samples_end;
   source->refill(source, self);
-  U64 samples_available = IntFromPtr(source->samples_end - source->samples_start)/sizeof(R32);
+  U64 samples_available = source->samples_end - source->sample_cursor;
 
+  // NOTE: copy to output
   Assert(caller);
-  Assert(caller->refill == 0);
-  Assert(caller->sample_cursor == caller->samples_start);
-  U64 samples_to_write = IntFromPtr(caller->samples_end - caller->samples_start)/sizeof(R32);
-  Assert(samples_to_write == samples_available); // TODO: handle over/under run
+  Assert(caller->refill == 0); // caller must be an output stream
+  U64 samples_to_write = caller->samples_end - caller->sample_cursor;
   R32 *src = source->samples_start;
   R32 *dest = caller->samples_start;
-  CopyArray(dest, src, R32, samples_to_write);
+  if(samples_available == 0)
+  {
+    ZeroArray(dest, R32, samples_to_write);
+    caller->sample_cursor = caller->samples_end;
+    result = Audio_StreamStatus_zero_output;
+  }
+  else
+  {
+    U64 samples_to_copy = Min(samples_available, samples_to_write);
+    CopyArray(dest, src, R32, samples_to_copy);
+    source->sample_cursor += samples_to_copy;
+    caller->sample_cursor += samples_to_copy;
+  }
 
-  return Audio_StreamStatus_ok;
+  return result;
+}
+
+proc void
+audio_passthru_stream_init(Audio_PassthruStream *stream, Audio_Stream *source)
+{
+  stream->self.refill = audio_passthru_stream_refill;
+  stream->source = source;
 }
 
 // -----------------------------------------------------------------------------
