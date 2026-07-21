@@ -637,7 +637,7 @@ rect2_offset(Rect2 rect, V2 offset)
 proc V2
 rect2_center(Rect2 rect)
 {
-  V2 result = v2_lmul(0.5f, v2_sub(rect.max, rect.min));
+  V2 result = v2_add(rect.min, v2_lmul(0.5f, rect_dim(rect)));
   return(result);
 }
 
