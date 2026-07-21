@@ -830,77 +830,139 @@ mat4_world_from_screen(V2 world_origin_in_screen_space, R32 pixels_from_world_un
 proc Mat4
 mat4_camera_transform(V3 cx, V3 cy, V3 cz, V3 cp)
 {
-  Mat4 result = mat4(v4_from_v3_xyz(cx, -v3_dot(cx, cp)),
-		     v4_from_v3_xyz(cy, -v3_dot(cy, cp)),
-		     v4_from_v3_xyz(cz, -v3_dot(cz, cp)),
-		     v4(0, 0, 0, 1));
+  Mat4 result;
+  transform4_camera(&result, 0, cx, cy, cz, cp);
   return(result);
 }
 
 proc Mat4
 mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp)
 {
-  Mat4 result = mat4(v4(cx.x, cy.x, cz.x, cp.x),
-		     v4(cx.y, cy.y, cz.y, cp.y),
-		     v4(cx.z, cy.z, cz.z, cp.z),
-		     v4(   0,    0,    0,    1));
+  Mat4 result;
+  transform4_camera(0, &result, cx, cy, cz, cp);
   return(result);
 }
 
 proc Mat4
 mat4_ortho(V2 dim, R32 near, R32 far)
 {
-  R32 a = 2.f/dim.x;
-  R32 b = 2.f/dim.y;
-  R32 c = 2.f/(near - far);
-  R32 d = (near + far)/(near - far);
-  Mat4 result = mat4(v4(a,  0,  0, -1),
-		     v4(0,  b,  0, -1),
-		     v4(0,  0,  c,  d),
-		     v4(0,  0,  0,  1));
+  Mat4 result;
+  transform4_ortho(&result, 0, dim, near, far);
   return result;
 }
 
 proc Mat4
 mat4_ortho_inv(V2 dim, R32 near, R32 far)
 {
+  Mat4 result;
+  transform4_ortho(0, &result, dim, near, far);
+  return result;
+}
+
+proc Mat4
+mat4_perspective(R32 fov, R32 aspect, R32 near, R32 far)
+{
+  Mat4 result;
+  transform4_perspective(0, &result, fov, aspect, near, far);
+  return result;
+}
+
+proc Mat4
+mat4_perspective_inv(R32 fov, R32 aspect, R32 near, R32 far)
+{
+  Mat4 result;
+  transform4_perspective(0, &result, fov, aspect, near, far);
+  return result;
+}
+
+proc void
+transform4_id(Mat4 *forward, Mat4 *inverse)
+{
+  if(forward)
+  {
+    forward->r0 = v4(1, 0, 0, 0);
+    forward->r1 = v4(0, 1, 0, 0);
+    forward->r2 = v4(0, 0, 1, 0);
+    forward->r3 = v4(0, 0, 0, 1);
+  }
+
+  if(inverse)
+  {
+    inverse->r0 = v4(1, 0, 0, 0);
+    inverse->r1 = v4(0, 1, 0, 0);
+    inverse->r2 = v4(0, 0, 1, 0);
+    inverse->r3 = v4(0, 0, 0, 1);
+  }
+}
+
+proc void
+transform4_camera(Mat4 *forward, Mat4 *inverse, V3 cx, V3 cy, V3 cz, V3 cp)
+{
+  if(forward)
+  {
+    forward->r0 = v4_from_v3_xyz(cx, -v3_dot(cx, cp));
+    forward->r1 = v4_from_v3_xyz(cy, -v3_dot(cy, cp));
+    forward->r2 = v4_from_v3_xyz(cz, -v3_dot(cz, cp));
+    forward->r3 = v4(0, 0, 0, 1);
+  }
+
+  if(inverse)
+  {
+    inverse->r0 = v4(cx.x, cy.x, cz.x, cp.x);
+    inverse->r1 = v4(cx.y, cy.y, cz.y, cp.y);
+    inverse->r2 = v4(cx.z, cy.z, cz.z, cp.z);
+    inverse->r3 = v4(   0,    0,    0,    1);
+  }
+}
+
+proc void
+transform4_ortho(Mat4 *forward, Mat4 *inverse, V2 dim, R32 near, R32 far)
+{
   R32 a = 2.f/dim.x;
   R32 b = 2.f/dim.y;
   R32 c = 2.f/(near - far);
   R32 d = (near + far)/(near - far);
-  Mat4 result = mat4(v4(1.f/a,     0,     0, 1.f/a),
-		     v4(    0, 1.f/b,     0, 1.f/b),
-		     v4(    0,     0, 1.f/c,  -d/c),
-		     v4(    0,     0,     0,    1));
-  return result;
+
+  if(forward)
+  {
+    forward->r0 = v4(a,  0,  0, -1);
+    forward->r1 = v4(0,  b,  0, -1);
+    forward->r2 = v4(0,  0,  c,  d);
+    forward->r3 = v4(0,  0,  0,  1);
+  }
+
+  if(inverse)
+  {
+    inverse->r0 = v4(1.f/a,     0,     0, 1.f/a);
+    inverse->r1 = v4(    0, 1.f/b,     0, 1.f/b);
+    inverse->r2 = v4(    0,     0, 1.f/c,  -d/c);
+    inverse->r3 = v4(    0,     0,     0,     1);
+  }
 }
 
-proc Mat4
-mat4_perspective(R32 fov, R32 aspect_ratio, R32 near, R32 far)
+proc void
+transform4_perspective(Mat4 *forward, Mat4 *inverse, R32 fov, R32 aspect, R32 near, R32 far)
 {
-  R32 a = 1.f/(aspect_ratio*rygc_tan(0.5f*fov));
+  R32 a = 1.f/(aspect*rygc_tan(0.5f*fov));
   R32 b = 1.f/(rygc_tan(0.5f*fov));
   R32 c = (near + far)/(near - far);
   R32 d = 2.f*(far * near)/(near - far);
-  Mat4 result = mat4(v4(a,  0,  0,  0),
-		     v4(0,  b,  0,  0),
-		     v4(0,  0,  c,  d),
-		     v4(0,  0, -1,  0));
-  return result;
-}
 
-proc Mat4
-mat4_perspective_inv(R32 fov, R32 aspect_ratio, R32 near, R32 far)
-{
-  R32 a = 1.f/(aspect_ratio*rygc_tan(0.5f*fov));
-  R32 b = 1.f/(rygc_tan(0.5f*fov));
-  R32 c = (near + far)/(near - far);
-  R32 d = 2.f*(far * near)/(near - far);
-  Mat4 result = mat4(v4(1.f/a,     0,     0,     0),
-		     v4(    0, 1.f/b,     0,     0),
-		     v4(    0,     0,     0,    -1),
-		     v4(    0,     0, 1.f/d,   c/d));
-  return result;
+  if(forward)
+  {
+    forward->r0 = v4(a,  0,  0,  0);
+    forward->r1 = v4(0,  b,  0,  0);
+    forward->r2 = v4(0,  0,  c,  d);
+    forward->r3 = v4(0,  0, -1,  0);
+  }
+
+  if(inverse)
+  {
+    inverse->r0 = v4(1.f/a,     0,     0,     0);
+    inverse->r1 = v4(    0, 1.f/b,     0,     0);
+    inverse->r2 = v4(    0,     0,     0,    -1);
+    inverse->r3 = v4(    0,     0, 1.f/d,   c/d);
+  }
 }
 
 proc Mat3

@@ -258,6 +258,12 @@ typedef union Mat4
   R32 v[4][4];
 } Mat4;
 
+typedef struct Trasform4
+{
+  Mat4 forward;
+  Mat4 invserse;
+} Transform4;
+
 // -----------------------------------------------------------------------------
 // construction
 
@@ -279,8 +285,13 @@ proc Mat4 mat4_camera_transform_inverse(V3 cx, V3 cy, V3 cz, V3 cp);
 proc Mat4 mat4_ortho(V2 dim, R32 near, R32 far);
 proc Mat4 mat4_ortho_inv(V2 dim, R32 near, R32 far);
 
-proc Mat4 mat4_perspective(R32 fov, R32 aspect_ratio, R32 near, R32 far);
-proc Mat4 mat4_perspective_inv(R32 fov, R32 aspect_ratio, R32 near, R32 far);
+proc Mat4 mat4_perspective(R32 fov, R32 aspect, R32 near, R32 far);
+proc Mat4 mat4_perspective_inv(R32 fov, R32 aspect, R32 near, R32 far);
+
+proc void transform4_id(Mat4 *forward, Mat4 *inverse);
+proc void transform4_camera(Mat4 *forward, Mat4 *inverse, V3 cx, V3 cy, V3 cz, V3 cp);
+proc void transform4_ortho(Mat4 *forward, Mat4 *inverse, V2 dim, R32 near, R32 far);
+proc void transform4_perspective(Mat4 *forward, Mat4 *inverse, R32 fov, R32 aspect, R32 near, R32 far);
 
 // -----------------------------------------------------------------------------
 // multiply

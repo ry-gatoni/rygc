@@ -15,111 +15,6 @@ render__handle_from_ogl_handle(GLuint handle)
   return(result);
 }
 
-/* proc Ogl_Shader */
-/* ogl__make_shader(Arena *arena, char *src, GLenum kind) */
-/* { */
-/*   GLuint shader_id = glCreateShader(kind); */
-/*   glShaderSource(shader_id, 1, (const GLchar*const*)&src, 0); */
-/*   glCompileShader(shader_id); */
-
-/*   String8 log = {0}; */
-/*   GLint info_log_length; */
-/*   glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &info_log_length); */
-/*   if(info_log_length) */
-/*   { */
-/*     char *buffer = arena_push_array(arena, char, info_log_length + 1); */
-/*     GLint len = 0; */
-/*     glGetShaderInfoLog(shader_id, info_log_length + 1, &len, buffer); */
-/*     log.count = len; */
-/*     log.string = (U8*)buffer; */
-/*   } */
-
-/*   GLint compile_status; */
-/*   glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_status); */
-/*   if(compile_status == 0) */
-/*   { */
-/*     glDeleteShader(shader_id); */
-/*     shader_id = 0; */
-/*   } */
-
-/*   Ogl_Shader result = {0}; */
-/*   result.handle = shader_id; */
-/*   result.log = log; */
-/*   return(result); */
-/* } */
-
-/* proc Ogl_Shader */
-/* ogl__make_program(Arena *arena, GLuint *shaders, U32 shader_count) */
-/* { */
-/*   GLuint program_id = glCreateProgram(); */
-/*   for(U32 shader_idx = 0; shader_idx < shader_count; ++shader_idx) */
-/*   { glAttachShader(program_id, shaders[shader_idx]); } */
-/*   glLinkProgram(program_id); */
-
-/*   String8 log = {0}; */
-/*   GLint info_log_length; */
-/*   glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length); */
-/*   if(info_log_length) */
-/*   { */
-/*     char *buffer = arena_push_array(arena, char, info_log_length + 1); */
-/*     GLint len = 0; */
-/*     glGetProgramInfoLog(program_id, info_log_length + 1, &len, buffer); */
-/*     log.count = len; */
-/*     log.string = (U8*)buffer; */
-/*   } */
-
-/*   GLint link_status; */
-/*   glGetProgramiv(program_id, GL_LINK_STATUS, &link_status); */
-/*   if(link_status == 0) */
-/*   { */
-/*     glDeleteProgram(program_id); */
-/*     program_id = 0; */
-/*   } */
-
-/*   Ogl_Shader result = {0}; */
-/*   result.handle = program_id; */
-/*   result.log = log; */
-/*   return(result); */
-/* } */
-
-/* proc R_Texture */
-/* render_ogl_create_texture(V2S32 dim, void *pixels, R_TextureCreateParams *params) */
-/* { */
-/*   U32 handle; */
-/*   glGenTextures(1, &handle); */
-/*   glBindTexture(GL_TEXTURE_2D, handle); */
-
-/*   GLint internal_fmt = ogl_fmts[params->internal_fmt]; */
-/*   GLint pixel_fmt = ogl_fmts[params->pixel_fmt]; */
-/*   S32 width = dim.width; */
-/*   S32 height = dim.height; */
-/*   glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, width, height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels); */
-/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); */
-/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); */
-/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params->wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE); */
-/*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params->wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE); */
-
-/*   R_Texture result = {0}; */
-/*   result.handle = ogl__render_handle_from_handle(handle);//.handle = PtrFromInt(handle); */
-/*   result.dim = dim; */
-/*   result.pixels = pixels; */
-/*   return(result); */
-/* } */
-
-/* proc void */
-/* render_ogl_update_texture(R_Texture *texture, V2S32 pos, V2S32 dim, R_PixelFormat pixel_format, void *pixels) */
-/* { */
-/*   //U32 handle = (U32)IntFromPtr(texture->handle.handle); */
-/*   GLuint handle = ogl__handle_from_render_handle(texture->handle); */
-/*   glBindTexture(GL_TEXTURE_2D, handle); */
-
-/*   S32 x = pos.x; */
-/*   S32 y = pos.y; */
-/*   S32 w = dim.width; */
-/*   S32 h = dim.height; */
-/*   glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, ogl_fmts[pixel_format], GL_UNSIGNED_BYTE, pixels); */
-/* } */
-
 proc R_Handle
 render_ogl_backend_init(Arena *arena)
 {
@@ -258,20 +153,14 @@ render_ogl_flush_commands(void)
     //ProfileScope(render_batches)
     {
       GLenum glerr;
-      glUniformMatrix4fv(ogl_renderer->transforms_loc, /* R_MAX_TRANSFORM_COUNT */commands->used_transform_idx, 1,
+      glUniformMatrix4fv(ogl_renderer->transforms_loc, commands->used_transform_idx, 1,
 			 (GLfloat*)&commands->transforms.forward[0]);
       if((glerr = glGetError()))
       {
 	Assert(0);
       }
 
-      /* Mat4 transform = mat4_id(); */
-      /* for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind) */
-      /* { */
-      //R_BatchList *list = commands->batch_lists + kind;
       R_BatchList *list = &commands->batch_list;
-      /* transform = mat4_mul(transform, commands->transforms[kind]); */
-      /* glUniformMatrix4fv(ogl_renderer->transform_loc, 1, 1, (GLfloat*)transform.v); */
 
       for(R_Batch *batch = list->first_batch; batch; batch = batch->next)
       {
@@ -286,13 +175,9 @@ render_ogl_flush_commands(void)
 	  glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, batch->quad_count);
 	}
       }
-      //}
     }
 
     // NOTE: move all batches onto the freelist
-    /* for(R_TransformKind kind = 0; kind < R_Transform_Count; ++kind) */
-    /* { */
-    //R_BatchList *list = commands->batch_lists + kind;
     R_BatchList *list = &commands->batch_list;
     if(list->first_batch)
     {
@@ -302,7 +187,6 @@ render_ogl_flush_commands(void)
       list->last_batch = 0;
       list->batch_count = 0;
     }
-      //}
 
     //gfx_window_end_frame(commands->window);
   }
@@ -320,7 +204,6 @@ render_backend_init(Arena *arena)
 proc R_Texture
 render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params)
 {
-  //return(render_ogl_create_texture(v2s32(width, height), pixels, params));
   GLuint handle = ogl_create_texture(v2s32(width, height), pixels,
 				     ogl_fmts[params->internal_fmt], ogl_fmts[params->pixel_fmt],
 				     params->wrap_x, params->wrap_y);
@@ -354,9 +237,3 @@ render_flush_commands(void)
 {
   render_ogl_flush_commands();
 }
-
-/* proc void */
-/* render_end_frame(void) */
-/* { */
-/*   render_ogl_end_frame(); */
-/* } */

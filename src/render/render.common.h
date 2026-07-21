@@ -76,13 +76,6 @@ typedef struct R_Texture
   void *pixels;
 } R_Texture;
 
-/* typedef enum R_TransformKind */
-/* { */
-/*   R_Transform_device_from_screen, */
-/*   R_Transform_screen_from_world, */
-/*   R_Transform_Count, */
-/* } R_TransformKind; */
-
 typedef enum R_ProjTransformKind
 {
   R_ProjTransformKind_identity,
@@ -115,33 +108,6 @@ typedef struct R_Transforms
   Mat4 forward[R_MAX_TRANSFORM_COUNT];
   Mat4 inverse[R_MAX_TRANSFORM_COUNT];
 } R_Transforms;
-
-typedef struct R_OrthoParams
-{
-  V2 dim;
-  R32 near_clip_plane;
-  R32 far_clip_plane;
-} R_OrthoParams;
-#define R_ORTHO_PARAMS_DEFAULT\
-  .dim = { .x = 2, .y = 2, }, .near_clip_plane = 1, .far_clip_plane = -1,
-
-typedef struct R_PerspectiveParams
-{
-  R32 fov;
-  R32 aspect_ratio;
-  R32 near_clip_plane;
-  R32 far_clip_plane;
-} R_PerspectiveParams;
-#define R_PERSPECTIVE_PARAMS_DEFAULT\
-  .fov = PI32, .aspect_ratio = 1, .near_clip_plane = 1, .far_clip_plane = -1,
-
-typedef struct R_ViewParams
-{
-  V3 cx;
-  V3 cy;
-  V3 cz;
-  V3 cp;
-} R_ViewParams;
 
 typedef struct R_Batch R_Batch;
 struct R_Batch
@@ -183,22 +149,6 @@ typedef struct R_Commands
   R_TransformId active_transform;
   U32 used_transform_idx;
   R_Transforms transforms;
-
-  /* R_TransformKind active_transform; */
-  /* union { */
-  /*   struct { */
-  /*     Mat4 transform_device_from_screen; */
-  /*     Mat4 transform_screen_from_world; */
-  /*   }; */
-  /*   Mat4 transforms[R_Transform_Count]; */
-  /* }; */
-  /* union { */
-  /*   struct { */
-  /*     R_BatchList screen_space_batches; */
-  /*     R_BatchList world_space_batches; */
-  /*   }; */
-  /*   R_BatchList batch_lists[R_Transform_Count]; */
-  /* }; */
 
   R_BatchList batch_list;
   R_Batch *batch_freelist;
@@ -259,30 +209,19 @@ proc void render_read_framebuffer_pixels(R_Handle framebuffer, V2S32 pos, V2S32 
 
 proc void render_set_viewport_dim(V2S32 dim);
 
-/* proc R_ProjTransformId render_orthographic_projection(void); */
-/* proc R_ProjTransformId render_perspective_projection(void); */
-
 proc R_ProjTransformId render_projection(R_ProjTransformKind kind);
 proc R_ViewTransformId render_default_view(void);
 proc R_ViewTransformId render_set_view(V3 camera_x, V3 camera_y, V3 camera_z, V3 camera_pos);
 
-/* proc R_TransformId render_use_projection(R_ProjTransformId proj_id); */
-/* proc R_TransformId render_use_view(R_ViewTransformId view_id); */
 proc R_TransformId render_make_and_use_transform(R_ViewTransformId view_id, R_ProjTransformId proj_id);
 proc void render_use_transform(R_TransformId id);
 
 proc V3 render_unproject(V2 screen_point, R_TransformId transform);
 
-//proc void render_set_world_transform(Mat4 mat);
-//proc void render_equip_push_transform(R_TransformKind transform);
+#define render_forward_projection(kind) render_commands->transforms.forward[Glue(R_ProjTransformKind_, kind)]
+#define render_inverse_projection(kind) render_commands->transforms.inverse[Glue(R_ProjTransformKind_, kind)]
 
-#define render_transform_pair_id(f, i) render_transform_pair_id_ex(f, i)
-#define render_transform_pair_ortho(f, i, ...) render_transform_pair_ortho_ex(f, i, &(R_OrthoParams){ R_ORTHO_PARAMS_DEFAULT __VA_ARGS__ })
-#define render_transform_pair_perspective(f, i, ...) render_transform_pair_perspective_ex(f, i, &(R_PerspectiveParams){ R_PERSPECTIVE_PARAMS_DEFAULT __VA_ARGS__ })
-proc void render_transform_pair_view(Mat4 *forward, Mat4 *inverse, R_ViewParams *params);
-proc void render_transform_pair_id_ex(Mat4 *forward, Mat4 *inverse);
-proc void render_transform_pair_ortho_ex(Mat4 *forward, Mat4 *inverse, R_OrthoParams *params);
-proc void render_transform_pair_perspective_ex(Mat4 *forward, Mat4 *inverse, R_PerspectiveParams *params);
+proc inline R_TransformId render__make_transform_id(R_ViewTransformId view_id, R_ProjTransformId proj_id);
 
 // -----------------------------------------------------------------------------
 // drawing

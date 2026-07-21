@@ -167,39 +167,3 @@ ogl_debug_message_callback(GLenum src, GLenum type, GLuint id, GLenum severity, 
   Unused(user_param);
   fprintf(stderr, "src=%u, type=%u, id=%u, severity=%u: %.*s\n", src, type, id, severity, len, msg);
 }
-
-
-#if 0
-// -----------------------------------------------------------------------------
-// render implementations
-
-proc R_Texture
-render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreateParams *params)
-{
-  U32 handle;
-  glGenTextures(1, &handle);
-  glBindTexture(GL_TEXTURE_2D, handle);
-
-  GLint internal_fmt = ogl_fmts[params->internal_fmt];
-  GLint pixel_fmt = ogl_fmts[params->pixel_fmt];
-  glTexImage2D(GL_TEXTURE_2D, 0, internal_fmt, width, height, 0, pixel_fmt, GL_UNSIGNED_BYTE, pixels);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params->wrap_x ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params->wrap_y ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-
-  R_Texture result = {0};
-  result.handle.handle = PtrFromInt(handle);
-  result.dim = v2s32(width, height);
-  return(result);
-}
-
-proc void
-render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels)
-{
-  U32 handle = (U32)IntFromPtr(texture->handle.handle);
-  glBindTexture(GL_TEXTURE_2D, handle);
-
-  glTexSubImage2D(GL_TEXTURE_2D, 0, pos_x, pos_y, width, height, ogl_fmts[format], GL_UNSIGNED_BYTE, pixels);
-}
-#endif

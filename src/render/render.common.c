@@ -10,32 +10,33 @@ render_init(void)
 
   // NOTE: initialize transforms
   {
-    // NOTE: identity projection transforms
+    // NOTE: default identity projection transforms
     {
-      Mat4 *forward = &render_commands->transforms.forward[R_ProjTransformKind_identity];
-      Mat4 *inverse = &render_commands->transforms.inverse[R_ProjTransformKind_identity];
-      render_transform_pair_id(forward, inverse);
+      Mat4 *forward = &render_forward_projection(identity);
+      Mat4 *inverse = &render_inverse_projection(identity);
+      transform4_id(forward, inverse);
     }
 
-    // NOTE: orthographic projection transforms
+    // NOTE: default orthographic projection transforms
     {
-      Mat4 *forward = &render_commands->transforms.forward[R_ProjTransformKind_orthographic];
-      Mat4 *inverse = &render_commands->transforms.inverse[R_ProjTransformKind_orthographic];
-      render_transform_pair_ortho(forward, inverse);
+      Mat4 *forward = &render_forward_projection(orthographic);
+      Mat4 *inverse = &render_inverse_projection(orthographic);
+      transform4_id(forward, inverse);
     }
 
-    // NOTE: perspective projection transforms
+    // NOTE: default perspective projection transforms
     {
-      Mat4 *forward = &render_commands->transforms.forward[R_ProjTransformKind_perspective];
-      Mat4 *inverse = &render_commands->transforms.inverse[R_ProjTransformKind_perspective];
-      render_transform_pair_perspective(forward, inverse);
+      Mat4 *forward = &render_forward_projection(perspective);
+      Mat4 *inverse = &render_inverse_projection(perspective);
+      transform4_id(forward, inverse);
     }
 
     // NOTE: default view transforms
     {
-      Mat4 *forward = &render_commands->transforms.forward[R_ProjTransformKind_Count];
-      Mat4 *inverse = &render_commands->transforms.inverse[R_ProjTransformKind_Count];
-      render_transform_pair_id(forward, inverse);
+      // one past last projection
+      Mat4 *forward = &render_forward_projection(Count);
+      Mat4 *inverse = &render_inverse_projection(Count);
+      transform4_id(forward, inverse);
     }
   }
   render_commands->used_transform_idx = R_ProjTransformKind_Count + 1;
@@ -110,9 +111,6 @@ render_begin_frame(void)
 
   render_set_viewport_dim(gfx_window_dim(commands->window));
 
-  // TODO: different transforms for different rendering backends??
-  //commands->transform_device_from_screen = mat4_screen_transform_ndc(commands->viewport_dim);
-
   commands->used_transform_idx = R_ProjTransformKind_Count + 1;
 }
 
@@ -143,7 +141,6 @@ render_batch_alloc(B32 push_front)
     result->quads = arena_push_array_z(render_commands->arena, R_Quad, result->quad_cap);
   }
 
-  //R_BatchList *list = render_commands->batch_lists + render_commands->active_transform;
   R_BatchList *list = &render_commands->batch_list;
   if(push_front)
   {
@@ -164,9 +161,7 @@ render_batch_for_texture(R_Texture *texture)
   R_Commands *commands = render_commands;
 
   R_Batch *batch = 0;
-  //R_BatchList *list = commands->batch_lists + commands->active_transform;
   R_BatchList *list = &commands->batch_list;
-  // NOTE: check if texture is already used in a batch
   for(R_Batch *current_batch = list->first_batch;
       current_batch;
       current_batch = current_batch->next)
@@ -191,33 +186,31 @@ render_batch_for_texture(R_Texture *texture)
 // -----------------------------------------------------------------------------
 // transforms
 
-#define render_forward_projection(kind) render_commands->transforms.forward[Glue(R_ProjTransformKind_, kind)]
-#define render_inverse_projection(kind) render_commands->transforms.inverse[Glue(R_ProjTransformKind_, kind)]
-
 proc void
 render_set_viewport_dim(V2S32 dim)
 {
-  /* Mat4 mat = mat4_screen_transform_ndc(dim); */
-  /* render_commands->transform_device_from_screen = mat; */
   render_commands->viewport_dim = dim;
 
   // NOTE: transforms
   {
     V2 dimf = v2_from_v2s32(dim);
+    R32 near = 0.1f;
+    R32 far = 999.f;
+    R32 fov = PI32;
     R32 aspect_ratio = dimf.x / dimf.y;
 
     // NOTE: orhtographic projection transforms
     {
       Mat4 *forward = &render_forward_projection(orthographic);
       Mat4 *inverse = &render_inverse_projection(orthographic);
-      render_transform_pair_ortho(forward, inverse, .dim = dimf);
+      transform4_ortho(forward, inverse, dimf, near, far);
     }
 
     // NOTE: perspective projection transforms
     {
       Mat4 *forward = &render_forward_projection(perspective);
       Mat4 *inverse = &render_inverse_projection(perspective);
-      render_transform_pair_perspective(forward, inverse, .aspect_ratio = aspect_ratio);
+      transform4_perspective(forward, inverse, fov, aspect_ratio, near, far);
     }
   }
 }
@@ -245,24 +238,10 @@ render_set_view(V3 camera_x, V3 camera_y, V3 camera_z, V3 camera_pos)
   Assert(free_idx < R_MAX_TRANSFORM_COUNT);
   Mat4 *forward = &render_commands->transforms.forward[free_idx];
   Mat4 *inverse = &render_commands->transforms.inverse[free_idx];
-  render_transform_pair_view(forward, inverse,
-			     &(R_ViewParams){ .cx = camera_x, .cy = camera_y, .cz = camera_z, .cp = camera_pos, });
+  transform4_camera(forward, inverse, camera_x, camera_y, camera_z, camera_pos);
 
   R_ViewTransformId result = { .idx = free_idx, };
   ++render_commands->used_transform_idx;
-  return result;
-}
-
-proc inline R_TransformId
-render__make_transform_id(R_ViewTransformId view_id, R_ProjTransformId proj_id)
-{
-  Assert(proj_id.idx < R_ProjTransformKind_Count);
-  Assert(view_id.idx < R_MAX_TRANSFORM_COUNT);
-  Assert(proj_id.idx != view_id.idx);
-  R_TransformId result = {
-    .view_id = view_id,
-    .proj_id = proj_id,
-  };
   return result;
 }
 
@@ -285,7 +264,6 @@ render_unproject(V2 screen_point, R_TransformId transform)
 {
   Mat4 view_inverse = render_commands->transforms.inverse[transform.view_id.idx];
   Mat4 proj_inverse = render_commands->transforms.inverse[transform.proj_id.idx];
-  //Mat4 screen_inverse = mat4_ndc_from_screen(v2_from_v2s32(render_commands->viewport_dim));
   V2 viewport_dim = v2_from_v2s32(render_commands->viewport_dim);
   V4 near_clip_projected = v4(2.f*screen_point.x/viewport_dim.x, 2.f*screen_point.y/viewport_dim.y, -1, 1);
   V4 near_world_projected = mat4_transform(view_inverse,
@@ -296,44 +274,17 @@ render_unproject(V2 screen_point, R_TransformId transform)
   return result;
 }
 
-/* proc void */
-/* render_set_world_transform(Mat4 mat) */
-/* { */
-/*   render_commands->transform_screen_from_world = mat; */
-/* } */
-
-/* proc void */
-/* render_equip_push_transform(R_TransformKind transform) */
-/* { */
-/*   render_commands->active_transform = transform; */
-/* } */
-
-proc void
-render_transform_pair_view(Mat4 *forward, Mat4 *inverse, R_ViewParams *params)
+proc inline R_TransformId
+render__make_transform_id(R_ViewTransformId view_id, R_ProjTransformId proj_id)
 {
-  *forward = mat4_camera_transform(params->cx, params->cy, params->cz, params->cp);
-  *inverse = mat4_camera_transform_inverse(params->cx, params->cy, params->cz, params->cp);
-}
-
-proc void
-render_transform_pair_id_ex(Mat4 *forward, Mat4 *inverse)
-{
-  *forward = mat4_id();
-  *inverse = mat4_id();
-}
-
-proc void
-render_transform_pair_ortho_ex(Mat4 *forward, Mat4 *inverse, R_OrthoParams *params)
-{
-  *forward = mat4_ortho(params->dim, params->near_clip_plane, params->far_clip_plane);
-  *inverse = mat4_ortho_inv(params->dim, params->near_clip_plane, params->far_clip_plane);
-}
-
-proc void
-render_transform_pair_perspective_ex(Mat4 *forward, Mat4 *inverse, R_PerspectiveParams *params)
-{
-  *forward = mat4_perspective(params->fov, params->aspect_ratio, params->near_clip_plane, params->far_clip_plane);
-  *inverse = mat4_perspective_inv(params->fov, params->aspect_ratio, params->near_clip_plane, params->far_clip_plane);
+  Assert(proj_id.idx < R_ProjTransformKind_Count);
+  Assert(view_id.idx < R_MAX_TRANSFORM_COUNT);
+  Assert(proj_id.idx != view_id.idx);
+  R_TransformId result = {
+    .view_id = view_id,
+    .proj_id = proj_id,
+  };
+  return result;
 }
 
 // -----------------------------------------------------------------------------
@@ -368,7 +319,6 @@ render_texture(R_Texture *texture, Rect2 rect, Rect2 uv, R32 angle, R32 level, V
   quad->view_transform_idx = render_commands->active_transform.view_id.idx;
 
   R_BatchList *list = &render_commands->batch_list;
-  //R_BatchList *list = render_commands->batch_lists + render_commands->active_transform;
   ++list->total_quad_count;
 }
 
