@@ -342,3 +342,41 @@ os_lib_get_sym(Os_Handle lib, String8 sym_name)
   void *result = posix_lib_get_sym(lib, sym_name);
   return(result);
 }
+
+// -----------------------------------------------------------------------------
+// time
+
+proc U64
+mac_counter(void)
+{
+  U64 result = mach_absolute_time();
+  return result;
+}
+
+proc U64
+mac_counter_freq(void)
+{
+  mach_timebase_info_data_t timebase;
+  mach_timebase_info(&timebase);
+  U64 result = (U64)((R64)(1000000000 * (U64)timebase.denom) / (R64)timebase.numer);
+  return result;
+}
+
+proc void
+mac_sleep_ms(U64 ms)
+{
+  mach_timebase_info_data_t timebase;
+  mach_timebase_info(&timebase);
+
+  U64 ns = 1000000*ms;
+  U64 ticks_to_sleep = (ns*timebase.denom)/timebase.numer;
+  U64 deadline = mach_absolute_time() + ticks_to_sleep;
+  mach_wait_until(deadline);
+}
+
+proc void
+os_sleep_ms(U64 ms)
+{
+  posix_sleep_ms(ms);
+  //mac_sleep_ms(ms);
+}

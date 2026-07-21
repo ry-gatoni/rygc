@@ -409,3 +409,13 @@ posix_lib_handle_from_os_handle(Os_Handle handle)
   void *result = handle.handle;
   return(result);
 }
+
+proc void
+posix_sleep_ms(U64 ms)
+{
+  struct timespec rqt = {
+    .tv_sec = 0,
+    .tv_nsec = 1000000*ms,
+  };
+  Assert(nanosleep(&rqt, 0) == 0);
+}

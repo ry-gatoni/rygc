@@ -100,3 +100,5 @@ proc void* os_lib_get_sym(Os_Handle lib, String8 sym_name);
 
 proc U64 os_counter(void);
 proc U64 os_counter_freq(void);
+
+proc void os_sleep_ms(U64 ms);

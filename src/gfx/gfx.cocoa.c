@@ -255,6 +255,7 @@ cocoa_events(void)
 {
   // TODO: make frame-rate wait configurable
   // TODO: this makes it so we don't poll for events until after we submit the first frame, which makes startup latency higher than it needs to be
+  U64 pending_frame_loop_counter = 0;
   while(cocoa_state->pending_frame_count)
   {
     NSEvent *e = 0;
@@ -283,7 +284,12 @@ cocoa_events(void)
     }
 
     NSApplication_updateWindows(cocoa_state->app);
+    ++pending_frame_loop_counter;
+    if(cocoa_state->pending_frame_count)
+    { os_sleep_ms(1); }
   }
+
+  printf("waited %llu times for pending frame\n", pending_frame_loop_counter);
 }
 
 // -----------------------------------------------------------------------------

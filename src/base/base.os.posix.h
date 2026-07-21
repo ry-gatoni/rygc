@@ -79,6 +79,11 @@ proc void* posix_lib_get_sym(Os_Handle lib, String8 sym_name);
 // TODO: posix this image?
 
 // -----------------------------------------------------------------------------
+// time
+
+proc void posix_sleep_ms(U64 ms);
+
+// -----------------------------------------------------------------------------
 // helpers
 
 proc Os_Handle posix_os_handle_from_file_handle(int fd);

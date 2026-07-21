@@ -3,6 +3,7 @@
 #include <mach/mach.h>
 //#include <mach/vm_page_size.h>
 #include <mach/mach_vm.h>
+#include <mach/mach_time.h>
 
 #include <objc/runtime.h>
 #include <objc/message.h>
