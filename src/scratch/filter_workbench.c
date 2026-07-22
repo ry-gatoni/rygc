@@ -175,6 +175,7 @@ main(int argc, char **argv)
     V4 sample_color = color_v4_from_rgba(0xFF, 0xC1, 0x25, 0xFF);
     R32 sample_rect_width = sample_region_dim.x / (R32)samples_to_read;
     R32 sample_range = 0.3f;
+    R32 sample_line_thickness = 2.f;
     V2 last_sample_pos_l = v2(0, sample_region_l_center.y);
     V2 last_sample_pos_r = v2(0, sample_region_r_center.y);
 
@@ -191,12 +192,10 @@ main(int argc, char **argv)
       R32 sample_height_r = sample_region_r_center.y + sample_r / sample_range * sample_region_dim.y * 0.5f;
 
       V2 sample_pos_l = v2(sample_pos_x, sample_height_l);
-      Rect2 sample_rect_l = rect2(last_sample_pos_l, sample_pos_l);
-      render_rect(sample_rect_l, 0, 0, sample_color);
+      render_line_segment(last_sample_pos_l, sample_pos_l, sample_line_thickness, 0, sample_color);
 
       V2 sample_pos_r = v2(sample_pos_x + sample_rect_width, sample_height_r);
-      Rect2 sample_rect_r = rect2(last_sample_pos_r, sample_pos_r);
-      render_rect(sample_rect_r, 0, 0, sample_color);
+      render_line_segment(last_sample_pos_r, sample_pos_r, sample_line_thickness, 0, sample_color);
 
       last_sample_pos_l = sample_pos_l;
       last_sample_pos_r = sample_pos_r;
