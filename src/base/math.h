@@ -226,6 +226,8 @@ proc C64 c64_polar(R32 mag, R32 arg);
 proc C64 c64_from_v2(V2 v);
 proc V2 v2_from_c64(C64 z);
 
+proc C64 c64_conj(C64 z);
+
 // -----------------------------------------------------------------------------
 // scalar from complex
 
@@ -242,6 +244,15 @@ proc C64 c64_div(C64 z, C64 w);
 
 proc C64 c64_lscale(R32 r, C64 z);
 proc C64 c64_rscale(C64 z, R32 r);
+
+proc C64 c64_add_conj(C64 z, C64 w); // z + w*
+proc C64 c64_sub_conj(C64 z, C64 w); // z - w*
+proc C64 c64_mul_conj(C64 z, C64 w); // z * w*
+
+proc C64 c64_addi(C64 z, C64 w); // z + i*w
+proc C64 c64_subi(C64 z, C64 w); // z - i*w
+proc C64 c64_muli(C64 z, C64 w); // z * i*w
+proc C64 c64_lscalei(R32 r, C64 z); // r*i*z
 
 // -----------------------------------------------------------------------------
 // matrices

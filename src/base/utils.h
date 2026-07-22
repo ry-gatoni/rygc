@@ -142,6 +142,7 @@
 #define AlignPow2(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
 #define TruncPow2(n, a) ((n) & ~((a) - 1))
 #define RoundUpPow2(n) (1ULL << (MSB((n) - 1) + 1))
+#define IsPow2(n) (((n) & ((n)-1)) == 0)
 
 #define IntFromPtr(p) (U64)((U8*)(p))
 #define PtrFromInt(n) (void*)((uintptr_t)(n))//(void *)((U8 *)0 + (n))

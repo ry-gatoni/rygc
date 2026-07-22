@@ -682,6 +682,13 @@ v2_from_c64(C64 z)
   return(result);
 }
 
+proc C64
+c64_conj(C64 z)
+{
+  C64 result = c64(z.re, -z.im);
+  return result;
+}
+
 // -----------------------------------------------------------------------------
 // scalar from complex
 
@@ -742,6 +749,55 @@ proc C64
 c64_rscale(C64 z, R32 r)
 {
   return(c64_lscale(r, z));
+}
+
+proc C64
+c64_add_conj(C64 z, C64 w)
+{
+  C64 result = c64(z.re + w.re, z.im - w.im);
+  return result;
+}
+
+proc C64
+c64_sub_conj(C64 z, C64 w)
+{
+  C64 result = c64(z.re - w.re, z.im + w.im);
+  return result;
+}
+
+proc C64
+c64_mul_conj(C64 z, C64 w)
+{
+  C64 result = c64(z.re*w.re + z.im*w.im, z.im*w.re - z.re*w.im);
+  return result;
+}
+
+proc C64
+c64_addi(C64 z, C64 w)
+{
+  C64 result = c64(z.re - w.im, z.im + w.re);
+  return result;
+}
+
+proc C64
+c64_subi(C64 z, C64 w)
+{
+  C64 result = c64(z.re + w.im, z.im - w.re);
+  return result;
+}
+
+proc C64
+c64_muli(C64 z, C64 w)
+{
+  C64 result = c64(-z.re*w.im - z.im*w.re, z.re*w.re - z.im*w.im);
+  return result;
+}
+
+proc C64
+c64_lscalei(R32 r, C64 z)
+{
+  C64 result = c64(-r*z.im, r*z.re);
+  return result;
 }
 
 // -----------------------------------------------------------------------------
