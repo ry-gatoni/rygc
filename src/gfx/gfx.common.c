@@ -77,9 +77,8 @@ gfx_events(void)
 #endif
 
   // NOTE: return readable span
-  Os_RingBufferSpan rb_span = os_ring_buffer_read_span(&gfx_state->event_buffer);
-  U64 span_bytes = rb_span.end - rb_span.start;
-  U64 span_events = span_bytes / sizeof(Gfx_Event);
+  SpanU8 rb_span = os_ring_buffer_read_span(&gfx_state->event_buffer);
+  U64 span_events = span_count(rb_span, Gfx_Event);
 
   Gfx_EventSpan result = {0};
   result.first = (Gfx_Event*)rb_span.start;
@@ -187,7 +186,7 @@ gfx_window_submit_frame(Gfx_Handle window)
 proc Gfx_Event*
 gfx__event_new(void)
 {
-  Os_RingBufferSpan events = os_ring_buffer_write_span(&gfx_state->event_buffer);
+  SpanU8 events = os_ring_buffer_write_span(&gfx_state->event_buffer);
   Gfx_Event *result = 0;
   if((U64)(events.end - events.start) >= sizeof(*result))
   { result = (Gfx_Event*)events.start; }
@@ -198,15 +197,15 @@ proc void
 gfx__event_push(Gfx_Event *event)
 {
   if(event)
-  { os_ring_buffer_write_end(&gfx_state->event_buffer, sizeof(*event)); }
+  { os_ring_buffer_write_end(&gfx_state->event_buffer, Gfx_Event, 1); }
 }
 
 proc Gfx_Event*
 gfx__event_next(void)
 {
-  Os_RingBufferSpan events = os_ring_buffer_read_span(&gfx_state->event_buffer);
+  SpanU8 events = os_ring_buffer_read_span(&gfx_state->event_buffer);
   Gfx_Event *result = 0;
-  if((U64)(events.end - events.start) >= sizeof(*result))
+  if(span_count(events, Gfx_Event) >= 1)
   { result = (Gfx_Event*)events.start; }
   return result;
 }
@@ -215,15 +214,15 @@ proc void
 gfx__event_pop(Gfx_Event *event)
 {
   if(event)
-  { os_ring_buffer_read_end(&gfx_state->event_buffer, sizeof(*event)); }
+  { os_ring_buffer_read_end(&gfx_state->event_buffer, Gfx_Event, 1); }
 }
 
 proc void
 gfx__events_flush(void)
 {
   Os_RingBuffer *rb = &gfx_state->event_buffer;
-  Os_RingBufferSpan events = os_ring_buffer_read_span(rb);
-  os_ring_buffer_read_end(rb, events.end - events.start);
+  SpanU8 events = os_ring_buffer_read_span(rb);
+  os_ring_buffer_read_end_bytes(rb, span_byte_count(events));
 }
 
 /* proc Gfx_Event* */

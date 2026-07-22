@@ -343,8 +343,8 @@ core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_ac
      if(stream)
      {
        Os_RingBuffer *samples = &stream->samples;
-       Os_RingBufferSpan write_span = os_ring_buffer_write_span(samples);
-       U64 samples_available = IntFromPtr(write_span.end - write_span.start)/sizeof(R32);
+       SpanU8 write_span = os_ring_buffer_write_span(samples);
+       U64 samples_available = span_count(write_span, R32);
        Assert(samples_available >= in_num_frames);
 
        AudioBufferList dest_buf = {
@@ -358,7 +358,7 @@ core_audio_input_device_proc(void *in_ref_con, AudioUnitRenderActionFlags *io_ac
        AudioUnit in_unit = core_audio_state->input_unit;
        status = AudioUnitRender(in_unit, io_action_flags, in_timestamp, in_bus_number, in_num_frames, &dest_buf);
        Assert(status == 0);
-       os_ring_buffer_write_end(samples, in_num_frames*sizeof(R32));
+       os_ring_buffer_write_end(samples, R32, in_num_frames);
      }
   }
 #else

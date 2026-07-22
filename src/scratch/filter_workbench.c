@@ -32,8 +32,8 @@ scope_stream_refill(Audio_Stream *self, Audio_Stream *caller)
   Assert(caller->refill == 0); // caller must be an output stream
   U64 output_samples_to_write = caller->samples_end - caller->sample_cursor;
 
-  Os_RingBufferSpan write_span = os_ring_buffer_write_span(buffer);
-  U64 buffer_samples_to_write = (write_span.end - write_span.start)/sizeof(R32);
+  SpanU8 write_span = os_ring_buffer_write_span(buffer);
+  U64 buffer_samples_to_write = span_count(write_span, R32);
 
   R32 *src = source->sample_cursor;
   R32 *out_dest = caller->sample_cursor;
@@ -43,8 +43,10 @@ scope_stream_refill(Audio_Stream *self, Audio_Stream *caller)
     Assert(buffer_samples_to_write >= output_samples_to_write);
     ZeroArray(out_dest, R32, output_samples_to_write);
     ZeroArray(buffer_dest, R32, output_samples_to_write);
+
     caller->sample_cursor = caller->samples_end;
-    os_ring_buffer_write_end(buffer, output_samples_to_write*sizeof(R32));
+    os_ring_buffer_write_end(buffer, R32, output_samples_to_write);
+
     result = Audio_StreamStatus_zero_output;
   }
   else
@@ -53,9 +55,10 @@ scope_stream_refill(Audio_Stream *self, Audio_Stream *caller)
     Assert(buffer_samples_to_write >= samples_to_write);
     CopyArray(out_dest, src, R32, samples_to_write);
     CopyArray(buffer_dest, src, R32, samples_to_write);
+
     caller->sample_cursor += samples_to_write;
     source->sample_cursor += samples_to_write;
-    os_ring_buffer_write_end(buffer, samples_to_write*sizeof(R32));
+    os_ring_buffer_write_end(buffer, R32, samples_to_write);
   }
 
   return result;
@@ -162,10 +165,10 @@ main(int argc, char **argv)
     render_rect(sample_region_l_middle_bar, 0, 0.8f, sample_region_middle_bar_color);
     render_rect(sample_region_r_middle_bar, 0, 0.8f, sample_region_middle_bar_color);
 
-    Os_RingBufferSpan span_samples_l = os_ring_buffer_read_span(&shared_samples_l);
-    Os_RingBufferSpan span_samples_r = os_ring_buffer_read_span(&shared_samples_r);
-    U64 samples_to_read_l = (span_samples_l.end - span_samples_l.start)/sizeof(R32);
-    U64 samples_to_read_r = (span_samples_r.end - span_samples_r.start)/sizeof(R32);
+    SpanU8 span_samples_l = os_ring_buffer_read_span(&shared_samples_l);
+    SpanU8 span_samples_r = os_ring_buffer_read_span(&shared_samples_r);
+    U64 samples_to_read_l = span_count(span_samples_l, R32);
+    U64 samples_to_read_r = span_count(span_samples_r, R32);
     U64 samples_to_read = Min(samples_to_read_l, samples_to_read_r);
     printf("drawing %llu samples\n", samples_to_read);
 
@@ -199,8 +202,8 @@ main(int argc, char **argv)
       last_sample_pos_r = sample_pos_r;
     }
 
-    os_ring_buffer_read_end(&shared_samples_l, samples_to_read*sizeof(R32));
-    os_ring_buffer_read_end(&shared_samples_r, samples_to_read*sizeof(R32));
+    os_ring_buffer_read_end(&shared_samples_l, R32, samples_to_read);
+    os_ring_buffer_read_end(&shared_samples_r, R32, samples_to_read);
 
     render_end_frame();
 

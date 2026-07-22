@@ -5,6 +5,7 @@
 //#include "intrinsics.h"
 #include "base.cpu.h"
 #include "strings.h"
+#include "span.h"
 #include "log.h"
 #include "buffer.h"
 #include "math.h"

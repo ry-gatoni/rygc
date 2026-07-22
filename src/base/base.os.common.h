@@ -18,12 +18,6 @@ typedef struct Os_RingBuffer
   CacheAlignField U64 write;
 } Os_RingBuffer;
 
-typedef struct Os_RingBufferSpan
-{
-  U8 *start;
-  U8 *end;
-} Os_RingBufferSpan;
-
 typedef enum Os_FileOpenFlags
 {
   Os_FileOpenFlag_read  = (1 << 0),
@@ -62,10 +56,15 @@ proc void os_ring_buffer_release(Os_RingBuffer *rb);
 proc inline U64 os_ring_buffer_used(Os_RingBuffer *rb); // NOTE: number of bytes available for reading
 proc inline U64 os_ring_buffer_free(Os_RingBuffer *rb); // NOTE: number of bytes available for writing
 
-proc inline Os_RingBufferSpan os_ring_buffer_read_span(Os_RingBuffer *rb);
-proc inline void os_ring_buffer_read_end(Os_RingBuffer *rb, U64 bytes_read);
-proc inline Os_RingBufferSpan os_ring_buffer_write_span(Os_RingBuffer *rb);
-proc inline void os_ring_buffer_write_end(Os_RingBuffer *rb, U64 bytes_written);
+proc inline SpanU8 os_ring_buffer_read_span(Os_RingBuffer *rb);
+
+#define os_ring_buffer_read_end(rb, type, count) os_ring_buffer_read_end_bytes(rb, (count)*sizeof(type))
+proc inline void os_ring_buffer_read_end_bytes(Os_RingBuffer *rb, U64 bytes_read);
+
+proc inline SpanU8 os_ring_buffer_write_span(Os_RingBuffer *rb);
+
+#define os_ring_buffer_write_end(rb, type, count) os_ring_buffer_write_end_bytes(rb, (count)*sizeof(type))
+proc inline void os_ring_buffer_write_end_bytes(Os_RingBuffer *rb, U64 bytes_written);
 
 // -----------------------------------------------------------------------------
 // files (implemented per-os)

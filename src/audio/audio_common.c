@@ -50,10 +50,10 @@ audio_input_stream_refill(Audio_Stream *self, Audio_Stream *caller)
   Os_RingBuffer *samples = &input->samples;
 
   U64 samples_read = self->sample_cursor - self->samples_start;
-  os_ring_buffer_read_end(samples, samples_read*sizeof(R32));
+  os_ring_buffer_read_end(samples, R32, samples_read);
 
-  Os_RingBufferSpan read_span = os_ring_buffer_read_span(samples);
-  U64 samples_available = (read_span.end - read_span.start)/sizeof(R32);
+  SpanU8 read_span = os_ring_buffer_read_span(samples);
+  U64 samples_available = span_count(read_span, R32);
   self->samples_start = (R32*)read_span.start;
   self->samples_end = self->samples_start + samples_available;
   self->sample_cursor = self->samples_start;
