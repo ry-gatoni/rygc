@@ -1,3 +1,5 @@
+#define COCOA_API_DEFS 1
+
 #define ObjcClassXlist\
   X(NSObject)\
   X(NSApplication)\
@@ -144,6 +146,8 @@ BeforeMain()
 // -----------------------------------------------------------------------------
 // cocoa types
 
+typedef U16 UniChar;
+
 typedef U32 FourCharCode;
 typedef FourCharCode OSType;
 
@@ -158,10 +162,20 @@ typedef long CFIndex;
 typedef unsigned char Boolean;
 typedef unsigned long CFHashCode;
 
+typedef struct CFRange
+{
+  CFIndex location;
+  CFIndex length;
+} CFRange;
+
 typedef const void *CFTypeRef;
+typedef const struct __CFData *CFDataRef;
 typedef const struct __CFAllocator *CFAllocatorRef;
 typedef const struct __CFDictionary *CFDictionaryRef;
+typedef const struct __CFArray *CFArrayRef;
 typedef const struct __CFString *CFStringRef;
+typedef const struct __CFURL *CFURLRef;
+typedef const struct __CFCharacterSet *CFCharacterSetRef;
 
 typedef const void* (*CFDictionaryRetainCallback)(CFAllocatorRef allocator, const void *value);
 typedef void (*CFDictionaryReleaseCallback)(CFAllocatorRef allocator, const void *value);
@@ -198,6 +212,9 @@ typedef double CGFloat;
 typedef float CGFloat;
 #endif
 
+typedef unsigned short CGFontIndex;
+typedef CGFontIndex CGGlyph;
+
 typedef struct CGPoint
 {
   CGFloat x;
@@ -216,6 +233,12 @@ typedef struct CGRect
   CGSize size;
 } CGRect;
 
+typedef struct CGAffineTransform
+{
+  CGFloat a, b, c, d;
+  CGFloat tx, ty;
+} CGAffineTransform;
+
 typedef struct CGContext *CGContextRef;
 typedef struct CGDataProvider *CGDataProviderRef;
 typedef struct CGImage *CGImageRef;
@@ -233,6 +256,13 @@ typedef CVImageBufferRef CVPixelBufferRef;
 
 typedef S32 CVReturn;
 typedef U64 CVOptionFlags;
+
+//
+// CoreText
+//
+
+typedef const struct __CTFont *CTFontRef;
+typedef const struct __CTFontDescriptor *CTFontDescriptorRef;
 
 //
 // AppKit
@@ -276,6 +306,52 @@ extern CFAllocatorRef const kCFAllocatorDefault;
 
 extern const CFDictionaryKeyCallbacks kCFTypeDictionaryKeyCallBacks;
 extern const CFDictionaryValueCallbacks kCFTypeDictionaryValueCallBacks;
+
+Cocoa_Enum(CFStringEncoding, U32)
+{
+  kCFStringEncodingMacRoman = 0,
+  kCFStringEncodingWindowsLatin1 = 0x0500,
+  kCFStringEncodingISOLatin1 = 0x0201,
+  kCFStringEncodingNextStepLatin = 0x0B01,
+  kCFStringEncodingASCII = 0x0600,
+  kCFStringEncodingUnicode = 0x0100,
+  kCFStringEncodingUTF8 = 0x08000100,
+  kCFStringEncodingNonLossyASCII = 0x0BFF,
+
+  kCFStringEncodingUTF16 = 0x0100,
+  kCFStringEncodingUTF16BE = 0x10000100,
+  kCFStringEncodingUTF16LE = 0x14000100,
+
+  kCFStringEncodingUTF32 = 0x0c000100,
+  kCFStringEncodingUTF32BE = 0x18000100,
+  kCFStringEncodingUTF32LE = 0x1c000100,
+};
+
+Cocoa_Enum(CFURLPathStyle, CFIndex)
+{
+  kCFURLPOSIXPathStyle = 0,
+  kCFURLHFSPathStyle, // NOTE: deprecated
+  kCFURLWindowsPathStyle,
+};
+
+Cocoa_Enum(CFCharacterSetPredefinedSet, CFIndex)
+{
+  kCFCharacterSetControl = 1, /* Control character set (Unicode General Category Cc and Cf) */
+  kCFCharacterSetWhitespace, /* Whitespace character set (Unicode General Category Zs and U0009 CHARACTER TABULATION) */
+  kCFCharacterSetWhitespaceAndNewline,  /* Whitespace and Newline character set (Unicode General Category Z*, U000A ~ U000D, and U0085) */
+  kCFCharacterSetDecimalDigit, /* Decimal digit character set */
+  kCFCharacterSetLetter, /* Letter character set (Unicode General Category L* & M*) */
+  kCFCharacterSetLowercaseLetter, /* Lowercase character set (Unicode General Category Ll) */
+  kCFCharacterSetUppercaseLetter, /* Uppercase character set (Unicode General Category Lu and Lt) */
+  kCFCharacterSetNonBase, /* Non-base character set (Unicode General Category M*) */
+  kCFCharacterSetDecomposable, /* Canonically decomposable character set */
+  kCFCharacterSetAlphaNumeric, /* Alpha Numeric character set (Unicode General Category L*, M*, & N*) */
+  kCFCharacterSetPunctuation, /* Punctuation character set (Unicode General Category P*) */
+  kCFCharacterSetCapitalizedLetter = 13, /* Titlecase character set (Unicode General Category Lt) */
+  kCFCharacterSetSymbol = 14, /* Symbol character set (Unicode General Category S*) */
+  kCFCharacterSetNewline = 15, /* Newline character set (U000A ~ U000D, U0085, U2028, and U2029) */
+  kCFCharacterSetIllegal = 12/* Illegal character set */
+};
 
 //
 // CoreGraphics
@@ -436,6 +512,100 @@ extern CFStringRef const kCVPixelBufferOpenGLESCompatibilityKey;
 extern CFStringRef const kCVPixelBufferMetalCompatibilityKey;
 extern CFStringRef const kCVPixelBufferOpenGLTexturCacheCompatibilityKey;
 extern CFStringRef const kCVPixelBufferOpenGLESTextureCacheCompatibilityKey;
+
+//
+// CoreText
+//
+
+Cocoa_Enum(CTFontOrientation, U32)
+{
+  kCTFontOrientationDefault = 0,
+  kCTFontOrientationHorizontal = 1,
+  kCTFontOrientationVertical = 2,
+};
+
+Cocoa_Enum(CTFontTableTag, FourCharCode)
+{
+  kCTFontTableBASE    = 'BASE',   // Baseline data
+  kCTFontTableCBDT    = 'CBDT',   // Color bitmap data
+  kCTFontTableCBLC    = 'CBLC',   // Color bitmap location data
+  kCTFontTableCFF     = 'CFF ',   // Compact Font Format 1.0
+  kCTFontTableCFF2    = 'CFF2',   // Compact Font Format 2.0
+  kCTFontTableCOLR    = 'COLR',   // Color table
+  kCTFontTableCPAL    = 'CPAL',   // Color palette table
+  kCTFontTableDSIG    = 'DSIG',   // Digital signature
+  kCTFontTableEBDT    = 'EBDT',   // Embedded bitmap data
+  kCTFontTableEBLC    = 'EBLC',   // Embedded bitmap location data
+  kCTFontTableEBSC    = 'EBSC',   // Embedded bitmap scaling data
+  kCTFontTableGDEF    = 'GDEF',   // Glyph definition data
+  kCTFontTableGPOS    = 'GPOS',   // Glyph positioning data
+  kCTFontTableGSUB    = 'GSUB',   // Glyph substitution data
+  kCTFontTableHVAR    = 'HVAR',   // Horizontal metrics variations
+  kCTFontTableJSTF    = 'JSTF',   // Justification data
+  kCTFontTableLTSH    = 'LTSH',   // Linear threshold data
+  kCTFontTableMATH    = 'MATH',   // Math layout data
+  kCTFontTableMERG    = 'MERG',   // Merge
+  kCTFontTableMVAR    = 'MVAR',   // Metrics variations
+  kCTFontTableOS2     = 'OS/2',   // OS/2 and Windows specific metrics
+  kCTFontTablePCLT    = 'PCLT',   // PCL 5 data
+  kCTFontTableSTAT    = 'STAT',   // Style attributes
+  kCTFontTableSVG     = 'SVG ',   // Scalable vector graphics
+  kCTFontTableVDMX    = 'VDMX',   // Vertical device metrics
+  kCTFontTableVORG    = 'VORG',   // Vertical origin
+  kCTFontTableVVAR    = 'VVAR',   // Vertical metrics variations
+  kCTFontTableZapf    = 'Zapf',   // Glyph reference
+  kCTFontTableAcnt    = 'acnt',   // Accent attachment
+  kCTFontTableAnkr    = 'ankr',   // Anchor points
+  kCTFontTableAvar    = 'avar',   // Axis variations
+  kCTFontTableBdat    = 'bdat',   // Bitmap data
+  kCTFontTableBhed    = 'bhed',   // Bitmap font header
+  kCTFontTableBloc    = 'bloc',   // Bitmap location
+  kCTFontTableBsln    = 'bsln',   // Baseline
+  kCTFontTableCidg    = 'cidg',   // CID to glyph mapping
+  kCTFontTableCmap    = 'cmap',   // Character to glyph mapping
+  kCTFontTableCvar    = 'cvar',   // CVT variations
+  kCTFontTableCvt     = 'cvt ',   // Control value table
+  kCTFontTableFdsc    = 'fdsc',   // Font descriptor
+  kCTFontTableFeat    = 'feat',   // Layout feature
+  kCTFontTableFmtx    = 'fmtx',   // Font metrics
+  kCTFontTableFond    = 'fond',   // 'FOND' and 'NFNT' data
+  kCTFontTableFpgm    = 'fpgm',   // Font program
+  kCTFontTableFvar    = 'fvar',   // Font variations
+  kCTFontTableGasp    = 'gasp',   // Grid-fitting/scan-conversion
+  kCTFontTableGlyf    = 'glyf',   // Glyph data
+  kCTFontTableGvar    = 'gvar',   // Glyph variations
+  kCTFontTableHdmx    = 'hdmx',   // Horizontal device metrics
+  kCTFontTableHead    = 'head',   // Font header
+  kCTFontTableHhea    = 'hhea',   // Horizontal header
+  kCTFontTableHmtx    = 'hmtx',   // Horizontal metrics
+  kCTFontTableHsty    = 'hsty',   // Horizontal style
+  kCTFontTableJust    = 'just',   // Justification
+  kCTFontTableKern    = 'kern',   // Kerning
+  kCTFontTableKerx    = 'kerx',   // Extended kerning
+  kCTFontTableLcar    = 'lcar',   // Ligature caret
+  kCTFontTableLoca    = 'loca',   // Index to location
+  kCTFontTableLtag    = 'ltag',   // Language tags
+  kCTFontTableMaxp    = 'maxp',   // Maximum profile
+  kCTFontTableMeta    = 'meta',   // Metadata
+  kCTFontTableMort    = 'mort',   // Morph
+  kCTFontTableMorx    = 'morx',   // Extended morph
+  kCTFontTableName    = 'name',   // Naming table
+  kCTFontTableOpbd    = 'opbd',   // Optical bounds
+  kCTFontTablePost    = 'post',   // PostScript information
+  kCTFontTablePrep    = 'prep',   // CVT program
+  kCTFontTableProp    = 'prop',   // Properties
+  kCTFontTableSbit    = 'sbit',   // Bitmap data
+  kCTFontTableSbix    = 'sbix',   // Standard bitmap graphics
+  kCTFontTableTrak    = 'trak',   // Tracking
+  kCTFontTableVhea    = 'vhea',   // Vertical header
+  kCTFontTableVmtx    = 'vmtx',   // Vertical metrics
+  kCTFontTableXref    = 'xref'    // Cross-reference
+};
+
+Cocoa_Enum(CTFontTableOptions, U32)
+{
+  kCTFontTableOptionsNoOptions = 0,
+};
 
 //
 // AppKit
@@ -686,7 +856,35 @@ extern CALayerContentsGravity const kCAGravityResizeAspectFill;
 // CoreFoundation
 //
 
+proc inline CFRange
+CFRangeMake(CFIndex loc, CFIndex len)
+{
+  CFRange range = {
+    .location = loc,
+    .length = len,
+  };
+  return range;
+}
+
+extern CFIndex CFDataGetLength(CFDataRef data);
+extern const U8* CFDataGetBytePtr(CFDataRef data);
+
+extern CFIndex CFArrayGetCount(CFArrayRef array);
+extern void* CFArrayGetValueAtIndex(CFArrayRef array, CFIndex idx);
+
 extern CFDictionaryRef CFDictionaryCreate(CFAllocatorRef allocator, const void **keys, const void **values, CFIndex num_values, const CFDictionaryKeyCallbacks *key_callbacks, const CFDictionaryValueCallbacks *value_callbacks);
+
+extern CFStringRef CFStringCreateWithCString(CFAllocatorRef allocator, const char *cstr, CFStringEncoding encoding);
+extern CFIndex CFStringGetLength(CFStringRef str);
+extern CFIndex CFStringGetMaximumSizeForEncoding(CFIndex length, CFStringEncoding encoding);
+extern CFIndex CFStringGetBytes(CFStringRef str, CFRange rng, CFStringEncoding encoding, U8 loss_byte, Boolean external_representation, U8 *buf, CFIndex max_buf_len, CFIndex *used_buf_len);
+extern Boolean CFStringGetCString(CFStringRef str, char *buffer, CFIndex buffer_size, CFStringEncoding encoding);
+
+extern CFURLRef CFURLCreateWithFileSystemPath(CFAllocatorRef allocator, CFStringRef file_path, CFURLPathStyle path_style, Boolean is_directory);
+
+extern CFCharacterSetRef CFCharacterSetGetPredefined(CFCharacterSetPredefinedSet set_id);
+extern Boolean CFCharacterSetIsCharacterMember(CFCharacterSetRef set, UniChar unichar);
+extern CFDataRef CFCharacterSetCreateBitmapRepresentation(CFAllocatorRef allocator, CFCharacterSetRef char_set);
 
 extern void CFRelease(CFTypeRef cf);
 
@@ -702,6 +900,9 @@ extern CGContextRef CGBitmapContextCreate(void *data, size_t width, size_t heigh
 
 extern CGImageRef CGBitmapContextCreateImage(CGContextRef context);
 
+extern void CGContextSetRGBFillColor(CGContextRef ctxt, CGFloat red, CGFloat green, CGFloat blue, CGFloat alpha);
+extern void CGContextSetGrayFillColor(CGContextRef ctxt, CGFloat gray, CGFloat alpha);
+
 extern void CGContextRelease(CGContextRef c);
 
 // CGImage
@@ -713,6 +914,7 @@ extern void CGImageRelease(CGImageRef image);
 
 // CGColorSpace
 extern CGColorSpaceRef CGColorSpaceCreateDeviceRGB(void);
+extern CGColorSpaceRef CGColorSpaceCreateDeviceGray(void);
 
 extern void CGColorSpaceRelease(CGColorSpaceRef space);
 
@@ -734,6 +936,25 @@ extern CVReturn CVPixelBufferLockBaseAddress(CVPixelBufferRef pixel_buffer, CVPi
 extern CVReturn CVPixelBufferUnlockBaseAddress(CVPixelBufferRef pixel_buffer, CVPixelBufferLockFlags lock_flags);
 
 extern void CVPixelBufferRelease(CVPixelBufferRef texture);
+
+//
+// CoreText
+//
+
+extern CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef file_url);
+
+extern CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size, const CGAffineTransform *matrix);
+extern CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font);
+extern CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options);
+extern CGFloat CTFontGetAscent(CTFontRef font);
+extern CGFloat CTFontGetDescent(CTFontRef font);
+extern CGFloat CTFontGetLeading(CTFontRef font);
+extern CFIndex CTFontGetGlyphCount(CTFontRef font);
+extern CGRect CTFontGetBoundingRectsForGlyphs(CTFontRef font, CTFontOrientation orientation, const CGGlyph glyphs[], CGRect bounding_rects[], CFIndex count);
+extern double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation, const CGGlyph glyphs[], CGSize advances[], CFIndex count);
+extern void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph glyphs[], CGSize translations[], CFIndex count);
+extern bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar characters[], CGGlyph glyphs[], CFIndex count);
+extern void CTFontDrawGlyphs(CTFontRef font, const CGGlyph glyphs[], const CGPoint positions[], size_t count, CGContextRef ctxt);
 
 //
 // AppKit
