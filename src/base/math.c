@@ -631,18 +631,28 @@ rect2_offset(Rect2 rect, V2 offset)
   return(result);
 }
 
+proc Rect2
+rect2_union(Rect2 rect, Rect2 other)
+{
+  Rect2 result = rect2(v2(Min(rect.min.x, other.min.x),
+			  Min(rect.min.y, other.min.y)),
+		       v2(Max(rect.max.x, other.max.x),
+			  Max(rect.max.y, other.max.y)));
+  return result;
+}
+
 // -----------------------------------------------------------------------------
 // vector from rect
 
 proc V2
 rect2_center(Rect2 rect)
 {
-  V2 result = v2_add(rect.min, v2_lmul(0.5f, rect_dim(rect)));
+  V2 result = v2_add(rect.min, v2_lmul(0.5f, rect2_dim(rect)));
   return(result);
 }
 
 proc V2
-rect_dim(Rect2 rect)
+rect2_dim(Rect2 rect)
 {
   V2 result = v2_sub(rect.max, rect.min);
   return(result);

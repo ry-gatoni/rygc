@@ -177,7 +177,7 @@ typedef struct R_Font
 } R_Font;
 
 proc R_Font render_alloc_font(PackedFont *font);
-proc void render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
+proc Rect2 render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color);
 
 #endif
 

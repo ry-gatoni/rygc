@@ -201,12 +201,13 @@ proc Rect2 rect2_center_halfdim(V2 center, V2 halfdim);
 // modification
 
 proc Rect2 rect2_offset(Rect2 rect, V2 offset);
+proc Rect2 rect2_union(Rect2 rect, Rect2 other);
 
 // -----------------------------------------------------------------------------
 // vector from rect
 
 proc V2 rect2_center(Rect2 rect);
-proc V2 rect_dim(Rect2 rect);
+proc V2 rect2_dim(Rect2 rect);
 
 // -----------------------------------------------------------------------------
 // complex

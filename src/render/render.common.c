@@ -72,9 +72,10 @@ render_alloc_font(PackedFont *font)
   return(result);
 }
 
-proc void
+proc Rect2
 render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
 {
+  Rect2 result = rect2_invalid();
   for(U32 char_idx = 0; char_idx < string.count; ++char_idx)
   {
     U8 c = string.string[char_idx];
@@ -82,8 +83,11 @@ render_string(R_Font *font, String8 string, V2 pos, R32 level, V4 color)
 
     render_texture(&font->atlas, rect2_offset(glyph->rect, pos), glyph->uv, 0, level, color);
 
+    result = rect2_union(result, rect2_offset(glyph->rect, pos));
     pos.x += glyph->advance;
   }
+
+  return result;
 }
 
 #endif

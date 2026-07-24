@@ -17,7 +17,7 @@
 // - toggle draw mode with key press
 // - dynamic audio sources
 // - plots:
-//   - axis labels
+//   - make text look less shit (on coretext)
 //   - dynamic axis ranges
 //   - linear or log frequency axis
 //   - linear or db spectrum amplitude axis
@@ -97,6 +97,133 @@ typedef enum DrawMode
   DrawMode_frequency_domain,
 } DrawMode;
 
+#define RenderLevel(l)\
+  ((R32)Glue(RenderLevel_, l)/(R32)RenderLevel_Count)
+typedef enum RenderLevel
+{
+  RenderLevel_front,
+  RenderLevel_signal,
+  RenderLevel_label,
+  RenderLevel_axis,
+  RenderLevel_line,
+  RenderLevel_background,
+  RenderLevel_Count,
+} RenderLevel;
+
+proc void
+draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sample_rate)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  R32 min_freq = 0;
+  R32 max_freq = sample_rate / 2;
+
+  U32 freq_label_count = 8;
+  U32 amp_label_count = 5;
+
+  R32 min_amp = 0;
+  R32 max_amp = 0.3f*512.f;
+
+  // NOTE: draw axis labels
+  {
+    V2 region_dim = rect2_dim(region);
+
+    // frequency
+    Rect2 freqs_rect = rect2_invalid();
+    for(U32 freq_label_idx = 1; freq_label_idx < freq_label_count; ++freq_label_idx)
+    {
+      R32 freq_frac = (R32)freq_label_idx / (R32)freq_label_count;
+      R32 freq = freq_frac * (max_freq - min_freq);
+      String8 freq_str = str8_push_f(scratch.arena, "%u", (U32)freq);
+      V2 freq_pos = v2(region.min.x + freq_frac * region_dim.x, region.min.y);
+      Rect2 freq_rect = render_string(font, freq_str, freq_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      freqs_rect = rect2_union(freqs_rect, freq_rect);
+    }
+
+    // amplitude
+    Rect2 amps_rect = rect2_invalid();
+    for(U32 amp_label_idx = 1; amp_label_idx < amp_label_count; ++amp_label_idx)
+    {
+      R32 amp_frac = (R32)amp_label_idx / (R32)amp_label_count;
+      R32 amp = amp_frac * (max_amp - min_amp);
+      String8 amp_str = str8_push_f(scratch.arena, "%u", (U32)amp);
+      V2 amp_pos = v2(region.min.x, region.min.y + amp_frac * region_dim.y);
+      Rect2 amp_rect = render_string(font, amp_str, amp_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      amps_rect = rect2_union(amps_rect, amp_rect);
+    }
+
+    region.min.x = amps_rect.max.x;
+    region.min.y = freqs_rect.max.y;
+  }
+
+  // NOTE: draw axes
+  {
+    V2 region_dim = rect2_dim(region);
+    V4 axis_color = color_v4_from_rgba(0x80, 0x80, 0x80, 0xFF);
+    R32 axis_thickness = 3.f;
+
+    Rect2 freq_axis = rect2_min_dim(region.min, v2(region_dim.x, axis_thickness));
+    render_rect(freq_axis, 0, RenderLevel(axis), axis_color);
+
+    Rect2 amp_axis = rect2_min_dim(region.min, v2(axis_thickness, region_dim.y));
+    render_rect(amp_axis, 0, RenderLevel(axis), axis_color);
+
+    region.min.x = amp_axis.max.x;
+    region.min.y = freq_axis.max.y;
+  }
+
+  // NOTE: draw lines
+  {
+    V2 region_dim = rect2_dim(region);
+    V4 line_color = color_v4_from_rgba(0x55, 0x55, 0x55, 0xFF);
+    R32 line_thickness = 2.f;
+
+    // freq lines
+    U32 freq_line_count = freq_label_count;
+    for(U32 line_idx = 1; line_idx < freq_line_count; ++line_idx)
+    {
+      R32 line_frac = (R32)line_idx / (R32)freq_line_count;
+      R32 line_x = line_frac * region_dim.x; // TODO: discrepancy w/ above?
+      Rect2 line = rect2_min_dim(v2(region.min.x + line_x, region.min.y), v2(line_thickness, region_dim.y));
+      render_rect(line, 0, RenderLevel(line), line_color);
+    }
+
+    // amp lines
+    U32 amp_line_count = amp_label_count;
+    for(U32 line_idx = 1; line_idx < amp_line_count; ++line_idx)
+    {
+      R32 line_frac = (R32)line_idx / (R32)amp_line_count;
+      R32 line_y = line_frac * region_dim.y; // TODO: discrepancy w/ above?
+      Rect2 line = rect2_min_dim(v2(region.min.x, region.min.y + line_y), v2(region_dim.x, line_thickness));
+      render_rect(line, 0, RenderLevel(line), line_color);
+    }
+  }
+
+  if(sample_count)
+  {
+    Assert(IsPow2(sample_count));
+    U32 bin_count = sample_count / 2;
+    C64 *spectrum = arena_push_array(scratch.arena, C64, bin_count);
+    fft_re(spectrum, samples, sample_count);
+
+    V2 region_dim = rect2_dim(region);
+    V4 bar_color = color_v4_from_rgba(0xFF, 0xC1, 0x25, 0xFF);
+    R32 bin_width = region_dim.x / (R32)bin_count;
+
+    for(U32 bin_idx = 0; bin_idx < bin_count; ++bin_idx)
+    {
+      V2 bin_pos = v2(region.min.x + (R32)bin_idx * bin_width, region.min.y);
+      C64 bin_val = spectrum[bin_idx];
+      R32 bin_mag_sq = c64_mag_sq(bin_val);
+      R32 bar_height = bin_mag_sq / max_amp * region_dim.y;
+      Rect2 bar = rect2_min_dim(bin_pos, v2(bin_width, bar_height));
+      render_rect(bar, 0, RenderLevel(signal), bar_color);
+    }
+  }
+
+  arena_release_scratch(scratch);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -128,9 +255,8 @@ main(int argc, char **argv)
   {
     ArenaTemp scratch = arena_get_scratch(0, 0);
 
-    /* String8 font_path = Str8Lit("/Users/rygc/Library/Fonts/LiberationMono-Regular.ttf"); */
-    String8 font_path = Str8Lit("../data/font/LiberationMono-Regular.ttf");
-    LooseFont font_loose = font_parse(scratch.arena, font_path, 32); // TODO: don't hardcode path
+    String8 font_path = Str8Lit("../data/font/LiberationMono-Regular.ttf"); // TODO: don't hardcode path
+    LooseFont font_loose = font_parse(scratch.arena, font_path, 16);
     PackedFont *font_packed = font_pack(permanent_arena, &font_loose);
     font = render_alloc_font(font_packed);
 
@@ -138,6 +264,7 @@ main(int argc, char **argv)
   }
 
   // NOTE: audio setup
+  U32 audio_sample_rate = 48000; // TODO: pass this to the audio backend
   U32 audio_buffer_sample_count = 512; // TODO: pass this to the audio backend
 
   U64 shared_rb_size = KB(32);
@@ -184,14 +311,10 @@ main(int argc, char **argv)
 	  switch(event->key)
 	  {
 	    case Gfx_Key_f:
-	    {
-	      draw_mode = DrawMode_frequency_domain;
-	    }break;
+	    { draw_mode = DrawMode_frequency_domain; }break;
 
 	    case Gfx_Key_t:
-	    {
-	      draw_mode = DrawMode_time_domain;
-	    }break;
+	    { draw_mode = DrawMode_time_domain; }break;
 
 	    default: {}break;
 	  }
@@ -210,16 +333,44 @@ main(int argc, char **argv)
     // draw background
     V4 background_color = color_v4_from_rgba(0x08, 0x0C, 0x1C, 0xFF);
     Rect2 window_rect = rect2_min_dim(v2(0, 0), window_dimf);
-    render_rect(window_rect, 0, 0.9f, background_color);
+    render_rect(window_rect, 0, RenderLevel(background), background_color);
 
     // DEBUG:
+#if 0
     {
       V4 text_color = color_v4_from_rgba(0xFF, 0xFF, 0xFF, 0xFF);
       V2 text_pos = v2(0, rect2_center(window_rect).y);
       render_string(&font, Str8Lit("Testing Testing 12 12..."), text_pos, 0, text_color);
     }
+#endif
 
     // draw samples
+#if 1
+    V2 sample_region_dim = v2(window_dimf.x, 0.5f*window_dimf.y);
+    Rect2 sample_region_l = rect2_min_dim(v2(0, 0), sample_region_dim);
+    Rect2 sample_region_r = rect2_min_dim(v2(0, 0.5f*window_dimf.y), sample_region_dim);
+
+    SpanU8 span_samples_l = os_ring_buffer_read_span(&shared_samples_l);
+    SpanU8 span_samples_r = os_ring_buffer_read_span(&shared_samples_r);
+    R32 *samples_l = (R32*)span_samples_l.start;
+    R32 *samples_r = (R32*)span_samples_r.start;
+    U64 samples_to_read_l = span_count(span_samples_l, R32);
+    U64 samples_to_read_r = span_count(span_samples_r, R32);
+    U64 samples_to_read = Min(samples_to_read_l, samples_to_read_r);
+    printf("%llu samples available\n", samples_to_read);
+    U64 sample_count = (samples_to_read >= buffer_draw_sample_count) ? buffer_draw_sample_count : 0;
+
+    // TODO: update time domain
+    if(draw_mode == DrawMode_frequency_domain)
+    {
+      draw_spectrum(&font, sample_region_l, samples_l, sample_count, audio_sample_rate);
+      draw_spectrum(&font, sample_region_r, samples_r, sample_count, audio_sample_rate);
+    }
+
+    os_ring_buffer_read_end(&shared_samples_l, R32, sample_count);
+    os_ring_buffer_read_end(&shared_samples_r, R32, sample_count);
+
+#else
     V2 sample_region_dim = v2(window_dimf.x, 0.5f*window_dimf.y);
     Rect2 sample_region_l = rect2_min_dim(v2(0, 0), sample_region_dim);
     Rect2 sample_region_r = rect2_min_dim(v2(0, 0.5f*window_dimf.y), sample_region_dim);
@@ -341,6 +492,7 @@ main(int argc, char **argv)
     }
     else
     { printf("not drawing samples\n"); }
+#endif
 
     render_end_frame();
 
