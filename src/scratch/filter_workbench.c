@@ -1,11 +1,13 @@
 #include "base/base.h"
 #include "gfx/gfx.h"
+#include "font/font.h"
 #include "render/render.h"
 #include "audio/audio.h"
 #include "fourier/fourier.h"
 
 #include "base/base.c"
 #include "gfx/gfx.c"
+#include "font/font.c"
 #include "render/render.c"
 #include "audio/audio.c"
 #include "fourier/fourier.c"
@@ -113,11 +115,27 @@ main(int argc, char **argv)
   if(!audio_init())
   { return 1; }
 
+  Arena *permanent_arena = arena_alloc();
+
   // NOTE: open window
   Gfx_Handle window = gfx_window_open(640, 480, Str8Lit("filter workbench"));
   render_set_backend(R_Backend_opengl);
   render_equip_window(window);
   // TODO: set target frame rate
+
+  // NOTE: load font
+  R_Font font;
+  {
+    ArenaTemp scratch = arena_get_scratch(0, 0);
+
+    /* String8 font_path = Str8Lit("/Users/rygc/Library/Fonts/LiberationMono-Regular.ttf"); */
+    String8 font_path = Str8Lit("../data/font/LiberationMono-Regular.ttf");
+    LooseFont font_loose = font_parse(scratch.arena, font_path, 32); // TODO: don't hardcode path
+    PackedFont *font_packed = font_pack(permanent_arena, &font_loose);
+    font = render_alloc_font(font_packed);
+
+    arena_release_scratch(scratch);
+  }
 
   // NOTE: audio setup
   U32 audio_buffer_sample_count = 512; // TODO: pass this to the audio backend
@@ -193,6 +211,13 @@ main(int argc, char **argv)
     V4 background_color = color_v4_from_rgba(0x08, 0x0C, 0x1C, 0xFF);
     Rect2 window_rect = rect2_min_dim(v2(0, 0), window_dimf);
     render_rect(window_rect, 0, 0.9f, background_color);
+
+    // DEBUG:
+    {
+      V4 text_color = color_v4_from_rgba(0xFF, 0xFF, 0xFF, 0xFF);
+      V2 text_pos = v2(0, rect2_center(window_rect).y);
+      render_string(&font, Str8Lit("Testing Testing 12 12..."), text_pos, 0, text_color);
+    }
 
     // draw samples
     V2 sample_region_dim = v2(window_dimf.x, 0.5f*window_dimf.y);

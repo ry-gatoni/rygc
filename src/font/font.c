@@ -4,14 +4,8 @@
 #  include "font/FreeType/font_freetype.c"
 #elif FONT_BACKEND == FONT_BACKEND_DWRITE
 #  include "font/DirectWrite/font_directwrite.c"
+#elif FONT_BACKEND == FONT_BACKEND_CORE_TEXT
+#  include "font.core_text.c"
 #else
 #  error unsupported platform
 #endif
-
-/* #if OS_LINUX */
-/* #  include "font/FreeType/font_freetype.c" */
-/* #elif OS_WINDOWS */
-/* #  include "font/DirectWrite/font_directwrite.c" */
-/* #else */
-/* #  error unsupported platform */
-/* #endif */

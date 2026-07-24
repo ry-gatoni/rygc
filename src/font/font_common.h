@@ -1,3 +1,16 @@
+// TODO:
+// - be more clear and disciplined about what font metrics actually mean
+// - packing code should use glyph bitmap strides that are not the width, so
+//   backends can rasterize all the glyphs at once in a big bitmap and we store
+//   views into that (less api calls, less memory)
+// - is the loose font thing actually useful, or is it mostly redundant? eg
+//   coretext backend has packed arrays already, no need to introduce node
+//   structure then go back to arrays
+// - better codepoint map hash table (linear probing or something instead of chaining)
+// - should work with glyph metrics in floating point so we don't have to
+//   truncate on platforms that use floating point (and we end up converting to
+//   float uvs anyway...)
+
 // -----------------------------------------------------------------------------
 // loose font structures
 
