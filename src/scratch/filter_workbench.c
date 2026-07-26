@@ -14,7 +14,6 @@
 
 // TODO:
 // - logging in window
-// - toggle draw mode with key press
 // - dynamic audio sources
 // - plots:
 //   - make text look less shit (on coretext)
@@ -95,6 +94,7 @@ typedef enum DrawMode
 {
   DrawMode_time_domain,
   DrawMode_frequency_domain,
+  DrawMode_spectrogram,
 } DrawMode;
 
 #define RenderLevel(l)\
@@ -118,11 +118,11 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
   R32 min_freq = 0;
   R32 max_freq = sample_rate / 2;
 
-  U32 freq_label_count = 8;
+  U32 freq_label_count = 9;
   U32 amp_label_count = 5;
 
   R32 min_amp = 0;
-  R32 max_amp = 0.3f*512.f;
+  R32 max_amp = 0.125f*512.f;
 
   // NOTE: draw axis labels
   {
@@ -132,7 +132,7 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
     Rect2 freqs_rect = rect2_invalid();
     for(U32 freq_label_idx = 1; freq_label_idx < freq_label_count; ++freq_label_idx)
     {
-      R32 freq_frac = (R32)freq_label_idx / (R32)freq_label_count;
+      R32 freq_frac = (R32)freq_label_idx / (R32)(freq_label_count - 1);
       R32 freq = freq_frac * (max_freq - min_freq);
       String8 freq_str = str8_push_f(scratch.arena, "%u", (U32)freq);
       V2 freq_pos = v2(region.min.x + freq_frac * region_dim.x, region.min.y);
@@ -144,7 +144,7 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
     Rect2 amps_rect = rect2_invalid();
     for(U32 amp_label_idx = 1; amp_label_idx < amp_label_count; ++amp_label_idx)
     {
-      R32 amp_frac = (R32)amp_label_idx / (R32)amp_label_count;
+      R32 amp_frac = (R32)amp_label_idx / (R32)(amp_label_count - 1);
       R32 amp = amp_frac * (max_amp - min_amp);
       String8 amp_str = str8_push_f(scratch.arena, "%u", (U32)amp);
       V2 amp_pos = v2(region.min.x, region.min.y + amp_frac * region_dim.y);
@@ -159,7 +159,7 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
   // NOTE: draw axes
   {
     V2 region_dim = rect2_dim(region);
-    V4 axis_color = color_v4_from_rgba(0x80, 0x80, 0x80, 0xFF);
+    V4 axis_color = color_v4_from_rgba(0xA8, 0xA8, 0xA8, 0xFF);
     R32 axis_thickness = 3.f;
 
     Rect2 freq_axis = rect2_min_dim(region.min, v2(region_dim.x, axis_thickness));
@@ -182,7 +182,7 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
     U32 freq_line_count = freq_label_count;
     for(U32 line_idx = 1; line_idx < freq_line_count; ++line_idx)
     {
-      R32 line_frac = (R32)line_idx / (R32)freq_line_count;
+      R32 line_frac = (R32)line_idx / (R32)(freq_line_count - 1);
       R32 line_x = line_frac * region_dim.x; // TODO: discrepancy w/ above?
       Rect2 line = rect2_min_dim(v2(region.min.x + line_x, region.min.y), v2(line_thickness, region_dim.y));
       render_rect(line, 0, RenderLevel(line), line_color);
@@ -192,7 +192,7 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
     U32 amp_line_count = amp_label_count;
     for(U32 line_idx = 1; line_idx < amp_line_count; ++line_idx)
     {
-      R32 line_frac = (R32)line_idx / (R32)amp_line_count;
+      R32 line_frac = (R32)line_idx / (R32)(amp_line_count - 1);
       R32 line_y = line_frac * region_dim.y; // TODO: discrepancy w/ above?
       Rect2 line = rect2_min_dim(v2(region.min.x, region.min.y + line_y), v2(region_dim.x, line_thickness));
       render_rect(line, 0, RenderLevel(line), line_color);
@@ -218,6 +218,119 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
       R32 bar_height = bin_mag_sq / max_amp * region_dim.y;
       Rect2 bar = rect2_min_dim(bin_pos, v2(bin_width, bar_height));
       render_rect(bar, 0, RenderLevel(signal), bar_color);
+    }
+  }
+
+  arena_release_scratch(scratch);
+}
+
+proc void
+draw_samples(R_Font *font, Rect2 region, R32 *samples, U64 sample_count)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  R32 time_min = 0;
+  R32 time_max = 512.f;
+
+  R32 amp_min = -1.f;
+  R32 amp_max = 1.f;
+
+  U32 time_label_count = 5;
+  U32 amp_label_count = 3;
+
+  // NOTE: draw axis labels
+  {
+    V2 region_dim = rect2_dim(region);
+
+    // time
+    Rect2 times_rect = rect2_invalid();
+    for(U32 time_label_idx = 0; time_label_idx < time_label_count; ++time_label_idx)
+    {
+      R32 time_frac = (R32)time_label_idx / (R32)(time_label_count - 1);
+      R32 time = time_frac * (time_max - time_min) + time_min;
+      String8 time_str = str8_push_f(scratch.arena, "%u", (U32)time);
+      V2 time_pos = v2(region.min.x + time_frac*region_dim.x, region.min.y);
+      Rect2 time_rect = render_string(font, time_str, time_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      times_rect = rect2_union(times_rect, time_rect);
+    }
+
+    // amplitude
+    Rect2 amps_rect = rect2_invalid();
+    for(U32 amp_label_idx = 0; amp_label_idx < amp_label_count; ++amp_label_idx)
+    {
+      R32 amp_frac = (R32)amp_label_idx / (R32)(amp_label_count - 1);
+      R32 amp = amp_frac * (amp_max - amp_min) + amp_min;
+      String8 amp_str = str8_push_f(scratch.arena, "%u", (U32)amp);
+      V2 amp_pos = v2(region.min.x, region.min.y + amp_frac*region_dim.y);
+      Rect2 amp_rect = render_string(font, amp_str, amp_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      amps_rect = rect2_union(amps_rect, amp_rect);
+    }
+
+    region.min.x = amps_rect.max.x;
+    region.min.y = times_rect.max.y;
+  }
+
+  // NOTE: draw axes
+  {
+    V2 region_dim = rect2_dim(region);
+    V4 axis_color = color_v4_from_rgba(0xA8, 0xA8, 0xA8, 0xFF);
+    R32 axis_thickness = 3.f;
+
+    Rect2 time_axis = rect2_min_dim(region.min, v2(region_dim.x, axis_thickness));
+    render_rect(time_axis, 0, RenderLevel(axis), axis_color);
+
+    Rect2 amp_axis = rect2_min_dim(region.min, v2(axis_thickness, region_dim.y));
+    render_rect(amp_axis, 0, RenderLevel(axis), axis_color);
+
+    region.min.x = amp_axis.max.x;
+    region.min.y = time_axis.max.y;
+  }
+
+  // NOTE: draw lines
+  {
+    V2 region_dim = rect2_dim(region);
+    V4 line_color = color_v4_from_rgba(0x55, 0x55, 0x55, 0xFF);
+    R32 line_thickness = 2.f;
+
+    // time lines
+    U32 time_line_count = time_label_count;
+    for(U32 line_idx = 1; line_idx < time_line_count; ++line_idx)
+    {
+      R32 line_frac = (R32)line_idx / (R32)(time_line_count - 1);
+      R32 line_x = line_frac*region_dim.x; // TODO: discrepancy w/ above?
+      Rect2 line = rect2_min_dim (v2(region.min.x + line_x, region.min.y), v2(line_thickness, region_dim.y));
+      render_rect(line, 0, RenderLevel(line), line_color);
+    }
+
+    // amp lines
+    U32 amp_line_count = amp_label_count;
+    for(U32 line_idx = 1; line_idx < amp_line_count; ++line_idx)
+    {
+      R32 line_frac = (R32)line_idx / (R32)(amp_line_count - 1);
+      R32 line_y = line_frac*region_dim.y; // TODO: discrepancy w/ above?
+      Rect2 line = rect2_min_dim(v2(region.min.x, region.min.y + line_y), v2(region_dim.x, line_thickness));
+      render_rect(line, 0, RenderLevel(line), line_color);
+    }
+  }
+
+  if(sample_count)
+  {
+    V2 region_dim = rect2_dim(region);
+    V2 region_center = rect2_center(region);
+    V4 sample_color = color_v4_from_rgba(0x00, 0xFF, 0x7f, 0xFF);
+    //R32 sample_rect_width = region_dim.x / (R32)sample_count;
+    R32 sample_line_thickness = 2.f;
+    V2 last_sample_pos = v2(0, region_center.y);
+
+    for(U64 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
+    {
+      R32 sample_pos_x = ((R32)sample_idx/(R32)sample_count)*region_dim.x;
+      R32 sample = samples[sample_idx];
+      R32 sample_height = region_center.y + ((sample - amp_min)/(amp_max - amp_min) - 0.5f)*region_dim.y;
+      V2 sample_pos = v2(sample_pos_x, sample_height);
+      render_line_segment(last_sample_pos, sample_pos, sample_line_thickness, 0, sample_color);
+
+      last_sample_pos = sample_pos;
     }
   }
 
@@ -312,9 +425,10 @@ main(int argc, char **argv)
 	  {
 	    case Gfx_Key_f:
 	    { draw_mode = DrawMode_frequency_domain; }break;
-
 	    case Gfx_Key_t:
 	    { draw_mode = DrawMode_time_domain; }break;
+	    case Gfx_Key_s:
+	    { draw_mode = DrawMode_spectrogram; }break;
 
 	    default: {}break;
 	  }
@@ -361,10 +475,20 @@ main(int argc, char **argv)
     U64 sample_count = (samples_to_read >= buffer_draw_sample_count) ? buffer_draw_sample_count : 0;
 
     // TODO: update time domain
-    if(draw_mode == DrawMode_frequency_domain)
+    switch(draw_mode)
     {
-      draw_spectrum(&font, sample_region_l, samples_l, sample_count, audio_sample_rate);
-      draw_spectrum(&font, sample_region_r, samples_r, sample_count, audio_sample_rate);
+      case DrawMode_frequency_domain:
+      {
+	draw_spectrum(&font, sample_region_l, samples_l, sample_count, audio_sample_rate);
+	draw_spectrum(&font, sample_region_r, samples_r, sample_count, audio_sample_rate);
+      }break;
+      case DrawMode_time_domain:
+      {
+	draw_samples(&font, sample_region_l, samples_l, sample_count);
+	draw_samples(&font, sample_region_r, samples_r, sample_count);
+      }break;
+      case DrawMode_spectrogram:
+      { /* TODO: */ }break;
     }
 
     os_ring_buffer_read_end(&shared_samples_l, R32, sample_count);
