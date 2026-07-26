@@ -78,6 +78,16 @@ cocoa__on_window_close(id self, SEL cmd, NSWindow *sender)
   return(1);
 }
 
+// NOTE: private function
+proc void
+cocoa__on_key_down(id self, SEL cmd, NSEvent *event)
+{
+  Unused(self);
+  Unused(cmd);
+  Unused(event);
+  return;
+}
+
 global const char *display_link_handler_selector_name = "rygc_display_link_handle:";
 // NOTE: private function
 proc void
@@ -99,8 +109,6 @@ cocoa_window_open(V2S32 dim, String8 title)
   NSWindow *ns_window = 0;
   NSString *ns_title = 0;
   NSView *ns_view = 0;
-  //NSOpenGLView *ogl_view = 0;
-  //NSOpenGLContext *ogl_ctxt = 0;
   CALayer *layer = 0;
   Cocoa_Window *window = 0;
 
@@ -115,6 +123,9 @@ cocoa_window_open(V2S32 dim, String8 title)
   { goto cocoa_window_open_failure; }
 
   if(!objc_add_method(NSObject, windowShouldClose, cocoa__on_window_close, "c@:@"))
+  { goto cocoa_window_open_failure; }
+
+  if(!objc_replace_method(NSResponder, keyDown, cocoa__on_key_down, "c@:@"))
   { goto cocoa_window_open_failure; }
 
   NSWindow_makeKeyAndOrderFront(ns_window, 0);
@@ -138,19 +149,6 @@ cocoa_window_open(V2S32 dim, String8 title)
     NSOpenGLContext *ogl_ctxt = mac_ogl_ctxt.ns_ctxt;
     NSOpenGLContext_setView(ogl_ctxt, ns_view);
     NSOpenGLContext_update(ogl_ctxt);
-
-    /* NSOpenGLPixelFormat *ogl_pixel_fmt = NSOpenGLView_defaultPixelFormat(); */
-    /* ogl_view = NSOpenGLView_initWithFrame(ns_window_rect, ogl_pixel_fmt); */
-    /* if(ogl_view == 0) */
-    /* { goto cocoa_window_open_failure; } */
-
-    /* NSOpenGLView_prepareOpenGL(ogl_view); */
-
-    /* ogl_ctxt = NSOpenGLView_openGLContext(ogl_view); */
-    /* if(ogl_ctxt == 0) */
-    /* { goto cocoa_window_open_failure; } */
-
-    /* NSOpenGLContext_makeCurrentContext(ogl_ctxt); */
   }
 
   layer = NSView_layer(ns_view);
@@ -175,8 +173,6 @@ cocoa_window_open(V2S32 dim, String8 title)
   cocoa__set_window_for_ns_window(ns_window, window);
   window->window = ns_window;
   window->ns_view = ns_view;
-  //window->ogl_view = ogl_view;
-  //window->ogl_ctxt.ns_ctxt = ogl_ctxt;
   window->layer = layer;
   cocoa__set_window_for_display_link(display_link, window);
   window->display_link = display_link;
@@ -250,6 +246,21 @@ global Gfx_EventKind gfx_event_kind_from_cocoa_event_type[] = {
   [NSEventTypeScrollWheel] = Gfx_EventKind_scroll,
 };
 
+global Gfx_Key gfx_key_from_cocoa_key[CocoaKey_Count] = {
+#define X(name, value) [Glue(CocoaKey_, name)] = Glue(Gfx_Key_, name),
+  COCOA_KEY_XLIST
+#undef X
+};
+
+global Gfx_Key gfx_key_from_cocoa_mouse[] = {
+  [NSEventTypeLeftMouseDown] = Gfx_Key_mouse_left,
+  [NSEventTypeLeftMouseUp] = Gfx_Key_mouse_left,
+  [NSEventTypeRightMouseDown] = Gfx_Key_mouse_right,
+  [NSEventTypeRightMouseUp] = Gfx_Key_mouse_right,
+  [NSEventTypeOtherMouseDown] = Gfx_Key_mouse_middle,
+  [NSEventTypeOtherMouseUp] = Gfx_Key_mouse_middle,
+};
+
 proc void
 cocoa_events(void)
 {
@@ -268,10 +279,36 @@ cocoa_events(void)
       Cocoa_Window *window = cocoa__window_from_ns_window(ns_window);
       switch(type)
       {
+	case NSEventTypeLeftMouseDown:
+	case NSEventTypeRightMouseDown:
+	case NSEventTypeOtherMouseDown:
+	case NSEventTypeLeftMouseUp:
+	case NSEventTypeRightMouseUp:
+	case NSEventTypeOtherMouseUp:
+	{
+	  Gfx_Event *event = gfx__event_new();
+	  event->kind = gfx_event_kind_from_cocoa_event_type[type];
+	  event->window = cocoa__gfx_handle_from_window(window);
+	  event->key = gfx_key_from_cocoa_mouse[type];
+	  gfx__event_push(event);
+	}break;
+
+	case NSEventTypeKeyDown:
+	case NSEventTypeKeyUp:
+	{
+	  U16 cocoa_key = NSEvent_keyCode(e);
+	  Gfx_Key gfx_key = gfx_key_from_cocoa_key[cocoa_key];
+
+	  Gfx_Event *event = gfx__event_new();
+	  event->kind = gfx_event_kind_from_cocoa_event_type[type];
+	  event->window = cocoa__gfx_handle_from_window(window);
+	  event->key = gfx_key;
+	  gfx__event_push(event);
+	}break;
+
 	// TODO: handle events that we don't have os kinds for
 	default:
 	{
-	  printf("cocoa event with type %lu\n", type);
 	  Gfx_Event *event = gfx__event_new();
 	  Assert(event);
 	  event->kind = gfx_event_kind_from_cocoa_event_type[type];
@@ -302,8 +339,6 @@ cocoa_set_render_target_kind(Cocoa_Window *window, Cocoa_Backend backend)
 
   NSWindow *ns_win = window->window;
   NSView *view = window->ns_view;
-  /* if(backend == Cocoa_Backend_opengl) */
-  /* { view = (NSView*)window->ogl_view; } */
   NSWindow_setContentView(ns_win, view);
 }
 
@@ -323,11 +358,6 @@ cocoa_ogl_render_target_from_window(Gfx_OglRenderTarget *target, Cocoa_Window *w
   Unused(window);
   Gfx_Handle ogl_ctxt = cocoa__gfx_handle_from_ogl_context(&mac_ogl_ctxt);
   target->context = ogl_ctxt;
-
-  /* NSOpenGLContext *ogl_ctxt = window->ogl_ctxt; */
-  /* NSOpenGLContext_makeCurrentContext(ogl_ctxt); */
-  /* glClearColor(1, 1, 0, 1); */
-  /* glClear(GL_COLOR_BUFFER_BIT); */
 }
 
 proc void

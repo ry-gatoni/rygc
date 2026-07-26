@@ -1,6 +1,71 @@
 #include "gfx.cocoa.api_defs.h"
 #include "OpenGL/ogl.h"
 
+#define COCOA_KEY_XLIST\
+  X(a, 0)\
+  X(s, 1)\
+  X(d, 2)\
+  X(f, 3)\
+  X(h, 4)\
+  X(g, 5)\
+  X(z, 6)\
+  X(x, 7)\
+  X(c, 8)\
+  X(v, 9)\
+  X(b, 11)\
+  X(q, 12)\
+  X(w, 13)\
+  X(e, 14)\
+  X(r, 15)\
+  X(y, 16)\
+  X(t, 17)\
+  X(1, 18)\
+  X(2, 19)\
+  X(3, 20)\
+  X(4, 21)\
+  X(6, 22)\
+  X(5, 23)\
+  X(equals, 24)\
+  X(9, 25)\
+  X(7, 26)\
+  X(hyphen, 27)\
+  X(8, 28)\
+  X(0, 29)\
+  X(r_bracket, 30)\
+  X(o, 31)\
+  X(u, 32)\
+  X(l_bracket, 33)\
+  X(i, 34)\
+  X(p, 35)\
+  X(enter, 36)\
+  X(l, 37)\
+  X(j, 38)\
+  X(quote, 39)\
+  X(semicolon, 41)\
+  X(backslash, 42)\
+  X(comma, 43)\
+  X(slash, 44)\
+  X(period, 47)\
+  X(tab, 48)\
+  X(space, 49)\
+  X(backtick, 50)\
+  X(backspace, 51)\
+  X(esc, 53)\
+  X(super, 55)\
+  X(shift, 56)\
+  X(capslock, 57)\
+  X(alt, 58)\
+  X(control, 59)\
+  // TODO: finish
+
+typedef enum CocoaKey
+{
+#define X(name, value) Glue(CocoaKey_, name) = value,
+  COCOA_KEY_XLIST
+#undef X
+  CocoaKey_Count = 128,
+} CocoaKey;
+
 typedef enum Cocoa_Backend
 {
   Cocoa_Backend_pixel_buffer,

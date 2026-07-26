@@ -5,6 +5,7 @@
   X(NSApplication)\
   X(NSWindow)\
   X(NSWindowDelegate)\
+  X(NSResponder)\
   X(NSEvent)\
   X(NSDate)\
   X(NSString)\
@@ -37,8 +38,9 @@
   X(NSWindow, close, "close")\
   X(NSWindow, title, "title")\
   X(NSWindow, setTitle, "setTitle")\
-  X(NSWindowController, windowWillResize, "windowWillResize:toSize:")\
-  X(NSWindowController, windowShouldClose, "windowShouldClose:")\
+  X(NSWindowDelegate, windowWillResize, "windowWillResize:toSize:")\
+  X(NSWindowDelegate, windowShouldClose, "windowShouldClose:")\
+  X(NSResponder, keyDown, "keyDown:")\
   X(NSView, initWithFrame, "initWithFrame:")\
   X(NSView, bounds, "bounds")\
   X(NSView, wantsLayer, "wantsLayer")\
@@ -851,6 +853,9 @@ extern CALayerContentsGravity const kCAGravityResizeAspectFill;
 
 #define objc_add_method(class, method, impl, sigstr)\
   class_addMethod(mac_state->classes[Glue(MacClass_, class)], mac_state->sels[Glue(MacSelector_, method)], (IMP)impl, sigstr)
+
+#define objc_replace_method(class, method, impl, sigstr)\
+  class_replaceMethod(ObjcClassName(class), ObjcSelName(class, method), (IMP)impl, sigstr)
 
 //
 // CoreFoundation
