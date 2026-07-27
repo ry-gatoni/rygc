@@ -236,6 +236,20 @@ v2_add(V2 v, V2 w)
 }
 
 proc V2
+v2_add_x(V2 v, R32 x)
+{
+  V2 result = v2(v.x + x, v.y);
+  return result;
+}
+
+proc V2
+v2_add_y(V2 v, R32 y)
+{
+  V2 result = v2(v.x, v.y + y);
+  return result;
+}
+
+proc V2
 v2_sub(V2 v, V2 w)
 {
   V2 result = {.x = v.x - w.x, .y = v.y - w.y};
@@ -578,6 +592,13 @@ range_r32_map_01(R32 val, RangeR32 rng)
   R32 val_clamped = ClampToRange(val, rng.min, rng.max);
   R32 result = (val_clamped - rng.min)/(rng.max - rng.min);
   return(result);
+}
+
+proc R32
+range_r32_map(R32 val_01, RangeR32 rng)
+{
+  R32 result = rng.min + val_01*(rng.max - rng.min);
+  return result;
 }
 
 // -----------------------------------------------------------------------------

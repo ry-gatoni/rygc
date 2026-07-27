@@ -21,7 +21,6 @@
 //   - linear or log frequency axis
 //   - linear or db spectrum amplitude axis
 //   - magnitude or power spectrum
-//   - spectrogram plot
 
 typedef struct ScopeStream
 {
@@ -337,6 +336,156 @@ draw_samples(R_Font *font, Rect2 region, R32 *samples, U64 sample_count)
   arena_release_scratch(scratch);
 }
 
+typedef struct SpectrogramState
+{
+  S32 cursor;
+  R_Texture tex;
+} SpectrogramState;
+
+proc void
+spectrogram_init(SpectrogramState *spec_state, U64 buffer_size, U64 frame_count)
+{
+  Assert(IsPow2(buffer_size));
+  Assert(IsPow2(frame_count));
+  spec_state->cursor = 0;
+  spec_state->tex = render_create_texture(buffer_size/2, frame_count, 0, .wrap_y = 1);
+}
+
+proc void
+update_spectrogram(SpectrogramState *spec, R32 *samples, U64 sample_count)
+{
+  RangeR32 bin_mag_sq_range = range_r32(0, 32.f);
+
+  if(sample_count)
+  {
+    Assert(IsPow2(sample_count));
+    ArenaTemp scratch = arena_get_scratch(0, 0);
+
+    U64 bin_count = sample_count/2;
+    C64 *spectrum = arena_push_array(scratch.arena, C64, bin_count);
+    fft_re(spectrum, samples, sample_count);
+
+    V4 low_color = color_v4_from_rgba(0x08, 0x0C, 0x1C, 0x00);
+    V4 high_color = color_v4_from_rgba(0xFF, 0xC1, 0x25, 0xFF);
+    U32 *spec_pixels = arena_push_array(scratch.arena, U32, bin_count);
+    for(U64 bin_idx = 0; bin_idx < bin_count; ++bin_idx)
+    {
+      C64 bin_val = spectrum[bin_idx];
+      R32 bin_mag_sq = c64_mag_sq(bin_val);
+
+      R32 bin_mag_sq_01 = range_r32_map_01(bin_mag_sq, bin_mag_sq_range);
+      V4 color_v4 = color_blend_v4(low_color, high_color, bin_mag_sq_01);
+      U32 color = color_u32_from_v4(color_v4);
+      spec_pixels[bin_idx] = color;
+    }
+
+    render_update_texture(&spec->tex, 0, spec->cursor, spec->tex.dim.width, 1, R_PixelFormat_rgba, spec_pixels);
+    ++spec->cursor;
+    spec->cursor &= (spec->tex.dim.height - 1);
+
+    arena_release_scratch(scratch);
+  }
+}
+
+proc void
+draw_spectrogram(R_Font *font, SpectrogramState *spec, Rect2 region, U64 sample_rate)
+{
+  RangeR32 freq_range = range_r32(0, (R32)(sample_rate/2));
+  RangeR32 time_range = range_r32(-(R32)spec->tex.dim.height*spec->tex.dim.width*2/(R32)sample_rate, 0);
+
+  U32 freq_label_count = 4;
+  U32 time_label_count = 5;
+
+  // NOTE: draw labels
+  {
+    V2 region_dim = rect2_dim(region);
+
+    ArenaTemp scratch = arena_get_scratch(0, 0);
+
+    // freq
+    Rect2 freqs_rect = rect2_invalid();
+    for(U32 freq_label_idx = 0; freq_label_idx < freq_label_count; ++freq_label_idx)
+    {
+      R32 freq_frac = (R32)freq_label_idx / (R32)(freq_label_count - 1);
+      U32 freq = (U32)range_r32_map(freq_frac, freq_range);
+      String8 freq_label = str8_push_f(scratch.arena, "%u", freq);
+      V2 freq_pos = v2_add_x(region.min, freq_frac * region_dim.x);
+      Rect2 freq_rect = render_string(font, freq_label, freq_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      freqs_rect = rect2_union(freqs_rect, freq_rect);
+    }
+
+    // time
+    Rect2 times_rect = rect2_invalid();
+    for(U32 time_label_idx = 0; time_label_idx < time_label_count; ++time_label_idx)
+    {
+      R32 time_frac = (R32)time_label_idx / (R32)(time_label_count - 1);
+      R32 time = range_r32_map(time_frac, time_range);
+      String8 time_label = str8_push_f(scratch.arena, "%.2f", time);
+      V2 time_pos = v2_add_y(region.min, time_frac * region_dim.y);
+      Rect2 time_rect = render_string(font, time_label, time_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      times_rect = rect2_union(times_rect, time_rect);
+    }
+
+    arena_release_scratch(scratch);
+
+    region.min.x = times_rect.max.x;
+    region.min.y = freqs_rect.max.y;
+  }
+
+  // NOTE: draw axes
+  {
+    V2 region_dim = rect2_dim(region);
+    R32 axis_thickness = 3.f;
+    V4 axis_color = color_v4_from_rgba(0xA8, 0xA8, 0xA8, 0xFF);
+
+    Rect2 freq_axis = rect2_min_dim(region.min, v2(region_dim.x, axis_thickness));
+    render_rect(freq_axis, 0, RenderLevel(axis), axis_color);
+
+    Rect2 time_axis = rect2_min_dim(region.min, v2(axis_thickness, region_dim.y));
+    render_rect(time_axis, 0, RenderLevel(axis), axis_color);
+
+    region.min.x = time_axis.max.x;
+    region.min.y = freq_axis.max.y;
+  }
+
+  // NOTE: draw gridlines
+  {
+    V2 region_dim = rect2_dim(region);
+
+    R32 line_thickness = 2.f;
+    V4 line_color = color_v4_from_rgba(0x55, 0x55, 0x55, 0xFF);
+
+    U32 freq_line_count = freq_label_count;
+    U32 time_line_count = time_label_count;
+
+    // freq
+    for(U32 freq_line_idx = 1; freq_line_idx < freq_line_count; ++freq_line_idx)
+    {
+      R32 freq_line_frac = (R32)freq_line_idx / (R32)(freq_line_count - 1);
+      V2 freq_pos = v2_add_x(region.min, freq_line_frac * region_dim.x); // TODO: discrepancy w/ above?
+      Rect2 freq_line = rect2_min_dim(freq_pos, v2(line_thickness, region_dim.y));
+      render_rect(freq_line, 0, RenderLevel(line), line_color);
+    }
+
+    // time
+    for(U32 time_line_idx = 1; time_line_idx < time_line_count; ++time_line_idx)
+    {
+      R32 time_line_frac = (R32)time_line_idx / (R32)(time_line_count - 1);
+      V2 time_pos = v2_add_y(region.min, time_line_frac * region_dim.y); // TODO: discrepancy w/ above?
+      Rect2 time_line = rect2_min_dim(time_pos, v2(region_dim.x, line_thickness));
+      render_rect(time_line, 0, RenderLevel(line), line_color);
+    }
+  }
+
+  // NOTE: draw spectrogram
+  {
+    R32 cursor_pos_frac = (R32)spec->cursor / (R32)spec->tex.dim.height;
+    V2 uv_min = v2(0, cursor_pos_frac);
+    V2 uv_max = v2_add(uv_min, v2(1, 1));
+    render_texture(&spec->tex, region, rect2(uv_min, uv_max), 0, RenderLevel(signal), v4(1, 1, 1, 1));
+  }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -391,6 +540,11 @@ main(int argc, char **argv)
 
   audio_stream_connect_output(&scope_l.self, 0);
   audio_stream_connect_output(&scope_r.self, 1);
+
+  // NOTE: spectrogram state init
+  SpectrogramState spec_state_l, spec_state_r;
+  spectrogram_init(&spec_state_l, audio_buffer_sample_count, 128);
+  spectrogram_init(&spec_state_r, audio_buffer_sample_count, 128);
 
   audio_start();
 
@@ -488,7 +642,13 @@ main(int argc, char **argv)
 	draw_samples(&font, sample_region_r, samples_r, sample_count);
       }break;
       case DrawMode_spectrogram:
-      { /* TODO: */ }break;
+      {
+	update_spectrogram(&spec_state_l, samples_l, sample_count);
+	update_spectrogram(&spec_state_r, samples_r, sample_count);
+
+	draw_spectrogram(&font, &spec_state_l, sample_region_l, audio_sample_rate);
+	draw_spectrogram(&font, &spec_state_r, sample_region_r, audio_sample_rate);
+      }break;
     }
 
     os_ring_buffer_read_end(&shared_samples_l, R32, sample_count);

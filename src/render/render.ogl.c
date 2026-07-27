@@ -216,6 +216,14 @@ render_create_texture_ex(S32 width, S32 height, void *pixels, R_TextureCreatePar
   return(result);
 }
 
+proc void
+render_update_texture(R_Texture *texture, S32 pos_x, S32 pos_y, S32 width, S32 height, R_PixelFormat format, void *pixels)
+{
+  GLuint handle = ogl__handle_from_render_handle(texture->handle);
+  GLint pixel_fmt = ogl_fmts[format];
+  ogl_update_texture(handle, v2s32(pos_x, pos_y), v2s32(width, height), pixel_fmt, pixels);
+}
+
 proc R_Handle
 render_create_framebuffer(S32 width, S32 height)
 {

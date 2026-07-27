@@ -52,6 +52,7 @@ typedef union V4
   struct {V3 xyz; R32 ___w;};
   struct {R32 ___x; V3 yzw;};
   struct {R32 r, g, b, a;};
+  struct {V3 rgb; R32 _a;};
   R32 v[4];
 } V4;
 
@@ -90,6 +91,8 @@ proc V4 v4_normalized(V4 v);
 // binops
 
 proc V2 v2_add(V2 v, V2 w);
+proc V2 v2_add_x(V2 v, R32 x);
+proc V2 v2_add_y(V2 v, R32 y);
 proc V2 v2_sub(V2 v, V2 w);
 proc void v2_inc(V2 *v, V2 w);
 proc void v2_dec(V2 *v, V2 w);
@@ -179,6 +182,8 @@ proc S32 range_s32_len(RangeS32 rng);
 proc R32 range_r32_len(RangeR32 rng);
 
 proc R32 range_r32_map_01(R32 val, RangeR32 rng);
+
+proc R32 range_r32_map(R32 val_01, RangeR32 rng);
 
 // -----------------------------------------------------------------------------
 // rects

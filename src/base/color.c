@@ -29,6 +29,21 @@ color_u32_from_v4(V4 color)
   return(result);
 }
 
+proc V3
+color_v3_from_rgb(U8 r, U8 g, U8 b)
+{
+  R32 const inv_255 = 1.f / 255.f;
+  V3 result = v3((R32)r*inv_255, (R32)g*inv_255, (R32)b*inv_255);
+  return result;
+}
+
+proc V3
+color_blend_v3(V3 lo, V3 hi, R32 val)
+{
+  V3 result = lerp_v3(lo, hi, val);
+  return result;
+}
+
 proc V4
 color_v4_from_rgba(U8 r, U8 g, U8 b, U8 a)
 {
@@ -46,4 +61,11 @@ color_v4_from_rgba_u32(U32 rgba)
   U8 a = (rgba >> (3*8)) & 0xFF;
   V4 result = color_v4_from_rgba(r, g, b, a);
   return(result);
+}
+
+proc V4
+color_blend_v4(V4 lo, V4 hi, R32 val)
+{
+  V4 result = lerp_v4(lo, hi, val);
+  return result;
 }
