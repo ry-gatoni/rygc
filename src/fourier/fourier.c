@@ -60,6 +60,46 @@ fft_bit_reverse_copy_inverse(C64 *dest, C64 *src, U64 count)
   }
 }
 
+proc U64
+fft_initial(C64 *dest, C64 *src, U64 count)
+{
+  fft_bit_reverse_copy_forward(dest, src, count);
+
+  // NOTE: radix-2 step for level 1
+  C64 *io0 = dest + 0;
+  C64 *io1 = dest + 1;
+  for(U64 k = 0; k < count; k += 2)
+  {
+    C64 in0 = io0[k];
+    C64 in1 = io1[k];
+
+    io0[k] = c64_add(in0, in1);
+    io1[k] = c64_sub(in0, in1);
+  }
+
+  return 2;
+}
+
+proc U64
+ifft_initial(C64 *dest, C64 *src, U64 count)
+{
+  fft_bit_reverse_copy_inverse(dest, src, count);
+
+  // NOTE: radix-2 step for level 1
+  C64 *io0 = dest + 0;
+  C64 *io1 = dest + 1;
+  for(U64 k = 0; k < count; k += 2)
+  {
+    C64 in0 = io0[k];
+    C64 in1 = io1[k];
+
+    io0[k] = c64_add(in0, in1);
+    io1[k] = c64_sub(in0, in1);
+  }
+
+  return 2;
+}
+
 proc void
 fft_re_convert(C64 *io, U64 real_count)
 {
@@ -78,6 +118,7 @@ fft_re_convert(C64 *io, U64 real_count)
       R32 i = io[0].im;
       io[0].re = r + i; // DC
       io[0].im = r - i; // Nyquist
+      continue;
     }
 
     C64 w = c64(twiddles_re[k], twiddles_im[k]);
@@ -104,7 +145,7 @@ ifft_re_convert(C64 *io, U64 real_count)
   R32 *twiddles_im = fft_sine_table + 2*m;
   R32 *twiddles_re = twiddles_im + m/2;
 
-  for(U64 k = 1; k < m/2; ++k)
+  for(U64 k = 0; k < m/2; ++k)
   {
     if(k == 0)
     {
@@ -112,6 +153,7 @@ ifft_re_convert(C64 *io, U64 real_count)
       R32 nq = io[0].im;
       io[0].re = 0.5f*(dc + nq);
       io[0].im = 0.5f*(dc - nq);
+      continue;
     }
 
     C64 w = c64(twiddles_re[k], twiddles_im[k]);
@@ -135,7 +177,7 @@ fft_re(C64 *out, R32 *in, U64 count)
 {
   Assert(IsPow2(count));
   fft(out, (C64*)in, count/2);
-  fft_re_convert(out, count/2);
+  fft_re_convert(out, count);
 }
 
 proc void
@@ -150,14 +192,15 @@ proc void
 fft(C64 *out, C64 *in, U64 count)
 {
   Assert(IsPow2(count));
-  fft_bit_reverse_copy_forward(out, in, count);
+  U64 initial_level = fft_initial(out, in, count);
+  Assert(initial_level >= 2);
 
-  for(U64 s = 1; s < count; s *= 2)
+  for(U64 s = initial_level; s < count; s *= 2)
   {
     for(U64 k = 0; k < count; k += 2*s)
     {
-      R32 *twiddles_cos = fft_sine_table + s;
-      R32 *twiddles_sin = twiddles_cos + 3*s;
+      R32 *twiddles_sin = fft_sine_table + 3*s;
+      R32 *twiddles_cos = fft_sine_table + 2*s + s/2;
       C64 *io0 = out + 0*s + k;
       C64 *io1 = out + 1*s + k;
 
@@ -183,9 +226,10 @@ proc void
 ifft(C64 *out, C64 *in, U64 count)
 {
   Assert(IsPow2(count));
-  fft_bit_reverse_copy_inverse(out, in, count);
+  U64 initial_level = ifft_initial(out, in, count);
+  Assert(initial_level >= 2);
 
-  for(U64 s = 1; s < count; s *= 2)
+  for(U64 s = initial_level; s < count; s *= 2)
   {
     for(U64 k = 0; k < count; k += 2*s)
     {
