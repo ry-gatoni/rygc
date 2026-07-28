@@ -851,6 +851,9 @@ extern CALayerContentsGravity const kCAGravityResizeAspectFill;
 
 // TODO: make sure floating point returns are handled correctly for each abi
 
+extern void* objc_autoreleasePoolPush(void);
+extern void objc_autoreleasePoolPop(void *ctxt);
+
 #define objc_add_method(class, method, impl, sigstr)\
   class_addMethod(mac_state->classes[Glue(MacClass_, class)], mac_state->sels[Glue(MacSelector_, method)], (IMP)impl, sigstr)
 

@@ -264,6 +264,8 @@ global Gfx_Key gfx_key_from_cocoa_mouse[] = {
 proc void
 cocoa_events(void)
 {
+  void *autorelease = objc_autoreleasePoolPush();
+
   // TODO: make frame-rate wait configurable
   // TODO: this makes it so we don't poll for events until after we submit the first frame, which makes startup latency higher than it needs to be
   U64 pending_frame_loop_counter = 0;
@@ -327,6 +329,7 @@ cocoa_events(void)
   }
 
   printf("waited %llu times for pending frame\n", pending_frame_loop_counter);
+  objc_autoreleasePoolPop(autorelease);
 }
 
 // -----------------------------------------------------------------------------
