@@ -12,6 +12,7 @@ proc U64 bit_reverse_u64(U64 num);
 proc U32 rygc_log2(U32 num);
 proc R32 rygc_abs(R32 num);
 proc R32 rygc_sqrt(R32 num);
+proc R32 rygc_log10(R32 num);
 proc R32 rygc_cos(R32 num);
 proc R32 rygc_sin(R32 num);
 proc R32 rygc_tan(R32 num);

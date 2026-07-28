@@ -81,6 +81,13 @@ rygc_sqrt(R32 num)
 }
 
 proc R32
+rygc_log10(R32 num)
+{
+  R32 result = log10f(num);
+  return result;
+}
+
+proc R32
 rygc_cos(R32 num)
 {
   return(cosf(num));

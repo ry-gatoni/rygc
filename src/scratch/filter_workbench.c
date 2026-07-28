@@ -110,7 +110,7 @@ typedef enum RenderLevel
 } RenderLevel;
 
 proc void
-draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sample_rate)
+draw_spectrum_linear(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sample_rate)
 {
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
@@ -217,6 +217,132 @@ draw_spectrum(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sa
       R32 bar_height = bin_mag_sq / max_amp * region_dim.y;
       Rect2 bar = rect2_min_dim(bin_pos, v2(bin_width, bar_height));
       render_rect(bar, 0, RenderLevel(signal), bar_color);
+    }
+  }
+
+  arena_release_scratch(scratch);
+}
+
+proc void
+draw_spectrum_log(R_Font *font, Rect2 region, R32 *samples, U64 sample_count, U64 sample_rate)
+{
+  ArenaTemp scratch = arena_get_scratch(0, 0);
+
+  U64 nyquist = sample_rate/2;
+  RangeR32 freq_rng_log = range_r32(1, rygc_log10((R32)nyquist));
+  RangeR32 db_rng = range_r32(-90.f, 1);
+
+  R32 dbs_per_line = 12.f;
+  U32 freq_line_count = (U32)(freq_rng_log.max - freq_rng_log.min) + 1;
+  U32 db_line_count = (U32)((db_rng.max - db_rng.min)/dbs_per_line) + 1;
+
+  // NOTE: draw labels
+  {
+    V2 region_dim = rect2_dim(region);
+
+    // freq
+    Rect2 freqs_rect = rect2_invalid();
+    for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx)
+    {
+      R32 freq_frac = (R32)freq_line_idx / (R32)(freq_line_count - 1);
+      V2 freq_pos = v2_add_x(region.min, freq_frac * region_dim.x);
+      R32 freq_log = range_r32_map(freq_frac, freq_rng_log);
+      String8 freq_label = str8_push_f(scratch.arena, "10^%u", (U32)freq_log);
+      Rect2 freq_rect = render_string(font, freq_label, freq_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      freqs_rect = rect2_union(freqs_rect, freq_rect);
+    }
+
+    // db
+    Rect2 dbs_rect = rect2_invalid();
+    for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx)
+    {
+      R32 db_frac = (R32)db_line_idx / (R32)(db_line_count - 1);
+      V2 db_pos = v2_add_y(region.min, db_frac * region_dim.y);
+      R32 db = db_rng.min + (R32)db_line_idx*dbs_per_line;
+      String8 db_label = str8_push_f(scratch.arena, "%d", (S32)db);
+      Rect2 db_rect = render_string(font, db_label, db_pos, RenderLevel(label), v4(1, 1, 1, 1));
+      dbs_rect = rect2_union(dbs_rect, db_rect);
+    }
+
+    region.min.y = freqs_rect.max.y;
+  }
+
+  // NOTE: draw axes
+  {
+    V2 region_dim = rect2_dim(region);
+
+    R32 axis_thickness = 3.f;
+    V4 axis_color = color_v4_from_rgba(0xA8, 0xA8, 0xA8, 0xFF);
+
+    Rect2 freq_axis = rect2_min_dim(region.min, v2(region_dim.x, axis_thickness));
+    render_rect(freq_axis, 0, RenderLevel(axis), axis_color);
+
+    Rect2 time_axis = rect2_min_dim(region.min, v2(axis_thickness, region_dim.y));
+    render_rect(time_axis, 0, RenderLevel(axis), axis_color);
+
+    region.min.x = time_axis.max.x;
+    region.min.y = freq_axis.max.y;
+  }
+
+  // NOTE: draw lines
+  {
+    V2 region_dim = rect2_dim(region);
+
+    R32 line_thickness = 2.f;
+    V4 line_color = color_v4_from_rgba(0x55, 0x55, 0x55, 0xFF);
+
+    // freq
+    for(U32 freq_line_idx = 0; freq_line_idx < freq_line_count; ++freq_line_idx)
+    {
+      R32 freq_frac = (R32)freq_line_idx / (R32)(freq_line_count - 1);
+      V2 freq_pos = v2_add_x(region.min, freq_frac * region_dim.x);
+      Rect2 freq_line = rect2_min_dim(freq_pos, v2(line_thickness, region_dim.y));
+      render_rect(freq_line, 0, RenderLevel(line), line_color);
+    }
+
+    // db
+    for(U32 db_line_idx = 0; db_line_idx < db_line_count; ++db_line_idx)
+    {
+      R32 db_frac = (R32)db_line_idx / (R32)(db_line_count - 1);
+      V2 db_pos = v2_add_y(region.min, db_frac * region_dim.y);
+      Rect2 db_line = rect2_min_dim(db_pos, v2(region_dim.x, line_thickness));
+      render_rect(db_line, 0, RenderLevel(line), line_color);
+    }
+  }
+
+  // NOTE: draw spectrum
+  {
+    V2 region_dim = rect2_dim(region);
+    V4 bar_color = color_v4_from_rgba(0xFF, 0xC1, 0x25, 0xFF);
+
+    if(sample_count)
+    {
+      Assert(IsPow2(sample_count));
+      U32 bin_count = sample_count / 2;
+      C64 *spectrum = arena_push_array(scratch.arena, C64, bin_count);
+      fft_re(spectrum, samples, sample_count);
+
+      R32 norm_coeff = 1.f / (R32)(bin_count*bin_count);
+      V2 bar_min = region.min;
+      for(U32 bin_idx = 1; bin_idx < bin_count; ++bin_idx)
+      {
+	C64 bin_val = spectrum[bin_idx];
+	R32 bin_power = c64_mag_sq(bin_val);
+	R32 bin_db = 10.f * rygc_log10(bin_power * norm_coeff);
+	R32 bar_height = range_r32_map_01(bin_db, db_rng) * region_dim.y;
+	R32 bar_max_y = bar_min.y + bar_height;
+
+	R32 bin_frac = (R32)bin_idx / (R32)bin_count;
+	R32 bin_freq = bin_frac * (R32)nyquist;
+	R32 bin_freq_log10 = rygc_log10(bin_freq);
+	R32 bar_max_x = region_dim.x*range_r32_map_01(bin_freq_log10, freq_rng_log);
+
+	V2 bar_max = v2(bar_max_x, bar_max_y);
+	Rect2 bar = rect2(bar_min, bar_max);
+	render_rect(bar, 0, RenderLevel(signal), bar_color);
+
+	bar_min.x = bar_max_x;
+      }
     }
   }
 
@@ -631,8 +757,8 @@ main(int argc, char **argv)
     {
       case DrawMode_frequency_domain:
       {
-	draw_spectrum(&font, sample_region_l, samples_l, sample_count, audio_sample_rate);
-	draw_spectrum(&font, sample_region_r, samples_r, sample_count, audio_sample_rate);
+	draw_spectrum_log(&font, sample_region_l, samples_l, sample_count, audio_sample_rate);
+	draw_spectrum_log(&font, sample_region_r, samples_r, sample_count, audio_sample_rate);
       }break;
       case DrawMode_time_domain:
       {
