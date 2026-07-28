@@ -36,7 +36,7 @@
 #  if OS_LINUX
 #    define Section(name) __attribute__((section(name), used, aligned(1)))
 #  elif OS_MAC
-#    define Section(name) __attribute__((section("__DATA," name), used, aligned(1)))
+#    define Section(name) __attribute__((section("__DATA," name), used, no_sanitize("address")))
 #  else
 #    error ERROR: `Section` not defined for this os
 #  endif

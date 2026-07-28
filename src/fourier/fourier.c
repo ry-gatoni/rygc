@@ -212,6 +212,61 @@ ifft(C64 *out, C64 *in, U64 count)
   }
 }
 
+proc B32
+fft_re_test(Arena *arena, String8List *log, C64 *expected, R32 *in, U64 count)
+{
+  B32 result = 1;
+  R32 err_tol = 0.001f;
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  C64 *out = arena_push_array(scratch.arena, C64, count/2);
+  fft_re(out, in, count);
+  for(U64 bin_idx = 0; bin_idx < count/2; ++bin_idx)
+  {
+    C64 out_bin = out[bin_idx];
+    C64 expected_bin = expected[bin_idx];
+
+    R32 out_bin_mag_sq = c64_mag_sq(out_bin);
+    R32 expected_bin_mag_sq = c64_mag_sq(expected_bin);
+
+    R32 err = rygc_abs(out_bin_mag_sq - expected_bin_mag_sq) / expected_bin_mag_sq;
+    if(err >= err_tol)
+    {
+      str8_list_push_f(arena, log,
+		       "discrepancy at bin [%llu]:\n"
+		       "  expected: %10.4f + %10.4f i,\n"
+		       "  got:      %10.4f + %10.4f i\n",
+		       bin_idx,
+		       expected_bin.re, expected_bin.im,
+		       out_bin.re, out_bin.im);
+      result = 0;
+    }
+  }
+
+  arena_release_scratch(scratch);
+
+  return result;
+}
+
+#include "test/test.h"
+TEST_FN_DEF(fft_re)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  Buffer in_buf = os_read_entire_file(scratch.arena, Str8Lit(DATA_DIR "/test/fft_test_signal.float"));
+  Buffer out_buf = os_read_entire_file(scratch.arena, Str8Lit(DATA_DIR "/test/fft_test_result.float"));
+
+  R32 *in = (R32*)in_buf.mem;
+  C64 *expected = (C64*)out_buf.mem;
+  U64 count = in_buf.size/sizeof(*in);
+  expected[0].im = expected[count/2].re; // NOTE: nyquist
+  B32 result = fft_re_test(arena, log, expected, in, count);
+
+  arena_release_scratch(scratch);
+
+  return result;
+}
+
 #if 0
 proc ComplexBuffer
 fft_re(Arena *arena, FloatBuffer in)
