@@ -92,6 +92,7 @@ bit_reverse_copy_re(C64 *dest, R32 *src, U64 count)
   }
 }
 
+#if CPU_HAS_SSE
 proc void
 bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
 {
@@ -193,6 +194,7 @@ bit_reverse_copy_re__sse(R32 *out_re, R32 *out_im, R32 *in, U64 count)
     }
   }
 }
+#endif
 
 // TODO: separate fft kernels (operating fully in place) so we can profile them
 // individually, and assemble full fft implementations from them + input
@@ -480,6 +482,7 @@ fft_re__iterative_dit_radix2_2_ss(R32 *in, C64 *out, U64 count)
   }
 }}
 
+#if CPU_HAS_SSE
 #include <immintrin.h>
 
 proc void
@@ -623,6 +626,7 @@ fft_re__iterative_dit_radix2_ps_sse(R32 *in, R32 *out_re, R32 *out_im, U64 count
   }
 }}
 
+#if CPU_HAS_AVX
 proc void
 fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 count)
 {ProfileFunction(){
@@ -722,6 +726,9 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
   }
 }}
 
+#endif
+#endif
+
 // -----------------------------------------------------------------------------
 // benchmark wrappers
 
@@ -806,6 +813,7 @@ fft_bench__iterative_radix2_2_scalar(void *args)
   fft_re__iterative_dit_radix2_2_ss(in, out, count);
 }
 
+#if CPU_HAS_SSE
 proc void
 fft_bench__iterative_radix2_sse(void *args)
 {
@@ -818,6 +826,7 @@ fft_bench__iterative_radix2_sse(void *args)
   fft_re__iterative_dit_radix2_ps_sse(in, out_re, out_im, count);
 }
 
+#if CPU_HAS_AVX
 proc void
 fft_bench__iterative_radix2_avx2(void *args)
 {
@@ -829,6 +838,8 @@ fft_bench__iterative_radix2_avx2(void *args)
 
   fft_re__iterative_dit_radix2_ps_avx2(in, out_re, out_im, count);
 }
+#endif
+#endif
 
 typedef struct Fft_Bench
 {
@@ -836,6 +847,10 @@ typedef struct Fft_Bench
   void *fft_args;
   String8 proc_name;
 } Fft_Bench;
+
+// TODO: it should be possible to put all functions in the xlist, regardless of
+// whether or not the compilation target supports the extensions a particular
+// function requires
 
 // (name, arg_kind)
 #define FFT_BENCH_XLIST\
@@ -845,8 +860,8 @@ typedef struct Fft_Bench
   X(iterative_radix2_scalar, interleaved)\
   X(iterative_radix4_scalar, interleaved)\
   X(iterative_radix2_2_scalar, interleaved)\
-  X(iterative_radix2_sse, deinterleaved)\
-  X(iterative_radix2_avx2, deinterleaved)
+  //X(iterative_radix2_sse, deinterleaved) \
+  //X(iterative_radix2_avx2, deinterleaved)
 
 // -----------------------------------------------------------------------------
 // driving code
@@ -862,8 +877,8 @@ main(int argc, char **argv)
 
   Bench_Counter counters[] = {
     Bench_Counter_cpu_cycles,
-    Bench_Counter_cache_references,
-    Bench_Counter_cache_misses,
+    /* Bench_Counter_cache_references, */
+    /* Bench_Counter_cache_misses, */
     Bench_Counter_branch_instructions,
     Bench_Counter_branch_misses,
   };
@@ -920,7 +935,7 @@ main(int argc, char **argv)
 #undef X
   };
 
-  printf("fft: %lu samples\n", fft_count);
+  printf("fft: %llu samples\n", fft_count);
   for(U32 p_idx = 0; p_idx < ArrayCount(fft_benches); ++p_idx)
   {
     Fft_Bench *bench = fft_benches + p_idx;
@@ -947,31 +962,42 @@ main(int argc, char **argv)
     }
 #else
     Bench_Result res = bench_run_proc(fft_proc, args);
-    printf("\n%.*s: %*lu iterations\n",
+    printf("\n%.*s: %*llu iterations\n",
 	   Str8F(proc_name), (int)(32 - proc_name.count - 1), res.run_count);
     printf("  cycle count:\n"
-	   "    avg: %24lu,\n"
-	   "    min: %24lu,\n"
-	   "    max: %24lu,\n",
+	   "    avg: %24llu,\n"
+	   "    min: %24llu,\n"
+	   "    max: %24llu,\n",
 	   res.counters[0].avg,
 	   res.counters[0].min,
 	   res.counters[0].max);
 
+#if 1
+    printf("  branch misses:\n"
+	   "    avg: %24llu,\n"
+	   "    min: %24llu/%llu,\n"
+	   "    max: %24llu/%llu,\n",
+	   res.counters[2].avg,
+	   res.counters[2].min, res.counters[1].min,
+	   res.counters[2].max, res.counters[1].max);
+#else
     printf("  cache misses:\n"
-	   "    avg: %24lu,\n"
-	   "    min: %24lu/%lu,\n"
-	   "    max: %24lu/%lu,\n",
+	   "    avg: %24llu,\n"
+	   "    min: %24llu/%llu,\n"
+	   "    max: %24llu/%llu,\n",
 	   res.counters[2].avg,
 	   res.counters[2].min, res.counters[1].min,
 	   res.counters[2].max, res.counters[1].max);
 
     printf("  branch misses:\n"
-	   "    avg: %24lu,\n"
-	   "    min: %24lu/%lu,\n"
-	   "    max: %24lu/%lu,\n",
+	   "    avg: %24llu,\n"
+	   "    min: %24llu/%llu,\n"
+	   "    max: %24llu/%llu,\n",
 	   res.counters[4].avg,
 	   res.counters[4].min, res.counters[3].min,
 	   res.counters[4].max, res.counters[3].max);
+#endif
+
 #endif
     ZeroArray(out, C64, fft_count);
     ZeroArray(out_re, R32, fft_count);

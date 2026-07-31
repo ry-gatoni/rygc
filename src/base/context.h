@@ -120,6 +120,33 @@
 #  define ARCH_32BIT 0
 #endif
 
+#if CPU_X86 || CPU_X64
+#  if COMPILER_MSVC
+#    if defined(_M_IX86_FP) && _MIX86_FP >= 2
+#      define CPU_HAS_SSE 1
+#    endif
+#  elif COMPILER_GCC || COMPILER_CLANG
+#    if defined(__SSE__)
+#       define CPU_HAS_SSE 1
+#    endif
+#  endif
+#elif CPU_ARM || CPU_ARM64
+#  if COMPILER_MSVC
+#    define CPU_HAS_NEON 1 // TODO: is there something to check here on msvc?
+#  elif COPMILER_GCC || COMPILER_CLANG
+#    if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#      define CPU_HAS_NEON 1
+#    endif
+#  endif
+#endif
+
+#if !defined(CPU_HAS_SSE)
+#  define CPU_HAS_SSE 0
+#endif
+#if !defined(CPU_HAS_NEON)
+#  define CPU_HAS_NEON 0
+#endif
+
 // NOTE: language
 #if defined(__cplusplus)
 # define LANGUAGE_CXX 1

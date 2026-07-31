@@ -374,6 +374,20 @@ mac_sleep_ms(U64 ms)
   mach_wait_until(deadline);
 }
 
+proc U64
+os_counter(void)
+{
+  U64 result = posix_counter();
+  return result;
+}
+
+proc U64
+os_counter_freq(void)
+{
+  U64 result = posix_counter_freq();
+  return result;
+}
+
 proc void
 os_sleep_ms(U64 ms)
 {

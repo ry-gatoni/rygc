@@ -3,10 +3,12 @@ typedef void (Bench_Proc)(void *args);
 typedef enum Bench_Counter
 {
   Bench_Counter_cpu_cycles,
+  Bench_Counter_instructions,
   Bench_Counter_cache_references,
   Bench_Counter_cache_misses,
   Bench_Counter_branch_instructions,
   Bench_Counter_branch_misses,
+  Bench_Counter_Count,
 } Bench_Counter;
 
 typedef struct Bench_CounterResult

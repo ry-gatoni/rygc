@@ -410,6 +410,22 @@ posix_lib_handle_from_os_handle(Os_Handle handle)
   return(result);
 }
 
+proc U64
+posix_counter(void)
+{
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+  U64 result = t.tv_sec*1000000000 + t.tv_nsec;
+  return result;
+}
+
+proc U64
+posix_counter_freq(void)
+{
+  U64 result = 1000000000;
+  return result;
+}
+
 proc void
 posix_sleep_ms(U64 ms)
 {

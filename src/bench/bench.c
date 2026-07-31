@@ -3,7 +3,7 @@
 #if OS_LINUX
 #  include "bench.linux.c"
 #elif OS_MAC
-#  error not implemented
+#  include "bench.mac.c"
 #elif OS_WINDOWS
 #  error not implemented
 #else

@@ -81,6 +81,9 @@ proc void* posix_lib_get_sym(Os_Handle lib, String8 sym_name);
 // -----------------------------------------------------------------------------
 // time
 
+proc U64 posix_counter(void);
+proc U64 posix_counter_freq(void);
+
 proc void posix_sleep_ms(U64 ms);
 
 // -----------------------------------------------------------------------------

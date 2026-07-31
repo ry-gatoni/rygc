@@ -44,13 +44,14 @@ echo $CFLAGS
 # clang $CFLAGS $SRC/scratch/3d_filter2.c -o 3d_filter -lEGL -lGL -lfreetype
 # clang $CFLAGS $SRC/scratch/buzz.c -o buzz && ./buzz
 # clang $CFLAGS -O3 -mavx2 -mfma $SRC/scratch/fft_bench.c -o fft_bench && ./fft_bench
+clang $CFLAGS -O3 $SRC/scratch/fft_bench.c -o fft_bench -lobjc # && ./fft_bench
 # clang $CFLAGS $SRC/scratch/vst3_test_host.c -o vst3_test_host
 # clang $CFLAGS $SRC/scratch/poly_solve.c -o poly_solve # && ./poly_solve
 # clang $CFLAGS $SRC/scratch/xcb_test.c -lxcb -lxcb-shm -lxcb-present -lEGL -lGL -o xcb_test
 # clang $CFLAGS $SRC/scratch/cocoa_test.c -lobjc -framework AppKit -framework QuartzCore -o cocoa_test
 # clang $CFLAGS $SRC/scratch/residue_filters.c -o residue_filters
 # clang $CFLAGS $SRC/scratch/core_audio_test.c -lobjc -framework CoreFoundation -framework CoreAudio -framework AudioToolbox -o core_audio_test
-clang $CFLAGS $SRC/scratch/filter_workbench.c -lobjc -framework Appkit -framework Quartzcore -framework CoreAudio -framework AudioToolbox -o filter_workbench
+# clang $CFLAGS $SRC/scratch/filter_workbench.c -lobjc -framework Appkit -framework Quartzcore -framework CoreAudio -framework AudioToolbox -o filter_workbench
 
 popd > /dev/null # ./build -> ./src
 
