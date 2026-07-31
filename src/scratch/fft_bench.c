@@ -729,6 +729,128 @@ fft_re__iterative_dit_radix2_ps_avx2(R32 *in, R32 *out_re, R32 *out_im, U64 coun
 #endif
 #endif
 
+#if CPU_HAS_NEON
+#include <arm_neon.h>
+proc U64
+fft_re_initial__radix2_neon(R32 *in, R32 *out_re, R32 *out_im, U64 count)
+{
+  Assert(IsPow2(count));
+
+  // TODO: vectorize
+  U64 count_log2 = MSB(count);
+  float32x4_t const zero_x4 = vdupq_n_f32(0.f);
+  float32x4_t const neg1_x4 = vdupq_n_f32(-1.f);
+  for(U64 block_idx = 0; block_idx < count/4; block_idx += 4)
+  {
+    // TODO: vectorize the bit reversal?
+    U64 block_0_rev = bit_reverse_u64(block_idx + 0) >> (64 - count_log2);
+    U64 block_1_rev = bit_reverse_u64(block_idx + 1) >> (64 - count_log2);
+    U64 block_2_rev = bit_reverse_u64(block_idx + 2) >> (64 - count_log2);
+    U64 block_3_rev = bit_reverse_u64(block_idx + 3) >> (64 - count_log2);
+
+    float32x4_t in_0 = vld1q_f32(in + block_0_rev);
+    float32x4_t in_1 = vld1q_f32(in + block_1_rev);
+    float32x4_t in_2 = vld1q_f32(in + block_2_rev);
+    float32x4_t in_3 = vld1q_f32(in + block_3_rev);
+
+    // NOTE: initial radix-2 step (stride = 1)
+    float32x4_t t_0 = vaddq_f32(in_0, in_1);
+    float32x4_t t_1 = vsubq_f32(in_0, in_1);
+    float32x4_t t_2 = vaddq_f32(in_2, in_3);
+    float32x4_t t_3 = vsubq_f32(in_2, in_3);
+
+    // NOTE: subsequent radix-2 step (stride = 2)
+    float32x4_t u_0_re = vaddq_f32(t_0, t_2);
+    float32x4_t u_0_im = zero_x4;
+    float32x4_t u_1_re = t_1;
+    float32x4_t u_1_im = vmulq_f32(t_1, neg1_x4);
+    float32x4_t u_2_re = vsubq_f32(t_0, t_2);
+    float32x4_t u_2_im = zero_x4;
+    float32x4_t u_3_re = t_3;
+    float32x4_t u_3_im = t_3;
+
+    // NOTE: transpose 4x4
+    float32x4x2_t r_02_re = vzipq_f32(u_0_re, u_2_re);
+    float32x4x2_t r_02_im = vzipq_f32(u_0_im, u_2_im);
+    float32x4x2_t r_13_re = vzipq_f32(u_1_re, u_3_re);
+    float32x4x2_t r_13_im = vzipq_f32(u_1_im, u_3_im);
+
+    float32x4x2_t s_01_re = vzipq_f32(r_02_re.val[0], r_13_re.val[0]);
+    float32x4x2_t s_01_im = vzipq_f32(r_02_im.val[0], r_13_im.val[0]);
+    float32x4x2_t s_23_re = vzipq_f32(r_02_re.val[1], r_13_re.val[1]);
+    float32x4x2_t s_23_im = vzipq_f32(r_02_im.val[1], r_13_im.val[1]);
+
+    // NOTE: store
+    vst1q_f32(out_re + block_idx + 0*count/2 + 0*count/4, s_01_re.val[0]);
+    vst1q_f32(out_re + block_idx + 1*count/2 + 0*count/4, s_01_re.val[1]);
+    vst1q_f32(out_re + block_idx + 0*count/2 + 1*count/4, s_23_re.val[0]);
+    vst1q_f32(out_re + block_idx + 1*count/2 + 1*count/4, s_23_re.val[1]);
+
+    vst1q_f32(out_im + block_idx + 0*count/2 + 0*count/4, s_01_im.val[0]);
+    vst1q_f32(out_im + block_idx + 1*count/2 + 0*count/4, s_01_im.val[1]);
+    vst1q_f32(out_im + block_idx + 0*count/2 + 1*count/4, s_23_im.val[0]);
+    vst1q_f32(out_im + block_idx + 1*count/2 + 1*count/4, s_23_im.val[1]);
+  }
+
+  return 4;
+}
+
+proc void
+fft_re__iterative_dit_radix2_ps_neon(R32 *in, R32 *out_re, R32 *out_im, U64 count)
+{
+  U64 initial_level = fft_re_initial__radix2_neon(in, out_re, out_im, count);
+  Assert(initial_level >= 4);
+
+  float32x4_t const two_x4 = vdupq_n_f32(2.f);
+  for(U64 s = initial_level; s < count; s *= 2)
+  {
+    R32 *twiddles_re = twiddle_table_re__radix2 + s;
+    R32 *twiddles_im = twiddle_table_im__radix2 + s;
+
+    for(U64 k = 0; k < count; k += 2*s)
+    {
+      R32 *io_0_re = out_re + 0*s + k;
+      R32 *io_0_im = out_im + 0*s + k;
+      R32 *io_1_re = out_re + 1*s + k;
+      R32 *io_1_im = out_im + 1*s + k;
+
+      for(U64 j = 0; j < s; j += 4)
+      {
+	float32x4_t w_re = vld1q_f32(twiddles_re + j);
+	float32x4_t w_im = vld1q_f32(twiddles_im + j);
+
+	float32x4_t in_0_re = vld1q_f32(io_0_re + j);
+	float32x4_t in_0_im = vld1q_f32(io_0_im + j);
+	float32x4_t in_1_re = vld1q_f32(io_1_re + j);
+	float32x4_t in_1_im = vld1q_f32(io_1_im + j);
+
+#if 1 // with fma
+	float32x4_t out_0_re = vmlsq_f32(vmlaq_f32(in_0_re, w_re, in_1_re), w_im, in_1_im);
+	float32x4_t out_0_im = vmlaq_f32(vmlaq_f32(in_0_im, w_re, in_1_im), w_im, in_1_re);
+	float32x4_t out_1_re = vfmsq_f32(two_x4, in_0_re, out_0_re);
+	float32x4_t out_1_im = vfmsq_f32(two_x4, in_0_im, out_0_im);
+#else // without fma
+	float32x4_t t_re = vsubq_f32(vmulq_f32(w_re, in_1_re),
+				     vmulq_f32(w_im, in_1_im));
+	float32x4_t t_im = vsubq_f32(vmulq_f32(w_re, in_1_im),
+				     vmulq_f32(w_im, in_1_re));
+
+	float32x4_t out_0_re = vaddq_f32(in_0_re, t_re);
+	float32x4_t out_0_im = vaddq_f32(in_0_im, t_im);
+	float32x4_t out_1_re = vsubq_f32(in_1_re, t_re);
+	float32x4_t out_1_im = vsubq_f32(in_1_im, t_im);
+#endif
+
+	vst1q_f32(io_0_re + j, out_0_re);
+	vst1q_f32(io_0_im + j, out_0_im);
+	vst1q_f32(io_1_re + j, out_1_re);
+	vst1q_f32(io_1_im + j, out_1_im);
+      }
+    }
+  }
+}
+#endif
+
 // -----------------------------------------------------------------------------
 // benchmark wrappers
 
@@ -813,6 +935,7 @@ fft_bench__iterative_radix2_2_scalar(void *args)
   fft_re__iterative_dit_radix2_2_ss(in, out, count);
 }
 
+#if CPU_X86 || CPU_X64
 #if CPU_HAS_SSE
 proc void
 fft_bench__iterative_radix2_sse(void *args)
@@ -825,6 +948,7 @@ fft_bench__iterative_radix2_sse(void *args)
 
   fft_re__iterative_dit_radix2_ps_sse(in, out_re, out_im, count);
 }
+#endif
 
 #if CPU_HAS_AVX
 proc void
@@ -839,7 +963,22 @@ fft_bench__iterative_radix2_avx2(void *args)
   fft_re__iterative_dit_radix2_ps_avx2(in, out_re, out_im, count);
 }
 #endif
+
+#elif CPU_ARM || CPU_ARM64
+#if CPU_HAS_NEON
+proc void fft_bench__iterative_radix2_neon(void *args)
+{
+  Fft_ArgsDeinterleaved *fft_args = args;
+  R32 *in = fft_args->in;
+  R32 *out_re = fft_args->out_re;
+  R32 *out_im = fft_args->out_im;
+  U64 count = fft_args->count;
+
+  fft_re__iterative_dit_radix2_ps_neon(in, out_re, out_im, count);
+}
 #endif
+#endif
+
 
 typedef struct Fft_Bench
 {
@@ -860,8 +999,9 @@ typedef struct Fft_Bench
   X(iterative_radix2_scalar, interleaved)\
   X(iterative_radix4_scalar, interleaved)\
   X(iterative_radix2_2_scalar, interleaved)\
-  //X(iterative_radix2_sse, deinterleaved) \
-  //X(iterative_radix2_avx2, deinterleaved)
+  /*X(iterative_radix2_sse, deinterleaved)*/\
+  /*X(iterative_radix2_avx2, deinterleaved)*/\
+  X(iterative_radix2_neon, deinterleaved)\
 
 // -----------------------------------------------------------------------------
 // driving code
