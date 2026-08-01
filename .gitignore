@@ -1,6 +1,8 @@
 **/*~
 **/#*
 
+**/.DS_Store
+
 build
 
 data/test/liberation_mono_glyph_data__*.txt

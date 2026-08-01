@@ -49,6 +49,8 @@ proc Buffer buf_from_str8(String8 str);
 proc U8* buf_consume_size(Buffer *buf, U64 size);
 proc void buf_consume_whitespace(Buffer *buf);
 
+#define buf_count(buf, type) ((buf.size)/sizeof(type))
+
 // -----------------------------------------------------------------------------
 // peek
 

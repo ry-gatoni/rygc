@@ -172,7 +172,7 @@ os_read_entire_file(Arena *arena, String8 path)
 proc B32
 os_write_entire_file(Buffer file_contents, String8 path)
 {
-  Os_Handle file = os_file_open(path, Os_FileOpenFlag_write);
+  Os_Handle file = os_file_open(path, Os_FileOpenFlag_write|Os_FileOpenFlag_truncate);
   B32 result = os_file_write(file_contents, file);
 
   return(result);

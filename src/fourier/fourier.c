@@ -292,6 +292,39 @@ fft_re_test(Arena *arena, String8List *log, C64 *expected, R32 *in, U64 count)
   return result;
 }
 
+proc B32
+ifft_re_test(Arena *arena, String8List *log, R32 *expected, C64 *in, U64 count)
+{
+  B32 result = 1;
+  R32 err_tol = 0.01;
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  R32 *out = arena_push_array(scratch.arena, R32, count);
+  ifft_re(out, in, count);
+  for(U64 sample_idx = 0; sample_idx < count; ++sample_idx)
+  {
+    R32 out_sample = out[sample_idx];
+    R32 expected_sample = expected[sample_idx];
+
+    R32 err = rygc_abs(out_sample - expected_sample);
+    if(err >= err_tol)
+    {
+      str8_list_push_f(arena, log,
+		       "discrepancy at sample [%llu]:\n"
+		       "  expected: %10.4f,\n"
+		       "       got: %10.4f,\n",
+		       sample_idx,
+		       expected_sample,
+		       out_sample);
+      result = 0;
+    }
+  }
+
+  arena_release_scratch(scratch);
+
+  return result;
+}
+
 #include "test/test.h"
 TEST_FN_DEF(fft_re)
 {
@@ -305,6 +338,24 @@ TEST_FN_DEF(fft_re)
   U64 count = in_buf.size/sizeof(*in);
   expected[0].im = expected[count/2].re; // NOTE: nyquist
   B32 result = fft_re_test(arena, log, expected, in, count);
+
+  arena_release_scratch(scratch);
+
+  return result;
+}
+
+TEST_FN_DEF(ifft_re)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  Buffer in_buf = os_read_entire_file(scratch.arena, Str8Lit(DATA_DIR "/test/fft_test_result.float"));
+  Buffer out_buf = os_read_entire_file(scratch.arena, Str8Lit(DATA_DIR "/test/fft_test_signal.float"));
+
+  C64 *in = (C64*)in_buf.mem;
+  R32 *expected = (R32*)out_buf.mem;
+  U64 count = out_buf.size/sizeof(*expected);
+  in[0].im = in[count/2].re; // NOTE: nyquist
+  B32 result = ifft_re_test(arena, log, expected, in, count);
 
   arena_release_scratch(scratch);
 

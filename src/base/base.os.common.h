@@ -20,8 +20,9 @@ typedef struct Os_RingBuffer
 
 typedef enum Os_FileOpenFlags
 {
-  Os_FileOpenFlag_read  = (1 << 0),
-  Os_FileOpenFlag_write = (1 << 1),
+  Os_FileOpenFlag_read     = (1 << 0),
+  Os_FileOpenFlag_write    = (1 << 1),
+  Os_FileOpenFlag_truncate = (1 << 2),
 } Os_FileOpenFlags;
 
 typedef struct Os_FileAttributes

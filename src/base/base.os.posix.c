@@ -108,6 +108,10 @@ posix_file_open(String8 path, Os_FileOpenFlags flags)
     mode |= S_IRGRP;
     mode |= S_IROTH;
   }
+  else if(flags & Os_FileOpenFlag_truncate)
+  {
+    open_flags |= O_TRUNC;
+  }
 
   int handle = open((char*)path_cstr.string, open_flags, mode);
   if(handle == -1)
