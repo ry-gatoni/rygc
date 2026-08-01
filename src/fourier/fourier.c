@@ -1,3 +1,22 @@
+// NOTE: implemented on each instruction set/extension (eventually), internal
+global U64 g_initial_level = 1;
+proc U64 fft_initial(C64 *out, C64 *in, U64 count);
+proc void fft_kernel(C64 *io, U64 count, U64 level);
+
+proc void fft_re_convert(C64 *io, U64 real_count);
+
+proc U64 ifft_initial(C64 *out, C64 *in, U64 count);
+proc void ifft_kernel(C64 *io, U64 count, U64 level);
+
+proc void ifft_re_convert(C64 *io, U64 real_count);
+
+// NOTE: backend agnostic, internal
+proc void fft_leaf(C64 *io, U64 count);
+proc void fft_rec(C64 *io, U64 count);
+
+proc void ifft_leaf(C64 *io, U64 count);
+proc void ifft_rec(C64 *io, U64 count);
+
 #define FFT_MAX_COUNT 4096
 global R32 fft_sine_table[4*FFT_MAX_COUNT];
 // NOTE:
@@ -105,7 +124,6 @@ fft_re_convert(C64 *io, U64 real_count)
 {
   U64 m = real_count / 2;
 
-  // k = 0
   R32 *twiddles_im = fft_sine_table + 2*m;
   R32 *twiddles_re = twiddles_im + m/2;
   twiddles_im += m;
@@ -121,7 +139,16 @@ fft_re_convert(C64 *io, U64 real_count)
       continue;
     }
 
-    C64 w = c64(twiddles_re[k], twiddles_im[k]);
+    // TODO: find a better solution for when real_count is large
+    C64 w;
+    if(4*m < ArrayCount(fft_sine_table))
+    {
+      w = c64(twiddles_re[k], twiddles_im[k]);
+    }
+    else
+    {
+      w = c64_polar(1, -TAU32 * (R32)k / (R32)(2*m));
+    }
     C64 l = io[k];
     C64 r = io[m - k];
 
@@ -144,6 +171,7 @@ ifft_re_convert(C64 *io, U64 real_count)
 
   R32 *twiddles_im = fft_sine_table + 2*m;
   R32 *twiddles_re = twiddles_im + m/2;
+  twiddles_im += m;
 
   for(U64 k = 0; k < m/2; ++k)
   {
@@ -156,7 +184,16 @@ ifft_re_convert(C64 *io, U64 real_count)
       continue;
     }
 
-    C64 w = c64(twiddles_re[k], twiddles_im[k]);
+    // TODO: find a better solution for when real_count is large
+    C64 w;
+    if(4*m < ArrayCount(fft_sine_table))
+    {
+      w = c64(twiddles_re[k], twiddles_im[k]);
+    }
+    else
+    {
+      w = c64_polar(1, -TAU32 * (R32)k / (R32)(2*m));
+    }
     C64 l = io[k];
     C64 r = io[m - k];
 
@@ -184,7 +221,7 @@ proc void
 ifft_re(R32 *out, C64 *in, U64 count)
 {
   Assert(IsPow2(count));
-  ifft_re_convert(in, count/2);
+  ifft_re_convert(in, count);
   ifft((C64*)out, in, count/2);
 }
 
@@ -195,31 +232,8 @@ fft(C64 *out, C64 *in, U64 count)
   U64 initial_level = fft_initial(out, in, count);
   Assert(initial_level >= 2);
 
-  for(U64 s = initial_level; s < count; s *= 2)
-  {
-    for(U64 k = 0; k < count; k += 2*s)
-    {
-      R32 *twiddles_sin = fft_sine_table + 3*s;
-      R32 *twiddles_cos = fft_sine_table + 2*s + s/2;
-      C64 *io0 = out + 0*s + k;
-      C64 *io1 = out + 1*s + k;
-
-      for(U64 j = 0; j < s; ++j)
-      {
-	C64 w = c64(twiddles_cos[j], twiddles_sin[j]);
-
-	C64 in0 = io0[j];
-	C64 in1 = io1[j];
-
-	C64 t = c64_mul(in1, w);
-	C64 out0 = c64_add(in0, t);
-	C64 out1 = c64_sub(in0, t);
-
-	io0[j] = out0;
-	io1[j] = out1;
-      }
-    }
-  }
+  g_initial_level = initial_level;
+  fft_rec(out, count);
 }
 
 proc void
@@ -229,31 +243,133 @@ ifft(C64 *out, C64 *in, U64 count)
   U64 initial_level = ifft_initial(out, in, count);
   Assert(initial_level >= 2);
 
-  for(U64 s = initial_level; s < count; s *= 2)
+  g_initial_level = initial_level;
+  ifft_rec(out, count);
+}
+
+proc void
+fft_kernel(C64 *io, U64 count, U64 s)
+{
+  Assert(s >= 2);
+
+  R32 *twiddles_sin = fft_sine_table + 3*s;
+  R32 *twiddles_cos = fft_sine_table + 2*s + s/2;
+
+  for(U64 k = 0; k < count; k += 2*s)
   {
-    for(U64 k = 0; k < count; k += 2*s)
+    C64 *io0 = io + 0*s + k;
+    C64 *io1 = io + 1*s + k;
+
+    for(U64 j = 0; j < s; ++j)
     {
-      R32 *twiddles_cos = fft_sine_table + s;
-      R32 *twiddles_sin = twiddles_cos + s;
-      C64 *io0 = out + 0*s + k;
-      C64 *io1 = out + 1*s + k;
-
-      for(U64 j = 0; j < s; ++j)
+      // TODO: find a better solution for when s is large
+      C64 w;
+      if(4*s < ArrayCount(fft_sine_table))
       {
-	C64 w = c64(twiddles_cos[j], twiddles_sin[j]);
-
-	C64 in0 = io0[j];
-	C64 in1 = io1[j];
-
-	C64 t = c64_mul(in1, w);
-	C64 out0 = c64_add(in0, t);
-	C64 out1 = c64_sub(in0, t);
-
-	io0[j] = out0;
-	io1[j] = out1;
+	w = c64(twiddles_cos[j], twiddles_sin[j]);
       }
+      else
+      {
+	w = c64_polar(1, -TAU32 * (R32)j / (R32)(2*s));
+      }
+
+      C64 in0 = io0[j];
+      C64 in1 = io1[j];
+
+      C64 t = c64_mul(in1, w);
+      C64 out0 = c64_add(in0, t);
+      C64 out1 = c64_sub(in0, t);
+
+      io0[j] = out0;
+      io1[j] = out1;
     }
   }
+}
+
+proc void
+ifft_kernel(C64 *io, U64 count, U64 s)
+{
+  for(U64 k = 0; k < count; k += 2*s)
+  {
+    R32 *twiddles_sin = fft_sine_table + 2*s;
+    R32 *twiddles_cos = fft_sine_table + 2*s + s/2;
+
+    C64 *io0 = io + 0*s + k;
+    C64 *io1 = io + 1*s + k;
+
+    for(U64 j = 0; j < s; ++j)
+    {
+      // TODO: find a better solution for when s is large
+      C64 w;
+      if(4*s < ArrayCount(fft_sine_table))
+      {
+	w = c64(twiddles_cos[j], twiddles_sin[j]);
+      }
+      else
+      {
+	w = c64_polar(1, TAU32 * (R32)j / (R32)(2*s));
+      }
+
+      C64 in0 = io0[j];
+      C64 in1 = io1[j];
+
+      C64 t = c64_mul(in1, w);
+      C64 out0 = c64_add(in0, t);
+      C64 out1 = c64_sub(in0, t);
+
+      io0[j] = out0;
+      io1[j] = out1;
+    }
+  }
+}
+
+proc void
+fft_leaf(C64 *io, U64 count)
+{
+  for(U64 s = g_initial_level; s < count; s *= 2)
+  {
+    fft_kernel(io, count, s);
+  }
+}
+
+proc void
+ifft_leaf(C64 *io, U64 count)
+{
+  for(U64 s = g_initial_level; s < count; s *= 2)
+  {
+    ifft_kernel(io, count, s);
+  }
+}
+
+#define FFT_LEAF_LEVEL 1024
+proc void
+fft_rec(C64 *io, U64 count)
+{
+  if(count <= FFT_LEAF_LEVEL)
+  {
+    fft_leaf(io, count);
+    return;
+  }
+
+  fft_rec(io + 0*count/2, count/2);
+  fft_rec(io + 1*count/2, count/2);
+
+  fft_kernel(io, count, count/2);
+}
+
+proc void
+ifft_rec(C64 *io, U64 count)
+{
+  if(count <= FFT_LEAF_LEVEL)
+  {
+    ifft_leaf(io, count);
+    return;
+  }
+
+  ifft_rec(io + 0*count/2, count/2);
+  ifft_rec(io + 1*count/2, count/2);
+
+  ifft_kernel(io, count, count/2);
 }
 
 proc B32
