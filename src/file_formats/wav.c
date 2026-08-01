@@ -1,3 +1,79 @@
+proc LoadedWav
+wav_load(Arena *arena, String8 path)
+{
+  ArenaTemp scratch = arena_get_scratch(&arena, 1);
+
+  Buffer file = os_read_entire_file(scratch.arena, path);
+
+  RiffHeader *riff_header = buf_consume_struct(&file, RiffHeader);
+  Assert(riff_header->chunk_id.id == RIFF("RIFF"));
+
+  WaveHeader *wave_header = buf_consume_struct(&file, WaveHeader);
+  Assert(wave_header->wave_id.id == RIFF("WAVE"));
+
+  WaveFormatChunk *wave_fmt = buf_consume_struct(&file, WaveFormatChunk);
+  Assert(wave_fmt->header.chunk_id.id == RIFF("fmt "));
+  U16 format_tag = wave_fmt->format_tag;
+  U16 channel_count = wave_fmt->channel_count;
+  U32 sample_rate = wave_fmt->sample_rate;
+  U16 data_block_size = wave_fmt->data_block_size;
+  U16 bits_per_sample = wave_fmt->bits_per_sample;
+  Assert(data_block_size == channel_count*bits_per_sample/8);
+
+  WaveDataChunk *wave_data = buf_consume_struct(&file, WaveDataChunk);
+  Assert(wave_data->chunk_id.id == RIFF("data"));
+  U32 data_size = wave_data->chunk_size;
+
+  U8 *wav_samples = buf_consume_array(&file, U8, data_size);
+  Assert(file.size == 0);
+
+  U32 sample_count = data_size / data_block_size;
+  R32 **samples = arena_push_array(arena, R32*, channel_count);
+  for(U16 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+  {
+    samples[channel_idx] = arena_push_array(arena, R32, sample_count);
+  }
+
+  switch(format_tag)
+  {
+    case WaveFormat_pcm:
+    {
+      S16 *src = (S16*)wav_samples;
+      for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
+      {
+	for(U16 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+	{
+	  samples[channel_idx][sample_idx] = (R32)src[sample_idx*channel_count + channel_idx]/(R32)S16_MAX;
+	}
+      }
+    }break;
+
+    case WaveFormat_ieee_float:
+    {
+      // TODO: check if data is actually interleaved or not
+      R32 *src = (R32*)wav_samples;
+      for(U32 sample_idx = 0; sample_idx < sample_count; ++sample_idx)
+      {
+	for(U16 channel_idx = 0; channel_idx < channel_count; ++channel_idx)
+	{
+	  samples[channel_idx][sample_idx] = src[sample_idx*channel_count + channel_idx];
+	}
+      }
+    }break;
+
+    default: { Assert(0); }break; // TODO: support more formats
+  }
+
+  arena_release_scratch(scratch);
+
+  LoadedWav result = {0};
+  result.sample_count = sample_count;
+  result.sample_rate = sample_rate;
+  result.channel_count = channel_count;
+  result.samples = samples;
+  return result;
+}
+
 #if 0
 proc WavWriter*
 begin_wav(U32 sample_rate, U32 channel_count, WavSampleKind sample_kind)

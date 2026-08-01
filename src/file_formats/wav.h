@@ -116,6 +116,22 @@ wav_sample_format(WavSampleKind kind)
   return(result);
 }
 
+// -----------------------------------------------------------------------------
+// loading
+
+typedef struct LoadedWav
+{
+  U32 sample_count;
+  U16 sample_rate;
+  U16 channel_count;
+  R32 **samples; // chanel_count x sample_count
+} LoadedWav;
+
+proc LoadedWav wav_load(Arena *arena, String8 path);
+
+// -----------------------------------------------------------------------------
+// writing
+
 proc WavWriter* wav_begin(Arena *arena, U32 sample_rate, U32 channel_count, WavSampleKind sample_kind);
 // TODO: it would be awesome if it were possible to auto-cast the result here
 proc void* wav_push_chunk(WavWriter *wav, U64 frame_count);
