@@ -57,7 +57,7 @@ BeforeMain__Named(fft_sine_table_init)
 }
 
 proc void
-fft_bit_reverse_copy_forward(C64 *dest, C64 *src, U64 count)
+fft_bit_reverse_copy_forward(C64 *dest, C64 *src, U64 count) {ProfileFunction()
 {
   U64 count_log2 = MSB(count);
   for(U64 i = 0; i < count; ++i)
@@ -65,10 +65,10 @@ fft_bit_reverse_copy_forward(C64 *dest, C64 *src, U64 count)
     U64 i_rev = bit_reverse_u64(i) >> (64 - count_log2);
     dest[i_rev] = src[i];
   }
-}
+}}
 
 proc void
-fft_bit_reverse_copy_inverse(C64 *dest, C64 *src, U64 count)
+fft_bit_reverse_copy_inverse(C64 *dest, C64 *src, U64 count) {ProfileFunction()
 {
   U64 count_log2 = MSB(count);
   R32 scale = 1.f/(R32)count;
@@ -77,23 +77,26 @@ fft_bit_reverse_copy_inverse(C64 *dest, C64 *src, U64 count)
     U64 i_rev = bit_reverse_u64(i) >> (64 - count_log2);
     dest[i_rev] = c64(scale * src[i].re, scale * src[i].im);
   }
-}
+}}
 
 proc U64
 fft_initial(C64 *dest, C64 *src, U64 count)
 {
-  fft_bit_reverse_copy_forward(dest, src, count);
-
-  // NOTE: radix-2 step for level 1
-  C64 *io0 = dest + 0;
-  C64 *io1 = dest + 1;
-  for(U64 k = 0; k < count; k += 2)
+  ProfileFunction()
   {
-    C64 in0 = io0[k];
-    C64 in1 = io1[k];
+    fft_bit_reverse_copy_forward(dest, src, count);
 
-    io0[k] = c64_add(in0, in1);
-    io1[k] = c64_sub(in0, in1);
+    // NOTE: radix-2 step for level 1
+    C64 *io0 = dest + 0;
+    C64 *io1 = dest + 1;
+    for(U64 k = 0; k < count; k += 2)
+    {
+      C64 in0 = io0[k];
+      C64 in1 = io1[k];
+
+      io0[k] = c64_add(in0, in1);
+      io1[k] = c64_sub(in0, in1);
+    }
   }
 
   return 2;
@@ -102,25 +105,28 @@ fft_initial(C64 *dest, C64 *src, U64 count)
 proc U64
 ifft_initial(C64 *dest, C64 *src, U64 count)
 {
-  fft_bit_reverse_copy_inverse(dest, src, count);
-
-  // NOTE: radix-2 step for level 1
-  C64 *io0 = dest + 0;
-  C64 *io1 = dest + 1;
-  for(U64 k = 0; k < count; k += 2)
+  ProfileFunction()
   {
-    C64 in0 = io0[k];
-    C64 in1 = io1[k];
+    fft_bit_reverse_copy_inverse(dest, src, count);
 
-    io0[k] = c64_add(in0, in1);
-    io1[k] = c64_sub(in0, in1);
+    // NOTE: radix-2 step for level 1
+    C64 *io0 = dest + 0;
+    C64 *io1 = dest + 1;
+    for(U64 k = 0; k < count; k += 2)
+    {
+      C64 in0 = io0[k];
+      C64 in1 = io1[k];
+
+      io0[k] = c64_add(in0, in1);
+      io1[k] = c64_sub(in0, in1);
+    }
   }
 
   return 2;
 }
 
 proc void
-fft_re_convert(C64 *io, U64 real_count)
+fft_re_convert(C64 *io, U64 real_count) {ProfileFunction()
 {
   U64 m = real_count / 2;
 
@@ -162,10 +168,10 @@ fft_re_convert(C64 *io, U64 real_count)
     io[k] = out0;
     io[m - k] = out1;
   }
-}
+}}
 
 proc void
-ifft_re_convert(C64 *io, U64 real_count)
+ifft_re_convert(C64 *io, U64 real_count) {ProfileFunction()
 {
   U64 m = real_count / 2;
 
@@ -207,26 +213,26 @@ ifft_re_convert(C64 *io, U64 real_count)
     io[k] = out0;
     io[m - k] = out1;
   }
-}
+}}
 
 proc void
-fft_re(C64 *out, R32 *in, U64 count)
+fft_re(C64 *out, R32 *in, U64 count) {ProfileFunction()
 {
   Assert(IsPow2(count));
   fft(out, (C64*)in, count/2);
   fft_re_convert(out, count);
-}
+}}
 
 proc void
-ifft_re(R32 *out, C64 *in, U64 count)
+ifft_re(R32 *out, C64 *in, U64 count) {ProfileFunction()
 {
   Assert(IsPow2(count));
   ifft_re_convert(in, count);
   ifft((C64*)out, in, count/2);
-}
+}}
 
 proc void
-fft(C64 *out, C64 *in, U64 count)
+fft(C64 *out, C64 *in, U64 count) {ProfileFunction()
 {
   Assert(IsPow2(count));
   U64 initial_level = fft_initial(out, in, count);
@@ -234,10 +240,10 @@ fft(C64 *out, C64 *in, U64 count)
 
   g_initial_level = initial_level;
   fft_rec(out, count);
-}
+}}
 
 proc void
-ifft(C64 *out, C64 *in, U64 count)
+ifft(C64 *out, C64 *in, U64 count) {ProfileFunction()
 {
   Assert(IsPow2(count));
   U64 initial_level = ifft_initial(out, in, count);
@@ -245,10 +251,10 @@ ifft(C64 *out, C64 *in, U64 count)
 
   g_initial_level = initial_level;
   ifft_rec(out, count);
-}
+}}
 
 proc void
-fft_kernel(C64 *io, U64 count, U64 s)
+fft_kernel(C64 *io, U64 count, U64 s) {ProfileFunction()
 {
   Assert(s >= 2);
 
@@ -284,10 +290,10 @@ fft_kernel(C64 *io, U64 count, U64 s)
       io1[j] = out1;
     }
   }
-}
+}}
 
 proc void
-ifft_kernel(C64 *io, U64 count, U64 s)
+ifft_kernel(C64 *io, U64 count, U64 s) {ProfileFunction()
 {
   for(U64 k = 0; k < count; k += 2*s)
   {
@@ -321,29 +327,29 @@ ifft_kernel(C64 *io, U64 count, U64 s)
       io1[j] = out1;
     }
   }
-}
+}}
 
 proc void
-fft_leaf(C64 *io, U64 count)
+fft_leaf(C64 *io, U64 count) {ProfileFunction()
 {
   for(U64 s = g_initial_level; s < count; s *= 2)
   {
     fft_kernel(io, count, s);
   }
-}
+}}
 
 proc void
-ifft_leaf(C64 *io, U64 count)
+ifft_leaf(C64 *io, U64 count) {ProfileFunction()
 {
   for(U64 s = g_initial_level; s < count; s *= 2)
   {
     ifft_kernel(io, count, s);
   }
-}
+}}
 
 #define FFT_LEAF_LEVEL 1024
 proc void
-fft_rec(C64 *io, U64 count)
+fft_rec(C64 *io, U64 count) {ProfileFunction()
 {
   if(count <= FFT_LEAF_LEVEL)
   {
@@ -355,10 +361,10 @@ fft_rec(C64 *io, U64 count)
   fft_rec(io + 1*count/2, count/2);
 
   fft_kernel(io, count, count/2);
-}
+}}
 
 proc void
-ifft_rec(C64 *io, U64 count)
+ifft_rec(C64 *io, U64 count) {ProfileFunction()
 {
   if(count <= FFT_LEAF_LEVEL)
   {
@@ -370,7 +376,7 @@ ifft_rec(C64 *io, U64 count)
   ifft_rec(io + 1*count/2, count/2);
 
   ifft_kernel(io, count, count/2);
-}
+}}
 
 proc B32
 fft_re_test(Arena *arena, String8List *log, C64 *expected, R32 *in, U64 count)
