@@ -6,6 +6,68 @@
 #include "fourier/fourier.c"
 #include "file_formats/wav.c"
 
+PROFILE_ON_TOP_SCOPE_EXIT_PROC(giant_fft_log_profile_data)
+{
+  Unused(user_data);
+
+  String8 section_names[] = {
+    Str8Lit("Name"),
+    Str8Lit("Exclusive Time (ms)"),
+    Str8Lit("Total Time (ms)"),
+    Str8Lit("Hit Count"),
+  };
+
+  U64 max_label_count = 0;
+  {
+    ProfileSite *sites = profile_site_array_base();
+    U64 site_count = profile_site_array_count();
+    for(U64 site_idx = 0; site_idx < site_count; ++site_idx)
+    {
+      ProfileSite *site = sites + site_idx;
+      if(site->hit_count == 0) continue;
+
+      max_label_count = Max(max_label_count, site->label.count);
+    }
+  }
+
+  printf("| %-*.*s | %.*s | %.*s | %.*s |\n",
+	 (int)max_label_count, (int)section_names[0].count, section_names[0].string,
+	 (int)section_names[1].count, section_names[1].string,
+	 (int)section_names[2].count, section_names[2].string,
+	 (int)section_names[3].count, section_names[3].string);
+
+  ProfileSite *sites = profile_site_array_base();
+  U64 site_count = profile_site_array_count();
+  for(U64 site_idx = 0; site_idx < site_count; ++site_idx)
+  {
+    ProfileSite *site = sites + site_idx;
+    if(site->hit_count == 0) continue;
+
+    U64 tsc_elapsed = site->tsc_elapsed;
+    U64 tsc_elapsed_exclusive = tsc_elapsed - site->tsc_elapsed_children;
+    U64 tsc_elapsed_total = site->tsc_elapsed_root;
+    R64 elapsed_exclusive_ms = 1000.0*(R64)tsc_elapsed_exclusive/(R64)cpu_counter_fixed_freq();
+    if(tsc_elapsed_exclusive != tsc_elapsed_total)
+    {
+      R64 elapsed_total_ms = 1000.0*(R64)tsc_elapsed_total/(R64)cpu_counter_fixed_freq();
+      printf("| %-*.*s | %*.4f | %*.4f | %*llu |\n",
+	     (int)max_label_count, (int)site->label.count, site->label.string,
+	     (int)section_names[1].count, elapsed_exclusive_ms,
+	     (int)section_names[2].count, elapsed_total_ms,
+	     (int)section_names[3].count, site->hit_count);
+    }
+    else
+    {
+      printf("| %-*.*s | %*.4f | %*s | %*llu |\n",
+	     (int)max_label_count, (int)site->label.count, site->label.string,
+	     (int)section_names[1].count, elapsed_exclusive_ms,
+	     (int)section_names[2].count, "-",
+	     (int)section_names[3].count, site->hit_count);
+    }
+  }
+  printf("\n");
+}
+
 int
 main(int argc, char **argv)
 {
@@ -13,6 +75,8 @@ main(int argc, char **argv)
   Unused(argv);
 
   if(!os_init()) return 1;
+
+  profile_set_on_top_scope_exit_callback(giant_fft_log_profile_data, 0);
 
   ArenaTemp scratch = arena_get_scratch(0, 0);
 
