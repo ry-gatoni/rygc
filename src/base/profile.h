@@ -30,20 +30,50 @@ struct ProfileEvent
   U64 tsc_elapsed_root_old; // parent site's root counter when scope entered
 };
 
-global U64 profile_site_count = 0;
-global ProfileSite *profile_sites = 0;
+//global U64 profile_site_count = 0;
+//global ProfileSite *profile_sites = 0;
 
 // -----------------------------------------------------------------------------
 // public interface
 
+#undef SYMBOL_SET_DEFINE
+#define SYMBOL_SET_DEFINE PFL
+#define PFL_Sym_Set PFL
+#define PFL_Sym_Type ProfileSite
+#define PFL_Sym_Marker Glue(rygc, PFL_Sym_Set)
+#define PFL_Sym_First Glue(__start_, PFL_Sym_Marker)
+#define PFL_Sym_Last Glue(__stop_, PFL_Sym_Marker)
+#if COMPILER_MSVC
+#  pragma section("." Stringify(PFL_Sym_Marker) "$a", read, write)
+#  pragma section("." Stringify(PFL_Sym_Marker) "$i", read, write)
+#  pragma section("." Stringify(PFL_Sym_Marker) "$z", read, write)
+#  define PFL_Sym_Section "." Stringify(PFL_Sym_Marker) "$i"
+global Section("." Stringify(PFL_Sym_Marker) "$a") PFL_Sym_First;
+global Section("." Stringify(PFL_Sym_Marker) "$z") PFL_Sym_Last;
+#elif COMPILER_CLANG || COMPILER_GCC
+#  define PFL_Sym_Section Stringify(PFL_Sym_Marker)
+#  if OS_MAC
+extern ProfileSite PFL_Sym_First[] asm("section$start$__DATA$" Stringify(PFL_Sym_Marker));
+extern ProfileSite PFL_Sym_Last[] asm("section$end$__DATA$" Stringify(PFL_Sym_Marker));
+#  elif OS_LINUX
+extern ProfileSite PFL_Sym_First[];
+extern ProfileSite PFL_Sym_Last[];
+#  else
+#    error unsupported os
+#  endif
+#else
+#  error unsupported compiler
+#endif
+
 #if !defined(PROFILE_DISABLE)
 
-#define ProfileDeclare static Section("rygcPROF") ProfileSite __profile__
+#define ProfileDeclare static Section(PFL_Sym_Section) PFL_Sym_Type __profile__
 #define ProfileDefine(name) ProfileDeclare = { .label = Str8Lit(name), }
-#define ProfileDefineNil ProfileDefine("nil__profile")
 #define ProfileMetadata &__profile__
 #define ProfileRaw IntFromPtr(ProfileMetadata)
 #define ProfileId ProfileRaw - profile_sites
+#define ProfileNil ProfileMetadata
+#define ProfileDefineNil ProfileDefine("nil__profile")
 
 ProfileDefineNil;
 
@@ -56,7 +86,7 @@ ProfileDefineNil;
 #define ProfileData(name)\
   AllowAliasingOn\
   ProfileSite *last_site = profile__current_parent;\
-  static Section("rygcPROF") ProfileSite __profile__ = { .label = Str8Lit(name), };\
+  ProfileDefine(name);\
   ProfileSite *current_site = ProfileMetadata;\
   ProfileEvent __profile__event = { .parent = last_site, .site = current_site, };\
   AllowAliasingOff
@@ -77,6 +107,7 @@ ProfileDefineNil;
 #define ProfileData(name)
 
 #define ProfileMetadata 0
+#define ProfileNil 0
 
 #endif
 
@@ -85,15 +116,21 @@ ProfileDefineNil;
 global ProfileSite *profile__current_parent = ProfileMetadata;
 //global ProfileEvent *profile__open_scope = 0;
 
-// NOTE: clang/linux only
-// TODO: support on other platforms
-extern ProfileSite __start_rygcPROF[];
-extern ProfileSite __stop_rygcPROF[];
-proc inline ProfileSite* profile_site_array_base(void) { return(__start_rygcPROF); }
-proc inline U64 profile_site_array_count(void) { return(__stop_rygcPROF - __start_rygcPROF); }
+proc inline ProfileSite*
+profile_site_array_base(void)
+{ return PFL_Sym_First + 1; }
+
+proc inline U64
+profile_site_array_count(void)
+{ return (U64)(PFL_Sym_Last - PFL_Sym_First -1); }
 
 proc void profile_begin_scope(ProfileEvent *event);
 proc void profile_end_scope(ProfileEvent *event);
+
+#define PROFILE_ON_TOP_SCOPE_EXIT_PROC(name) void (name)(void *user_data)
+typedef PROFILE_ON_TOP_SCOPE_EXIT_PROC(ProfileOnTopScopeExitProc);
+
+proc void profile_set_on_top_scope_exit_callback(ProfileOnTopScopeExitProc *cb, void *cb_data);
 
 #else
 typedef struct ProfileEntry

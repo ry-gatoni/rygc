@@ -7,18 +7,20 @@ typedef struct Tester
   TestProc *fn;
 } Tester;
 
+#undef SYMBOL_SET_DEFINE
 #define SYMBOL_SET_DEFINE TST
+#define TEST_Sym_Set TST
 #define TEST_Sym_Type Tester
-#define TEST_Sym_Marker Glue(rygc, SYMBOL_SET_DEFINE)
+#define TEST_Sym_Marker Glue(rygc, TEST_Sym_Set)
 #define TEST_Sym_First Glue(__start_, TEST_Sym_Marker)
 #define TEST_Sym_Last Glue(__stop_, TEST_Sym_Marker)
 #if COMPILER_MSVC
-#  pragma section(".rygc" Stringify(SYMBOL_SET_DEFINE) "$a", read, write)
-#  pragma section(".rygc" Stringify(SYMBOL_SET_DEFINE) "$i", read, write)
-#  pragma section(".rygc" Stringify(SYMBOL_SET_DEFINE) "$z", read, write)
-#  define TEST_Sym_Section ".rygc" Stringify(SYMBOL_SET_DEFINE) "$i"
-global Section(".rygc" Stringify(SYMBOL_SET_DEFINE) "$a") TEST_Sym_First;
-global Section(".rygc" Stringify(SYMBOL_SET_DEFINE) "$z") TEST_Sym_Last;
+#  pragma section("." Stringify(TEST_Sym_Marker) "$a", read, write)
+#  pragma section("." Stringify(TEST_Sym_Marker) "$i", read, write)
+#  pragma section("." Stringify(TEST_Sym_Marker) "$z", read, write)
+#  define TEST_Sym_Section "." Stringify(TEST_Sym_Marker) "$i"
+global Section("." Stringify(TEST_Sym_Marker) "$a") TEST_Sym_First;
+global Section("." Stringify(TEST_Sym_Marker) "$z") TEST_Sym_Last;
 #elif COMPILER_CLANG || COMPILER_GCC
 #  define TEST_Sym_Section Stringify(TEST_Sym_Marker)
 #  if OS_MAC

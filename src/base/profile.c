@@ -1,9 +1,25 @@
 #if 1
+PROFILE_ON_TOP_SCOPE_EXIT_PROC(profile_on_top_scope_exit_default)
+{
+  Unused(user_data);
+  return;
+}
+
+global ProfileOnTopScopeExitProc *profile_on_top_scope_exit = profile_on_top_scope_exit_default;
+global void *profile_callback_user_data = 0;
+
+proc void
+profile_set_on_top_scope_exit_callback(ProfileOnTopScopeExitProc *cb, void *cb_data)
+{
+  profile_on_top_scope_exit = cb;
+  profile_callback_user_data = cb_data;
+}
+
 proc void
 profile_begin_scope(ProfileEvent *event)
 {
   profile__current_parent = event->site;
-  event->tsc_elapsed_root_old = event->parent->tsc_elapsed_root;
+  event->tsc_elapsed_root_old = event->site->tsc_elapsed_root;
   event->tsc_start = cpu_counter_fixed(); // TODO: actual cycle counters
 }
 
@@ -11,13 +27,37 @@ proc void
 profile_end_scope(ProfileEvent *event)
 {
   U64 tsc_elapsed = cpu_counter_fixed() - event->tsc_start; // TODO: actual cycle counters
-  ProfileSite *site = event->site;
-  ProfileSite *parent = event->parent;
-  site->tsc_elapsed += tsc_elapsed;
-  site->tsc_elapsed_root = event->tsc_elapsed_root_old + tsc_elapsed;
-  parent->tsc_elapsed_children += tsc_elapsed;
-  site->hit_count++;
-  profile__current_parent = parent;
+
+  ProfileSite *ev_site = event->site;
+  ev_site->tsc_elapsed += tsc_elapsed;
+  ev_site->tsc_elapsed_root = event->tsc_elapsed_root_old + tsc_elapsed;
+  ev_site->hit_count++;
+
+  ProfileSite *ev_parent = event->parent;
+  ev_parent->tsc_elapsed_children += tsc_elapsed;
+  profile__current_parent = ev_parent;
+
+  if(profile__current_parent == ProfileNil)
+  {
+    // NOTE: top-level profiled scope exited, call configurable callback
+    profile_on_top_scope_exit(profile_callback_user_data);
+
+    // NOTE: clear per-run site data
+    ProfileSite *sites = profile_site_array_base();
+    U64 site_count = profile_site_array_count();
+    for(U64 site_idx = 0; site_idx < site_count; ++site_idx)
+    {
+      ProfileSite *site = sites + site_idx;
+      // TODO: filter out sites this thread didn't hit; think about what should
+      // happen in multithreaded context where multiple threads run the same
+      // instructions
+      site->hit_count = 0;
+      site->bytes_allocated = 0;
+      site->tsc_elapsed = 0;
+      site->tsc_elapsed_children = 0;
+      site->tsc_elapsed_root = 0;
+    }
+  }
 }
 #else
 // -----------------------------------------------------------------------------
